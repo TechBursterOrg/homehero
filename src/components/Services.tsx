@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Sparkles, Wrench, Paintbrush, Car, Hammer, Leaf, Zap, Droplets } from 'lucide-react';
 
 const Services: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -24,52 +23,44 @@ const Services: React.FC = () => {
 
   const services = [
     {
-      icon: Sparkles,
+      image: "https://images.pexels.com/photos/4239146/pexels-photo-4239146.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "House Cleaning",
-      description: "Professional cleaning services for your home",
-      color: "from-purple-500 to-pink-500"
+      description: "Professional cleaning services for your home"
     },
     {
-      icon: Wrench,
+      image: "https://images.pexels.com/photos/4490201/pexels-photo-4490201.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Plumbing",
-      description: "Expert plumbers for repairs and installations",
-      color: "from-blue-500 to-cyan-500"
+      description: "Expert plumbers for repairs and installations"
     },
     {
-      icon: Paintbrush,
+      image: "https://images.pexels.com/photos/1669799/pexels-photo-1669799.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Painting",
-      description: "Interior and exterior painting specialists",
-      color: "from-orange-500 to-red-500"
+      description: "Interior and exterior painting specialists"
     },
     {
-      icon: Car,
+      image: "https://images.pexels.com/photos/3354648/pexels-photo-3354648.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Car Washing",
-      description: "Mobile car detailing at your location",
-      color: "from-green-500 to-emerald-500"
+      description: "Mobile car detailing at your location"
     },
     {
-      icon: Hammer,
+      image: "https://images.pexels.com/photos/5691659/pexels-photo-5691659.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Handyman",
-      description: "General repairs and maintenance tasks",
-      color: "from-yellow-500 to-orange-500"
+      description: "General repairs and maintenance tasks"
     },
     {
-      icon: Leaf,
+      image: "https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Landscaping",
-      description: "Garden maintenance and lawn care",
-      color: "from-green-600 to-lime-500"
+      description: "Garden maintenance and lawn care"
     },
     {
-      icon: Zap,
+      image: "https://images.pexels.com/photos/257736/pexels-photo-257736.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Electrical",
-      description: "Licensed electricians for all electrical needs",
-      color: "from-indigo-500 to-purple-500"
+      description: "Licensed electricians for all electrical needs"
     },
     {
-      icon: Droplets,
+      image: "https://images.pexels.com/photos/261679/pexels-photo-261679.jpeg?auto=compress&cs=tinysrgb&w=400&h=300&fit=crop",
       title: "Pool Service",
-      description: "Pool cleaning and maintenance experts",
-      color: "from-cyan-500 to-blue-500"
+      description: "Pool cleaning and maintenance experts"
     }
   ];
 
@@ -89,18 +80,25 @@ const Services: React.FC = () => {
           {services.map((service, index) => (
             <div
               key={index}
-              className={`group bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:-translate-y-3 hover:rotate-1 cursor-pointer border border-gray-100 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+              className={`group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-500 transform hover:-translate-y-3 hover:rotate-1 cursor-pointer border border-gray-100 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
               style={{ transitionDelay: `${200 + index * 100}ms` }}
             >
-              <div className={`w-12 h-12 bg-gradient-to-r ${service.color} rounded-xl flex items-center justify-center mb-4 group-hover:scale-125 group-hover:rotate-12 transition-all duration-300`}>
-                <service.icon className="w-6 h-6 text-white" />
+              <div className="relative h-48 overflow-hidden">
+                <img 
+                  src={service.image} 
+                  alt={service.title}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                {service.title}
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {service.description}
-              </p>
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                  {service.title}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {service.description}
+                </p>
+              </div>
             </div>
           ))}
         </div>
