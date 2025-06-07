@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Calendar, CheckCircle, UserPlus, Briefcase, CreditCard } from 'lucide-react';
 
 const HowItWorks: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -24,17 +23,17 @@ const HowItWorks: React.FC = () => {
 
   const customerSteps = [
     {
-      icon: Search,
+      image: "https://images.pexels.com/photos/4386321/pexels-photo-4386321.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Find Services",
       description: "Browse our vetted service providers and read reviews from other customers."
     },
     {
-      icon: Calendar,
+      image: "https://images.pexels.com/photos/6694543/pexels-photo-6694543.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Book & Schedule",
       description: "Choose your preferred time and book instantly with transparent pricing."
     },
     {
-      icon: CheckCircle,
+      image: "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Get It Done",
       description: "Relax while our trusted providers complete your task to perfection."
     }
@@ -42,17 +41,17 @@ const HowItWorks: React.FC = () => {
 
   const providerSteps = [
     {
-      icon: UserPlus,
+      image: "https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Sign Up",
       description: "Create your profile and showcase your skills and experience to customers."
     },
     {
-      icon: Briefcase,
+      image: "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Get Matched",
       description: "Receive job requests that match your skills and availability preferences."
     },
     {
-      icon: CreditCard,
+      image: "https://images.pexels.com/photos/259027/pexels-photo-259027.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Get Paid",
       description: "Complete jobs and receive payment directly through our secure platform."
     }
@@ -86,13 +85,19 @@ const HowItWorks: React.FC = () => {
                     {index + 1}
                   </div>
                   <div className="flex-grow">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <step.icon className="w-5 h-5 text-blue-600" />
-                      <h4 className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-start space-x-3 mb-2">
+                      <div className="w-16 h-12 rounded-lg overflow-hidden shadow-md">
+                        <img 
+                          src={step.image} 
+                          alt={step.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 mt-1">
                         {step.title}
                       </h4>
                     </div>
-                    <p className="text-gray-600 leading-relaxed">
+                    <p className="text-gray-600 leading-relaxed ml-19">
                       {step.description}
                     </p>
                   </div>
@@ -116,13 +121,19 @@ const HowItWorks: React.FC = () => {
                     {index + 1}
                   </div>
                   <div className="flex-grow">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <step.icon className="w-5 h-5 text-green-600" />
-                      <h4 className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-start space-x-3 mb-2">
+                      <div className="w-16 h-12 rounded-lg overflow-hidden shadow-md">
+                        <img 
+                          src={step.image} 
+                          alt={step.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <h4 className="text-lg font-semibold text-gray-900 mt-1">
                         {step.title}
                       </h4>
                     </div>
-                    <p className="text-gray-600 leading-relaxed">
+                    <p className="text-gray-600 leading-relaxed ml-19">
                       {step.description}
                     </p>
                   </div>

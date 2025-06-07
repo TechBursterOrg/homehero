@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Shield, Clock, Star, DollarSign, Users, Zap } from 'lucide-react';
 
 const Features: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -24,17 +23,17 @@ const Features: React.FC = () => {
 
   const customerFeatures = [
     {
-      icon: Shield,
+      image: "https://images.pexels.com/photos/5691659/pexels-photo-5691659.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Verified Providers",
       description: "All service providers are background-checked and verified for your peace of mind."
     },
     {
-      icon: Clock,
+      image: "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Quick Booking",
       description: "Book services in minutes and get same-day or next-day availability."
     },
     {
-      icon: Star,
+      image: "https://images.pexels.com/photos/5668858/pexels-photo-5668858.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Quality Guaranteed",
       description: "Satisfaction guaranteed with our 5-star rating system and reviews."
     }
@@ -42,17 +41,17 @@ const Features: React.FC = () => {
 
   const providerFeatures = [
     {
-      icon: DollarSign,
+      image: "https://images.pexels.com/photos/259027/pexels-photo-259027.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Flexible Income",
       description: "Set your own rates and work when you want to maximize your earnings."
     },
     {
-      icon: Users,
+      image: "https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Steady Customers",
       description: "Access to a growing customer base looking for reliable service providers."
     },
     {
-      icon: Zap,
+      image: "https://images.pexels.com/photos/3184339/pexels-photo-3184339.jpeg?auto=compress&cs=tinysrgb&w=300&h=200&fit=crop",
       title: "Easy Setup",
       description: "Get started in minutes with our simple onboarding process."
     }
@@ -82,8 +81,12 @@ const Features: React.FC = () => {
                   className={`flex items-start space-x-4 group transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
                   style={{ transitionDelay: `${400 + index * 100}ms` }}
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                    <feature.icon className="w-6 h-6 text-blue-600" />
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden group-hover:scale-110 transition-all duration-300 group-hover:rotate-3 shadow-lg">
+                    <img 
+                      src={feature.image} 
+                      alt={feature.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-2">
@@ -109,8 +112,12 @@ const Features: React.FC = () => {
                   className={`flex items-start space-x-4 group transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'}`}
                   style={{ transitionDelay: `${700 + index * 100}ms` }}
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-all duration-300 group-hover:scale-110 group-hover:rotate-3">
-                    <feature.icon className="w-6 h-6 text-green-600" />
+                  <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden group-hover:scale-110 transition-all duration-300 group-hover:rotate-3 shadow-lg">
+                    <img 
+                      src={feature.image} 
+                      alt={feature.title}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-2">

@@ -64,3 +64,40 @@ a:focus {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
 }
+
+/* Mobile responsive behavior for Messages component */
+@media (max-width: 1023px) {
+  /* Hide conversation list when chat is active on mobile */
+  .conversation-list.chat-active {
+    display: none !important;
+  }
+  
+  /* Hide chat area when chat is not active on mobile */
+  .chat-area:not(.chat-active) {
+    display: none !important;
+  }
+  
+  /* Show back button only on mobile */
+  .back-button {
+    display: flex;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Always show both sections on desktop */
+  .conversation-list,
+  .chat-area {
+    display: flex !important;
+  }
+  
+  /* Hide back button on desktop */
+  .back-button {
+    display: none;
+  }
+}
+
+@media (max-width: 1400px) {
+  .sidebar {
+    display: none !important;
+  }
+}
