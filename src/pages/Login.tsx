@@ -9,11 +9,12 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const LoginPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -22,6 +23,8 @@ const LoginPage: React.FC = () => {
     userType: "customer",
   });
 
+  const navigate = useNavigate();
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
@@ -29,12 +32,37 @@ const LoginPage: React.FC = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    if (error) setError("");
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission logic here
-    console.log("Form submitted:", formData);
+    setError("");
+
+    // Only handle login authentication
+    if (isLogin) {
+      // Check if email and password fields are filled
+      if (!formData.email.trim() || !formData.password.trim()) {
+        setError("Please enter both email and password to login.");
+        return;
+      }
+
+      // Check credentials
+      if (formData.email === "techuredev@gmail.com" && formData.password === "Password123") {
+        // Redirect based on user type selection
+        if (formData.userType === "provider") {
+          navigate("/dasboard");
+        } else {
+          navigate("/customer");
+        }
+      } else {
+        setError("Invalid email or password. Please try again.");
+      }
+    } else {
+      // Handle sign up logic here if needed
+      console.log("Sign up form submitted:", formData);
+    }
   };
 
   return (
@@ -132,7 +160,7 @@ const LoginPage: React.FC = () => {
             </div>
 
             {/* Form */}
-            <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {!isLogin && (
                 <div className="animate-fade-in-up">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -220,6 +248,23 @@ const LoginPage: React.FC = () => {
                 </div>
               )}
 
+              {isLogin && (
+                <div className="animate-fade-in-up">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Login as
+                  </label>
+                  <select
+                    name="userType"
+                    value={formData.userType}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                  >
+                    <option value="customer">Customer</option>
+                    <option value="provider">Service Provider</option>
+                  </select>
+                </div>
+              )}
+
               {!isLogin && (
                 <div className="animate-fade-in-up">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -257,20 +302,20 @@ const LoginPage: React.FC = () => {
                 </div>
               )}
 
-              {/* <button
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group"
               >
                 {isLogin ? 'Sign In' : 'Create Account'}
-                <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-              </button> */}
-              <Link
-                to="/dasboard"
-                className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group"
-              >
-                Sign In
-              </Link>
-            </div>
+              </button>
+            </form>
 
             {/* Social Login */}
             <div className="mt-8">
