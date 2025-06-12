@@ -1,0 +1,141 @@
+import React from 'react';
+import {
+  Bell,
+  User,
+  Menu,
+  X,
+  Home
+} from 'lucide-react';
+import { ActiveTab, UserProfile } from '../types';
+
+interface HeaderProps {
+  activeTab: ActiveTab;
+  setActiveTab: (tab: ActiveTab) => void;
+  isMenuOpen: boolean;
+  setIsMenuOpen: (isOpen: boolean) => void;
+  profileData: UserProfile;
+}
+
+const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  isMenuOpen,
+  setIsMenuOpen,
+  profileData
+}) => {
+  const navigation = [
+    { id: 'services', label: 'Find Services' },
+    { id: 'bookings', label: 'My Bookings' },
+    { id: 'jobs', label: 'My Jobs' },
+    { id: 'favorites', label: 'Favorites' }
+  ] as const;
+
+  return (
+    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+              <Home className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              HomeHero
+            </span>
+          </div>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-8">
+            {navigation.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as ActiveTab)}
+                className={`text-sm font-medium transition-colors duration-200 ${
+                  activeTab === item.id ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
+            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              <Bell className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+            </button>
+            
+            <div className="hidden md:flex items-center space-x-3">
+              <button
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
+              >
+                {profileData.avatar ? (
+                  <img
+                    src={profileData.avatar}
+                    alt="Profile"
+                    className="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200"
+                  />
+                ) : (
+                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-900">{profileData.name}</p>
+                  <p className="text-xs text-gray-600">Customer</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile menu */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4 space-y-2 border-t border-gray-200 animate-in slide-in-from-top-2 duration-200">
+            {navigation.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveTab(item.id as ActiveTab);
+                  setIsMenuOpen(false);
+                }}
+                className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setActiveTab('profile');
+                setIsMenuOpen(false);
+              }}
+              className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === 'profile' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Profile
+            </button>
+            <hr className="my-2 border-gray-200" />
+            <button className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+              Sign Out
+            </button>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
+
+export default Header;
