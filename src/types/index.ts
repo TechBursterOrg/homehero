@@ -60,5 +60,33 @@ export interface LocationData {
   coordinates: [number, number];
 }
 
+export interface Message {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: Date;
+  type: 'text' | 'image' | 'file';
+  status: 'sent' | 'delivered' | 'read';
+}
+
+export interface Conversation {
+  id: string;
+  providerId: string;
+  providerName: string;
+  providerAvatar: string;
+  providerService: string;
+  lastMessage: Message;
+  unreadCount: number;
+  isOnline: boolean;
+  lastSeen?: Date;
+}
+
+export interface ChatState {
+  conversations: Conversation[];
+  activeConversation: string | null;
+  messages: { [conversationId: string]: Message[] };
+}
+
 export type ServiceType = 'immediate' | 'long-term';
-export type ActiveTab = 'services' | 'bookings' | 'jobs' | 'favorites' | 'profile';
+export type ActiveTab = 'services' | 'bookings' | 'jobs' | 'favorites' | 'profile' | 'messages';
