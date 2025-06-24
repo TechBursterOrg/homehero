@@ -18,6 +18,10 @@ import JobPostCard from '../customercomponents/JobPostCard';
 import ProfileSection from '../customercomponents/ProfileSection';
 import PostJobModal from '../customercomponents/PostJobModal';
 import MapView from '../customercomponents/MapView';
+import Messages from '../customercomponents/Message';
+// At the top of Customer.tsx
+import { Message } from '../types'; // ✅ Add this
+
 
 // Types and Data
 import { 
@@ -28,7 +32,8 @@ import {
   Provider, 
   Booking, 
   JobPost,
-  LocationData
+  LocationData,
+  ChatState
 } from '../types';
 import { services, providers, bookings, jobPosts } from '../data/mockData';
 
@@ -155,6 +160,121 @@ const Customer: React.FC = () => {
     setSelectedProvider(provider);
   };
 
+  const [chatState, setChatState] = useState<ChatState>({
+  conversations: [
+    // Mock conversations data
+    {
+      id: '1',
+      providerId: '1',
+      providerName: 'Alex Johnson',
+      providerAvatar: 'AJ',
+      providerService: 'Plumbing',
+      lastMessage: {
+        id: '101',
+        senderId: '1',
+        receiverId: 'user',
+        content: 'Hi there! When would you like me to come by?',
+        timestamp: new Date(Date.now() - 3600000), // 1 hour ago
+        type: 'text',
+        status: 'delivered'
+      },
+      unreadCount: 1,
+      isOnline: true
+    },
+    // Add more conversations as needed
+  ],
+  activeConversation: null,
+  messages: {
+    '1': [
+      // Mock messages for conversation 1
+      {
+        id: '101',
+        senderId: '1',
+        receiverId: 'user',
+        content: 'Hi there! When would you like me to come by?',
+        timestamp: new Date(Date.now() - 3600000),
+        type: 'text',
+        status: 'delivered'
+      },
+      {
+        id: '102',
+        senderId: 'user',
+        receiverId: '1',
+        content: 'How about tomorrow at 2pm?',
+        timestamp: new Date(Date.now() - 1800000),
+        type: 'text',
+        status: 'read'
+      }
+    ]
+  }
+});
+
+// Add these inside your Customer component, before the return statement
+
+// Handler for sending messages
+const handleSendMessage = (conversationId: string, content: string) => {
+  const newMessage: Message = {
+    id: Date.now().toString(),
+    senderId: 'user',
+    receiverId: conversationId,
+    content,
+    timestamp: new Date(),
+    type: 'text',
+    status: 'sent'
+  };
+
+  setChatState(prev => ({
+    ...prev,
+    messages: {
+      ...prev.messages,
+      [conversationId]: [...(prev.messages[conversationId] || []), newMessage]
+    },
+    conversations: prev.conversations.map(conv => {
+      if (conv.id === conversationId) {
+        return {
+          ...conv,
+          lastMessage: newMessage,
+          unreadCount: 0
+        };
+      }
+      return conv;
+    })
+  }));
+};
+
+// Handler for starting new conversations
+const handleStartConversation = (providerId: string) => {
+  // In a real app, you would create a new conversation here
+  console.log('Starting conversation with provider:', providerId);
+  
+  // For demo purposes, we'll just select the first conversation
+  if (chatState.conversations.length > 0) {
+    setChatState(prev => ({
+      ...prev,
+      activeConversation: prev.conversations[0].id
+    }));
+  }
+};
+
+// Handler for setting active conversation
+const handleSetActiveConversation = (conversationId: string) => {
+  setChatState(prev => ({
+    ...prev,
+    activeConversation: conversationId,
+    conversations: prev.conversations.map(conv => {
+      if (conv.id === conversationId) {
+        return { ...conv, unreadCount: 0 };
+      }
+      return conv;
+    })
+  }));
+};
+
+const unreadMessagesCount = chatState.conversations.reduce(
+  (total, conv) => total + conv.unreadCount,
+  0
+);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -163,6 +283,7 @@ const Customer: React.FC = () => {
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
         profileData={profileData}
+        unreadMessagesCount={unreadMessagesCount}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -406,6 +527,15 @@ const Customer: React.FC = () => {
             )}
           </div>
         )}
+
+        {activeTab === 'messages' && (
+  <Messages 
+    chatState={chatState}
+    onSendMessage={handleSendMessage}
+    onStartConversation={handleStartConversation}
+    onSetActiveConversation={handleSetActiveConversation}
+  />
+)}
 
         {activeTab === 'profile' && (
           <ProfileSection

@@ -4,6 +4,7 @@ import {
   User,
   Menu,
   X,
+  MessageCircle,
   Home
 } from 'lucide-react';
 import { ActiveTab, UserProfile } from '../types';
@@ -14,6 +15,7 @@ interface HeaderProps {
   isMenuOpen: boolean;
   setIsMenuOpen: (isOpen: boolean) => void;
   profileData: UserProfile;
+  unreadMessagesCount?: number;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -21,13 +23,15 @@ const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   isMenuOpen,
   setIsMenuOpen,
+  unreadMessagesCount = 0,
   profileData
 }) => {
   const navigation = [
     { id: 'services', label: 'Find Services' },
     { id: 'bookings', label: 'My Bookings' },
     { id: 'jobs', label: 'My Jobs' },
-    { id: 'favorites', label: 'Favorites' }
+    { id: 'favorites', label: 'Favorites' },
+    { id: 'messages', label: 'Messages' } // Fixed: Changed from 'Message' to 'Messages'
   ] as const;
 
   return (
@@ -50,11 +54,17 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id as ActiveTab)}
-                className={`text-sm font-medium transition-colors duration-200 ${
+                className={`text-sm font-medium transition-colors duration-200 relative ${
                   activeTab === item.id ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {item.label}
+                {/* Add unread indicator for Messages */}
+                {item.id === 'messages' && unreadMessagesCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
@@ -64,6 +74,19 @@ const Header: React.FC<HeaderProps> = ({
             <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+            </button>
+
+            {/* Quick Messages Button - Mobile Only */}
+            <button
+              onClick={() => setActiveTab('messages')}
+              className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+            >
+              <MessageCircle className="w-5 h-5" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                  {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                </span>
+              )}
             </button>
             
             <div className="hidden md:flex items-center space-x-3">
@@ -109,11 +132,17 @@ const Header: React.FC<HeaderProps> = ({
                   setActiveTab(item.id as ActiveTab);
                   setIsMenuOpen(false);
                 }}
-                className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {/* Add unread indicator for Messages in mobile menu */}
+                {item.id === 'messages' && unreadMessagesCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
               </button>
             ))}
             <button
