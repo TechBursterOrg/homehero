@@ -52,8 +52,9 @@ export interface UserProfile {
   phone: string;
   address: string;
   bio: string;
-  avatar: string | null;
+  avatar: string | null; // Standardize on null instead of undefined
 }
+
 
 export interface LocationData {
   address: string;

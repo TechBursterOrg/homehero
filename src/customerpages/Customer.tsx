@@ -19,21 +19,18 @@ import ProfileSection from '../customercomponents/ProfileSection';
 import PostJobModal from '../customercomponents/PostJobModal';
 import MapView from '../customercomponents/MapView';
 import Messages from '../customercomponents/Message';
-// At the top of Customer.tsx
-import { Message } from '../types'; // ✅ Add this
-
+import { Message } from '../types';
 
 // Types and Data
 import { 
   ActiveTab, 
   ServiceType, 
-  UserProfile, 
+  UserProfile,
   Service, 
   Provider, 
-  Booking, 
-  JobPost,
   LocationData,
-  ChatState
+  ChatState,
+  Conversation
 } from '../types';
 import { services, providers, bookings, jobPosts } from '../data/mockData';
 
@@ -52,24 +49,21 @@ const Customer: React.FC = () => {
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>(providers);
   
   const [profileData, setProfileData] = useState<UserProfile>({
-    name: 'John Doe',
-    email: 'john.doe@email.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Main St, City, State 12345',
-    bio: 'Homeowner looking for reliable service providers for regular maintenance and repairs.',
-    avatar: null
-  });
-
+  name: 'John Doe',
+  email: 'john.doe@email.com',
+  phone: '+1 (555) 123-4567',
+  address: '123 Main St, City, State 12345',
+  bio: 'Homeowner looking for reliable service providers for regular maintenance and repairs.',
+  avatar: null // Must be null to match the imported type
+});
   // Filter providers based on service type, location, and search radius
   useEffect(() => {
     let filtered = providers;
 
-    // Filter by service type availability
     if (serviceType === 'immediate') {
       filtered = filtered.filter(p => p.isAvailableNow);
     }
 
-    // Filter by search radius if user location is available
     if (userLocation) {
       filtered = filtered.filter(p => {
         const distance = calculateDistance(userLocation, p.coordinates);
@@ -77,7 +71,6 @@ const Customer: React.FC = () => {
       });
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       filtered = filtered.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -90,7 +83,6 @@ const Customer: React.FC = () => {
     setFilteredProviders(filtered);
   }, [serviceType, userLocation, searchRadius, searchQuery]);
 
-  // Calculate distance between two coordinates (Haversine formula)
   const calculateDistance = (coord1: [number, number], coord2: [number, number]): number => {
     const [lat1, lon1] = coord1;
     const [lat2, lon2] = coord2;
@@ -107,15 +99,12 @@ const Customer: React.FC = () => {
 
   const favoriteProviders = providers.filter(p => favorites.includes(p.id));
 
-  // Event Handlers
   const handleServiceClick = (service: Service) => {
     setSearchQuery(service.name);
-    // Trigger search with the service name
   };
 
   const handleProviderBook = (provider: Provider) => {
     console.log('Book provider:', provider);
-    // Navigate to booking flow
   };
 
   const handleToggleFavorite = (providerId: string) => {
@@ -128,17 +117,14 @@ const Customer: React.FC = () => {
 
   const handleBookingAction = (bookingId: string, action: string) => {
     console.log('Booking action:', action, bookingId);
-    // Handle booking actions (reschedule, cancel, contact)
   };
 
   const handleJobAction = (jobId: string, action: string) => {
     console.log('Job action:', action, jobId);
-    // Handle job actions (edit, view proposals, delete)
   };
 
   const handlePostJob = (jobData: any) => {
     console.log('New job posted:', jobData);
-    // Handle job posting
   };
 
   const handleLocationChange = (location: LocationData) => {
@@ -147,7 +133,6 @@ const Customer: React.FC = () => {
   };
 
   const handleSearch = () => {
-    // Trigger search with current parameters
     console.log('Searching with:', {
       query: searchQuery,
       location: currentLocationAddress,
@@ -161,119 +146,269 @@ const Customer: React.FC = () => {
   };
 
   const [chatState, setChatState] = useState<ChatState>({
-  conversations: [
-    // Mock conversations data
-    {
-      id: '1',
-      providerId: '1',
-      providerName: 'Alex Johnson',
-      providerAvatar: 'AJ',
-      providerService: 'Plumbing',
-      lastMessage: {
-        id: '101',
-        senderId: '1',
-        receiverId: 'user',
-        content: 'Hi there! When would you like me to come by?',
-        timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-        type: 'text',
-        status: 'delivered'
-      },
-      unreadCount: 1,
-      isOnline: true
-    },
-    // Add more conversations as needed
-  ],
-  activeConversation: null,
-  messages: {
-    '1': [
-      // Mock messages for conversation 1
+    conversations: [
       {
-        id: '101',
-        senderId: '1',
-        receiverId: 'user',
-        content: 'Hi there! When would you like me to come by?',
-        timestamp: new Date(Date.now() - 3600000),
-        type: 'text',
-        status: 'delivered'
+        id: 'conv-1',
+        providerId: '1',
+        providerName: 'Alex Johnson',
+        providerAvatar: 'AJ',
+        providerService: 'Plumbing',
+        lastMessage: {
+          id: '101',
+          senderId: '1',
+          receiverId: 'user',
+          content: 'Hi there! When would you like me to come by for the plumbing work?',
+          timestamp: new Date(Date.now() - 3600000),
+          type: 'text',
+          status: 'delivered'
+        },
+        unreadCount: 1,
+        isOnline: true
       },
       {
-        id: '102',
-        senderId: 'user',
-        receiverId: '1',
-        content: 'How about tomorrow at 2pm?',
-        timestamp: new Date(Date.now() - 1800000),
-        type: 'text',
-        status: 'read'
+        id: 'conv-2',
+        providerId: '2',
+        providerName: 'Sarah Johnson',
+        providerAvatar: 'SJ',
+        providerService: 'House Cleaning',
+        lastMessage: {
+          id: '201',
+          senderId: 'user',
+          receiverId: '2',
+          content: 'What time works best for you this week?',
+          timestamp: new Date(Date.now() - 7200000),
+          type: 'text',
+          status: 'read'
+        },
+        unreadCount: 0,
+        isOnline: false,
+        lastSeen: new Date(Date.now() - 1800000)
       }
-    ]
-  }
-});
-
-// Add these inside your Customer component, before the return statement
-
-// Handler for sending messages
-const handleSendMessage = (conversationId: string, content: string) => {
-  const newMessage: Message = {
-    id: Date.now().toString(),
-    senderId: 'user',
-    receiverId: conversationId,
-    content,
-    timestamp: new Date(),
-    type: 'text',
-    status: 'sent'
-  };
-
-  setChatState(prev => ({
-    ...prev,
+    ],
+    activeConversation: null,
     messages: {
-      ...prev.messages,
-      [conversationId]: [...(prev.messages[conversationId] || []), newMessage]
-    },
-    conversations: prev.conversations.map(conv => {
-      if (conv.id === conversationId) {
-        return {
-          ...conv,
-          lastMessage: newMessage,
-          unreadCount: 0
-        };
-      }
-      return conv;
-    })
-  }));
-};
+      'conv-1': [
+        {
+          id: '101',
+          senderId: '1',
+          receiverId: 'user',
+          content: 'Hi there! When would you like me to come by for the plumbing work?',
+          timestamp: new Date(Date.now() - 3600000),
+          type: 'text',
+          status: 'delivered'
+        },
+        {
+          id: '102',
+          senderId: 'user',
+          receiverId: '1',
+          content: 'How about tomorrow at 2pm?',
+          timestamp: new Date(Date.now() - 1800000),
+          type: 'text',
+          status: 'read'
+        },
+        {
+          id: '103',
+          senderId: '1',
+          receiverId: 'user',
+          content: 'Perfect! I can be there at 2pm tomorrow. Should I bring any specific tools for the job?',
+          timestamp: new Date(Date.now() - 1200000),
+          type: 'text',
+          status: 'delivered'
+        }
+      ],
+      'conv-2': [
+        {
+          id: '201',
+          senderId: '2',
+          receiverId: 'user',
+          content: 'Hello! I saw your request for house cleaning services. I have availability this week.',
+          timestamp: new Date(Date.now() - 10800000),
+          type: 'text',
+          status: 'read'
+        },
+        {
+          id: '202',
+          senderId: 'user',
+          receiverId: '2',
+          content: 'Great! What are your rates for a 3-bedroom house?',
+          timestamp: new Date(Date.now() - 9000000),
+          type: 'text',
+          status: 'read'
+        },
+        {
+          id: '203',
+          senderId: '2',
+          receiverId: 'user',
+          content: 'For a 3-bedroom house, my rate is $120 for a deep clean or $80 for regular cleaning. Which would you prefer?',
+          timestamp: new Date(Date.now() - 8400000),
+          type: 'text',
+          status: 'read'
+        },
+        {
+          id: '204',
+          senderId: 'user',
+          receiverId: '2',
+          content: 'What time works best for you this week?',
+          timestamp: new Date(Date.now() - 7200000),
+          type: 'text',
+          status: 'read'
+        }
+      ]
+    }
+  });
 
-// Handler for starting new conversations
-const handleStartConversation = (providerId: string) => {
-  // In a real app, you would create a new conversation here
-  console.log('Starting conversation with provider:', providerId);
-  
-  // For demo purposes, we'll just select the first conversation
-  if (chatState.conversations.length > 0) {
+  const handleSendMessage = (conversationId: string, content: string) => {
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      senderId: 'user',
+      receiverId: conversationId,
+      content,
+      timestamp: new Date(),
+      type: 'text',
+      status: 'sent'
+    };
+
     setChatState(prev => ({
       ...prev,
-      activeConversation: prev.conversations[0].id
+      messages: {
+        ...prev.messages,
+        [conversationId]: [...(prev.messages[conversationId] || []), newMessage]
+      },
+      conversations: prev.conversations.map(conv => {
+        if (conv.id === conversationId) {
+          return {
+            ...conv,
+            lastMessage: newMessage,
+            unreadCount: 0
+          };
+        }
+        return conv;
+      })
     }));
-  }
-};
+  };
 
-// Handler for setting active conversation
-const handleSetActiveConversation = (conversationId: string) => {
-  setChatState(prev => ({
-    ...prev,
-    activeConversation: conversationId,
-    conversations: prev.conversations.map(conv => {
-      if (conv.id === conversationId) {
-        return { ...conv, unreadCount: 0 };
+  const handleProviderCall = (provider: Provider) => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const phoneNumbers: { [key: string]: string } = {
+      '1': '+1 (555) 123-4567',
+      '2': '+1 (555) 234-5678',
+      '3': '+1 (555) 345-6789',
+      '4': '+1 (555) 456-7890',
+      '5': '+1 (555) 567-8901',
+      '6': '+1 (555) 678-9012'
+    };
+    
+    const phoneNumber = phoneNumbers[provider.id] || '+1 (555) 000-0000';
+    const cleanPhoneNumber = phoneNumber.replace(/\D/g, '');
+    
+    if (isMobile) {
+      window.location.href = `tel:${cleanPhoneNumber}`;
+      console.log(`Initiating call to ${provider.name} at ${phoneNumber}`);
+    } else {
+      const userChoice = window.confirm(
+        `Call ${provider.name}?\n\nPhone: ${phoneNumber}\n\nClick OK to copy the number to clipboard, or Cancel to close.`
+      );
+      
+      if (userChoice) {
+        navigator.clipboard.writeText(phoneNumber).then(() => {
+          alert(`Phone number ${phoneNumber} copied to clipboard!`);
+        }).catch(() => {
+          prompt('Copy this phone number:', phoneNumber);
+        });
       }
-      return conv;
-    })
-  }));
+    }
+    
+    console.log(`Call initiated to provider: ${provider.name} (${provider.id}) - ${phoneNumber}`);
+  };
+
+  const handleProviderMessage = (provider: Provider) => {
+    const existingConversation = chatState.conversations.find(
+      conv => conv.providerId === provider.id
+    );
+
+    if (existingConversation) {
+      setActiveTab('messages');
+      setChatState(prev => ({
+        ...prev,
+        activeConversation: existingConversation.id,
+        conversations: prev.conversations.map(conv => {
+          if (conv.id === existingConversation.id) {
+            return { ...conv, unreadCount: 0 };
+          }
+          return conv;
+        })
+      }));
+    } else {
+      const newConversationId = `conv-${Date.now()}`;
+      const welcomeMessage: Message = {
+        id: `welcome-${Date.now()}`,
+        senderId: 'system',
+        receiverId: 'user',
+        content: `You can now chat with ${provider.name}. Start the conversation!`,
+        timestamp: new Date(),
+        type: 'text',
+        status: 'delivered'
+      };
+
+      const newConversation: Conversation = {
+        id: newConversationId,
+        providerId: provider.id,
+        providerName: provider.name,
+        providerAvatar: provider.avatar || '',
+        providerService: provider.services[0] || 'General Service',
+        lastMessage: welcomeMessage,
+        unreadCount: 0,
+        isOnline: provider.isAvailableNow || Math.random() > 0.5,
+        lastSeen: provider.isAvailableNow ? undefined : new Date(Date.now() - Math.random() * 3600000)
+      };
+
+      setChatState(prev => ({
+        ...prev,
+        conversations: [...prev.conversations, newConversation],
+        activeConversation: newConversationId,
+        messages: {
+          ...prev.messages,
+          [newConversationId]: [welcomeMessage]
+        }
+      }));
+
+      setActiveTab('messages');
+    }
+  };
+
+  const handleStartConversation = (providerId: string) => {
+    console.log('Starting conversation with provider:', providerId);
+    
+    if (chatState.conversations.length > 0) {
+      setChatState(prev => ({
+        ...prev,
+        activeConversation: prev.conversations[0].id
+      }));
+    }
+  };
+
+  const handleSetActiveConversation = (conversationId: string) => {
+    setChatState(prev => ({
+      ...prev,
+      activeConversation: conversationId,
+      conversations: prev.conversations.map(conv => {
+        if (conv.id === conversationId) {
+          return { ...conv, unreadCount: 0 };
+        }
+        return conv;
+      })
+    }));
+  };
+
+   const handleProfileDataChange = (data: UserProfile) => {
+  setProfileData(data);
 };
 
-const unreadMessagesCount = chatState.conversations.reduce(
-  (total, conv) => total + conv.unreadCount,
-  0
-);
+  const unreadMessagesCount = chatState.conversations.reduce(
+    (total, conv) => total + conv.unreadCount,
+    0
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -304,7 +439,6 @@ const unreadMessagesCount = chatState.conversations.reduce(
               onSearchRadiusChange={setSearchRadius}
             />
 
-            {/* Service Categories */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">
@@ -328,7 +462,6 @@ const unreadMessagesCount = chatState.conversations.reduce(
               </div>
             </div>
 
-            {/* Providers Section */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">
@@ -363,6 +496,8 @@ const unreadMessagesCount = chatState.conversations.reduce(
                       serviceType={serviceType}
                       onBook={handleProviderBook}
                       onToggleFavorite={handleToggleFavorite}
+                      onMessage={handleProviderMessage}
+                      onCall={handleProviderCall}
                       isFavorite={favorites.includes(provider.id)}
                     />
                   ))}
@@ -403,7 +538,6 @@ const unreadMessagesCount = chatState.conversations.reduce(
               </button>
             </div>
 
-            {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center space-x-3">
@@ -442,7 +576,6 @@ const unreadMessagesCount = chatState.conversations.reduce(
               </div>
             </div>
 
-            {/* Bookings List */}
             <div className="space-y-4">
               {bookings.map((booking) => (
                 <BookingCard
@@ -473,7 +606,6 @@ const unreadMessagesCount = chatState.conversations.reduce(
               </button>
             </div>
 
-            {/* Job Posts List */}
             <div className="space-y-6">
               {jobPosts.map((jobPost) => (
                 <JobPostCard
@@ -504,6 +636,8 @@ const unreadMessagesCount = chatState.conversations.reduce(
                     serviceType={serviceType}
                     onBook={handleProviderBook}
                     onToggleFavorite={handleToggleFavorite}
+                    onMessage={handleProviderMessage}
+                    onCall={handleProviderCall}
                     isFavorite={true}
                   />
                 ))}
@@ -529,23 +663,22 @@ const unreadMessagesCount = chatState.conversations.reduce(
         )}
 
         {activeTab === 'messages' && (
-  <Messages 
-    chatState={chatState}
-    onSendMessage={handleSendMessage}
-    onStartConversation={handleStartConversation}
-    onSetActiveConversation={handleSetActiveConversation}
-  />
-)}
-
-        {activeTab === 'profile' && (
-          <ProfileSection
-            profileData={profileData}
-            setProfileData={setProfileData}
+          <Messages 
+            chatState={chatState}
+            onSendMessage={handleSendMessage}
+            onStartConversation={handleStartConversation}
+            onSetActiveConversation={handleSetActiveConversation}
           />
         )}
+
+        {/* {activeTab === 'profile' && (
+          <ProfileSection
+            profileData={profileData}
+            setProfileData={handleProfileDataChange}
+          />
+        )} */}
       </main>
 
-      {/* Post Job Modal */}
       <PostJobModal
         isOpen={showPostJob}
         onClose={() => setShowPostJob(false)}
