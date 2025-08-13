@@ -18,11 +18,12 @@ export interface Provider {
   responseTime: string;
   isVerified: boolean;
   isTopRated: boolean;
-  avatar: string;
+  avatar: string | null; // Standardize on null instead of undefined
   completedJobs: number;
   isAvailableNow?: boolean;
   coordinates: [number, number]; // [latitude, longitude]
   distance?: number; // distance from user in miles
+  
 }
 
 export interface Booking {

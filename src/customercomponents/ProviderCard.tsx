@@ -29,7 +29,7 @@ export interface ProviderCardProps {
   onBook: (provider: Provider) => void;
   onToggleFavorite: (providerId: string) => void;
   onMessage: (provider: Provider) => void;
-  onCall: (provider: Provider) => void; // Add this prop
+  onCall: (provider: Provider) => void;
   isFavorite: boolean;
 }
 
@@ -48,33 +48,59 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
   const [isVideoOn, setIsVideoOn] = useState(callType === 'video');
   const [callDuration, setCallDuration] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setError] = useState<string>('');
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Cleanup function
+  const cleanup = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop();
+      });
+      setStream(null);
+    }
+  };
+
   useEffect(() => {
-    if (isOpen && callState === 'connecting') {
-      const timeout = setTimeout(() => {
+    if (!isOpen) {
+      cleanup();
+      return;
+    }
+
+    if (callState === 'connecting') {
+      const connectTimeout = setTimeout(() => {
         setCallState('connected');
         startCallTimer();
       }, 2000);
 
-      if (callType === 'video') {
-        initializeMedia();
-      }
+      // Initialize media for both audio and video calls
+      initializeMedia();
 
       return () => {
-        clearTimeout(timeout);
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
+        clearTimeout(connectTimeout);
       };
     }
+
+    // Cleanup on unmount or when modal closes
+    return cleanup;
   }, [isOpen, callState, callType]);
 
   const initializeMedia = async () => {
     try {
+      setError('');
+      
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Media devices not supported in this browser');
+      }
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: callType === 'video',
         audio: true
@@ -82,29 +108,89 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
       
       setStream(mediaStream);
       
-      if (localVideoRef.current) {
+      // Set up local video only for video calls
+      if (localVideoRef.current && callType === 'video') {
         localVideoRef.current.srcObject = mediaStream;
       }
       
+      // Create mock remote video only for video calls
       if (remoteVideoRef.current && callType === 'video') {
-        const canvas = document.createElement('canvas');
-        canvas.width = 640;
-        canvas.height = 480;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = '#4F46E5';
+        createMockRemoteVideo();
+      }
+
+      console.log(`${callType} call media initialized successfully`);
+    } catch (err: any) {
+      console.error('Error accessing media devices:', err);
+      let errorMessage = 'Could not access camera/microphone.';
+      
+      if (err.name === 'NotAllowedError') {
+        errorMessage = 'Camera/microphone access denied. Please allow permissions and try again.';
+      } else if (err.name === 'NotFoundError') {
+        errorMessage = 'No camera or microphone found on this device.';
+      } else if (err.name === 'NotSupportedError') {
+        errorMessage = 'Media devices not supported in this browser.';
+      }
+      
+      setError(errorMessage);
+    }
+  };
+
+  const createMockRemoteVideo = () => {
+    if (!remoteVideoRef.current) return;
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Create a simple animated background
+        let frame = 0;
+        const animate = () => {
+          // Gradient background
+          const gradient = ctx.createLinearGradient(0, 0, 640, 480);
+          gradient.addColorStop(0, '#4F46E5');
+          gradient.addColorStop(1, '#7C3AED');
+          ctx.fillStyle = gradient;
           ctx.fillRect(0, 0, 640, 480);
+          
+          // Provider avatar/initials
           ctx.fillStyle = 'white';
-          ctx.font = '48px Arial';
+          ctx.font = 'bold 64px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText(provider.avatar || provider.name.charAt(0), 320, 250);
-        }
-        const videoStream = canvas.captureStream();
+          ctx.textBaseline = 'middle';
+          const initials = provider.avatar || provider.name.split(' ').map(n => n[0]).join('').toUpperCase();
+          ctx.fillText(initials, 320, 220);
+          
+          // Provider name
+          ctx.font = 'bold 24px Arial';
+          ctx.fillText(provider.name, 320, 300);
+          
+          // Service type
+          ctx.font = '18px Arial';
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.fillText(provider.services[0] || 'Service Provider', 320, 330);
+          
+          // Animated "calling" indicator
+          const opacity = (Math.sin(frame * 0.1) + 1) * 0.5;
+          ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+          ctx.font = '16px Arial';
+          ctx.fillText('● Connected', 320, 380);
+          
+          frame++;
+          
+          if (callState === 'connected') {
+            requestAnimationFrame(animate);
+          }
+        };
+        
+        animate();
+        const videoStream = canvas.captureStream(30);
         remoteVideoRef.current.srcObject = videoStream;
       }
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
-      alert('Could not access camera/microphone. Please check permissions.');
+    } catch (err) {
+      console.error('Error creating mock video:', err);
     }
   };
 
@@ -121,13 +207,9 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
   };
 
   const handleEndCall = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
     setCallState('ended');
+    cleanup();
+    
     setTimeout(() => {
       onClose();
       setCallState('connecting');
@@ -135,6 +217,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
       setIsMuted(false);
       setIsSpeakerOn(true);
       setIsVideoOn(callType === 'video');
+      setError('');
     }, 1500);
   };
 
@@ -142,7 +225,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
     setIsMuted(!isMuted);
     if (stream) {
       stream.getAudioTracks().forEach(track => {
-        track.enabled = isMuted;
+        track.enabled = isMuted; // This will unmute if currently muted
       });
     }
   };
@@ -151,13 +234,14 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
     setIsVideoOn(!isVideoOn);
     if (stream) {
       stream.getVideoTracks().forEach(track => {
-        track.enabled = !isVideoOn;
+        track.enabled = !isVideoOn; // This will turn on if currently off
       });
     }
   };
 
   const toggleSpeaker = () => {
     setIsSpeakerOn(!isSpeakerOn);
+    // In a real implementation, you'd use HTMLMediaElement.setSinkId() if supported
   };
 
   if (!isOpen) return null;
@@ -165,8 +249,18 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 sm:p-8 w-full max-w-2xl shadow-2xl border border-white/20">
-        {callType === 'video' && callState === 'connected' && (
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Video Call Interface */}
+        {callType === 'video' && callState === 'connected' && !error && (
           <div className="relative mb-6 bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl" style={{ height: '400px' }}>
+            {/* Remote Video */}
             <video
               ref={remoteVideoRef}
               autoPlay
@@ -174,6 +268,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
               className="w-full h-full object-cover"
             />
             
+            {/* Local Video (Picture-in-Picture) */}
             <div className="absolute top-4 right-4 w-28 h-20 sm:w-32 sm:h-24 bg-gray-800 rounded-lg sm:rounded-xl overflow-hidden border-2 border-white/80 shadow-lg">
               <video
                 ref={localVideoRef}
@@ -183,8 +278,15 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
                 className="w-full h-full object-cover"
                 style={{ transform: 'scaleX(-1)' }}
               />
+              {/* Fallback if no local video */}
+              {(!stream || !isVideoOn) && (
+                <div className="w-full h-full bg-gray-700 flex items-center justify-center">
+                  <span className="text-white text-xs">You</span>
+                </div>
+              )}
             </div>
             
+            {/* Provider Info Overlay */}
             <div className="absolute bottom-4 left-4 text-white">
               <h3 className="font-bold text-lg sm:text-xl">{provider.name}</h3>
               <p className="text-sm opacity-75">{provider.services[0]}</p>
@@ -192,6 +294,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
           </div>
         )}
 
+        {/* Audio Call Interface */}
         {callType === 'audio' && (
           <div className="text-center mb-8">
             <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-2xl sm:text-4xl mx-auto mb-4 shadow-xl">
@@ -202,15 +305,16 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
           </div>
         )}
 
+        {/* Call Status */}
         <div className="text-center mb-6">
           {callState === 'connecting' && (
             <div className="flex items-center justify-center space-x-3">
-              <div className="animate-spin rounded-full h-5 h-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
               <span className="text-gray-600 text-sm sm:text-base">Connecting...</span>
             </div>
           )}
           
-          {callState === 'connected' && (
+          {callState === 'connected' && !error && (
             <div className="flex items-center justify-center space-x-2">
               <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-emerald-600 font-bold text-sm sm:text-base">Connected</span>
@@ -226,11 +330,13 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
           )}
         </div>
 
+        {/* Call Controls */}
         <div className="flex justify-center space-x-3 sm:space-x-4">
           {callType === 'video' && (
             <button
               onClick={toggleVideo}
-              className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg hover:scale-105 ${
+              disabled={!!error}
+              className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
                 isVideoOn 
                   ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' 
                   : 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
@@ -243,7 +349,8 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
           
           <button
             onClick={toggleMute}
-            className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg hover:scale-105 ${
+            disabled={!!error}
+            className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg hover:scale-105 disabled:opacity-50 disabled:hover:scale-100 ${
               isMuted 
                 ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700' 
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -290,6 +397,8 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
   const [showCallOptions, setShowCallOptions] = useState(false);
   const [showCallingModal, setShowCallingModal] = useState(false);
   const [callType, setCallType] = useState<'audio' | 'video'>('audio');
+  const callButtonRef = useRef<HTMLButtonElement>(null);
+  const callOptionsRef = useRef<HTMLDivElement>(null);
 
   const phoneNumbers: { [key: string]: string } = {
     '1': '+1 (555) 123-4567',
@@ -313,14 +422,16 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     ));
   };
 
-  const handleCallClick = () => {
-    setShowCallOptions(true);
+  const handleCallClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCallOptions(!showCallOptions);
   };
 
   const handleWebCall = (type: 'audio' | 'video') => {
     setCallType(type);
     setShowCallOptions(false);
     setShowCallingModal(true);
+    onCall(provider);
   };
 
   const handlePhoneCall = () => {
@@ -340,7 +451,8 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
       await navigator.clipboard.writeText(providerPhone);
       alert('Phone number copied to clipboard!');
     } catch {
-      prompt('Copy this phone number:', providerPhone);
+      const userInput = prompt('Copy this phone number:', providerPhone);
+      // User can manually copy from the prompt
     }
     setShowCallOptions(false);
   };
@@ -349,9 +461,31 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  // Close call options when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        callOptionsRef.current && 
+        !callOptionsRef.current.contains(event.target as Node) &&
+        callButtonRef.current && 
+        !callButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowCallOptions(false);
+      }
+    };
+
+    if (showCallOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCallOptions]);
+
   return (
     <>
-      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden">
+      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden relative">
         {/* Mobile Layout */}
         <div className="flex flex-col sm:hidden space-y-4">
           {/* Header Row */}
@@ -450,6 +584,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
               
               <div className="relative">
                 <button 
+                  ref={callButtonRef}
                   onClick={handleCallClick}
                   className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-xl transition-all duration-200 hover:scale-105"
                 >
@@ -457,34 +592,57 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                 </button>
                 
                 {showCallOptions && (
-                  <div className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-44">
+                  <div 
+                    ref={callOptionsRef}
+                    className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-[200] min-w-48 pointer-events-auto"
+                  >
                     <button
-                      onClick={() => handleWebCall('audio')}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleWebCall('audio');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <PhoneCall className="w-4 h-4 text-green-600" />
-                      <span>Web Call</span>
+                      <span>Web Audio Call</span>
                     </button>
                     
                     <button
-                      onClick={() => handleWebCall('video')}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleWebCall('video');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Video className="w-4 h-4 text-blue-600" />
-                      <span>Video Call</span>
+                      <span>Web Video Call</span>
                     </button>
                     
                     <button
-                      onClick={handlePhoneCall}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handlePhoneCall();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <ExternalLink className="w-4 h-4 text-purple-600" />
                       <span>Phone App</span>
                     </button>
                     
                     <button
-                      onClick={handleCopyNumber}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCopyNumber();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Copy className="w-4 h-4 text-gray-600" />
                       <span>Copy Number</span>
@@ -597,6 +755,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                 
                 <div className="relative">
                   <button 
+                    ref={callButtonRef}
                     onClick={handleCallClick}
                     className="p-3 bg-green-100 text-green-600 hover:bg-green-200 rounded-xl transition-all duration-200 hover:scale-105"
                   >
@@ -604,34 +763,57 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                   </button>
                   
                   {showCallOptions && (
-                    <div className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48">
+                    <div 
+                      ref={callOptionsRef}
+                      className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-[200] min-w-48 pointer-events-auto"
+                    >
                       <button
-                        onClick={() => handleWebCall('audio')}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleWebCall('audio');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <PhoneCall className="w-4 h-4 text-green-600" />
                         <span>Web Audio Call</span>
                       </button>
                       
                       <button
-                        onClick={() => handleWebCall('video')}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleWebCall('video');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Video className="w-4 h-4 text-blue-600" />
                         <span>Web Video Call</span>
                       </button>
                       
                       <button
-                        onClick={handlePhoneCall}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handlePhoneCall();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <ExternalLink className="w-4 h-4 text-purple-600" />
                         <span>Phone App</span>
                       </button>
                       
                       <button
-                        onClick={handleCopyNumber}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleCopyNumber();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         <Copy className="w-4 h-4 text-gray-600" />
                         <span>Copy Number</span>
@@ -661,13 +843,6 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
         onClose={() => setShowCallingModal(false)}
         callType={callType}
       />
-
-      {showCallOptions && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowCallOptions(false)}
-        />
-      )}
     </>
   );
 };

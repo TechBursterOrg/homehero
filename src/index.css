@@ -101,3 +101,13 @@ a:focus {
     display: none !important;
   }
 }
+
+
+button, [role="button"] {
+  cursor: pointer;
+}
+
+/* Override any parent that might disable pointer events */
+.provider-card-container * {
+  pointer-events: auto !important;
+}
