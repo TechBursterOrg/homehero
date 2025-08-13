@@ -223,133 +223,59 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Modern Header */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-lg">
-                  <MessageSquare className="w-8 h-8 text-white" />
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 lg:py-8">
+        {/* Mobile-First Header */}
+        <div className="mb-4 lg:mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-6">
+            <div className="space-y-1 lg:space-y-2">
+              <div className="flex items-center gap-2 lg:gap-4">
+                <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg">
+                  <MessageSquare className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                    Messages & Communication 💬
+                  <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+                    Messages 💬
                   </h1>
-                  <p className="text-gray-600 text-lg">Stay connected with your clients and manage conversations</p>
+                  <p className="text-gray-600 text-sm lg:text-lg hidden sm:block">Stay connected with your clients</p>
                 </div>
               </div>
             </div>
             
-            <button className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center gap-3">
-              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                <Plus className="w-4 h-4" />
+            <button className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-4 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center gap-2 lg:gap-3 text-sm lg:text-base">
+              <div className="w-5 h-5 lg:w-6 lg:h-6 bg-white/20 rounded-lg flex items-center justify-center">
+                <Plus className="w-3 h-3 lg:w-4 lg:h-4" />
               </div>
-              <span>New Conversation</span>
+              <span className="hidden sm:inline">New Conversation</span>
+              <span className="sm:hidden">New</span>
             </button>
           </div>
         </div>
 
-        {/* Enhanced Stats Cards */}
-        {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <MessageSquare className="w-7 h-7 text-white" />
-              </div>
-              <div className="text-blue-600">
-                <Activity className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-600">Total Conversations</p>
-              <p className="text-3xl font-bold text-gray-900">{conversations.length}</p>
-              <div className="text-sm text-blue-600 font-semibold">
-                Active clients
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-red-400 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Zap className="w-7 h-7 text-white" />
-              </div>
-              <div className="text-red-600">
-                <Sparkles className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-600">Unread Messages</p>
-              <p className="text-3xl font-bold text-gray-900">{totalUnread}</p>
-              <div className="flex items-center gap-1 text-sm">
-                <span className="text-red-600 font-semibold">Needs response</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Users className="w-7 h-7 text-white" />
-              </div>
-              <div className="text-green-600">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-600">Online Clients</p>
-              <p className="text-3xl font-bold text-gray-900">{onlineCount}</p>
-              <div className="text-sm text-green-600 font-semibold">
-                Available now
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Star className="w-7 h-7 text-white fill-current" />
-              </div>
-              <div className="text-purple-600">
-                <ChevronRight className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-600">Average Rating</p>
-              <p className="text-3xl font-bold text-gray-900">4.8 ⭐</p>
-              <div className="text-sm text-purple-600 font-semibold">
-                Client satisfaction
-              </div>
-            </div>
-          </div>
-        </div> */}
-
         {/* Main Messages Interface */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-400px)] min-h-[600px] flex">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl lg:rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-140px)] lg:h-[calc(100vh-400px)] min-h-[500px] lg:min-h-[600px] flex">
           {/* Conversations List */}
           <div className={`conversation-list w-full lg:w-2/5 border-r border-gray-200 flex flex-col ${
-            showChatArea ? 'chat-active' : ''
+            showChatArea ? 'hidden lg:flex' : 'flex'
           }`}>
             {/* Search and Filters */}
-            <div className="p-6 border-b border-gray-200 bg-white/50">
-              <div className="space-y-4">
+            <div className="p-3 lg:p-6 border-b border-gray-200 bg-white/50">
+              <div className="space-y-3 lg:space-y-4">
                 <div className="relative">
-                  <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Search className="w-4 h-4 lg:w-5 lg:h-5 absolute left-3 lg:left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search conversations..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                    className="w-full pl-10 lg:pl-12 pr-3 lg:pr-4 py-2.5 lg:py-3 border border-gray-200 rounded-xl lg:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200 text-sm"
                   />
                 </div>
                 
-                {/* Filter Pills */}
-                <div className="flex items-center gap-2">
+                {/* Filter Pills - Mobile Responsive */}
+                <div className="flex items-center gap-1 lg:gap-2 overflow-x-auto pb-1">
                   <button
                     onClick={() => setFilterType('all')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                    className={`px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
                       filterType === 'all' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -357,7 +283,7 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
                   </button>
                   <button
                     onClick={() => setFilterType('unread')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                    className={`px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
                       filterType === 'unread' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -365,7 +291,7 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
                   </button>
                   <button
                     onClick={() => setFilterType('online')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 ${
+                    className={`px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
                       filterType === 'online' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -375,154 +301,154 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
               </div>
             </div>
 
-            {/* Conversation List */}
+            {/* Conversation List - Mobile Optimized */}
             <div className="flex-1 overflow-y-auto">
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => handleSelectChat(conversation.id)}
-                  className={`group p-6 border-b border-gray-100 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${
+                  className={`group p-3 lg:p-6 border-b border-gray-100 cursor-pointer hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 ${
                     selectedChat === conversation.id ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200' : ''
                   }`}
                 >
-                  <div className="flex items-start space-x-4">
+                  <div className="flex items-start space-x-3 lg:space-x-4">
                     <div className="relative flex-shrink-0">
-                      <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                      <div className="w-10 h-10 lg:w-14 lg:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl lg:rounded-3xl flex items-center justify-center text-white font-bold text-sm lg:text-lg shadow-lg">
                         {conversation.avatar}
                       </div>
                       {conversation.online && (
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-3 border-white shadow-lg">
+                        <div className="absolute -bottom-0.5 -right-0.5 lg:-bottom-1 lg:-right-1 w-3 h-3 lg:w-5 lg:h-5 bg-green-500 rounded-full border-2 lg:border-3 border-white shadow-lg">
                           <div className="w-full h-full bg-green-400 rounded-full animate-pulse"></div>
                         </div>
                       )}
                       {conversation.unread > 0 && (
-                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                        <div className="absolute -top-1 -right-1 lg:-top-2 lg:-right-2 w-5 h-5 lg:w-6 lg:h-6 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
                           {conversation.unread}
                         </div>
                       )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      <div className="flex items-center justify-between mb-1 lg:mb-2">
+                        <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+                          <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm lg:text-base truncate">
                             {conversation.name}
                           </h4>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                          <div className="flex items-center gap-0.5 lg:gap-1 flex-shrink-0">
+                            <Star className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-yellow-500 fill-current" />
                             <span className="text-xs text-gray-600 font-medium">{conversation.rating}</span>
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 font-medium">{conversation.time}</span>
+                        <span className="text-xs text-gray-500 font-medium flex-shrink-0">{conversation.time}</span>
                       </div>
                       
-                      <div className={`flex items-center gap-2 mb-3 p-2 rounded-xl border-l-4 ${getPriorityColor(conversation.priority)}`}>
-                        <span className="text-lg">{getCategoryIcon(conversation.category)}</span>
-                        <span className="text-sm text-gray-600 font-medium truncate">{conversation.job}</span>
+                      <div className={`flex items-center gap-1.5 lg:gap-2 mb-2 lg:mb-3 p-1.5 lg:p-2 rounded-lg lg:rounded-xl border-l-4 ${getPriorityColor(conversation.priority)}`}>
+                        <span className="text-sm lg:text-lg flex-shrink-0">{getCategoryIcon(conversation.category)}</span>
+                        <span className="text-xs lg:text-sm text-gray-600 font-medium truncate">{conversation.job}</span>
                       </div>
                       
-                      <p className="text-sm text-gray-600 truncate font-medium">{conversation.lastMessage}</p>
+                      <p className="text-xs lg:text-sm text-gray-600 truncate font-medium">{conversation.lastMessage}</p>
                     </div>
                   </div>
                 </div>
               ))}
               
               {filteredConversations.length === 0 && (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-gray-400" />
+                <div className="text-center py-8 lg:py-12 text-gray-500 px-4">
+                  <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl lg:rounded-3xl flex items-center justify-center mx-auto mb-3 lg:mb-4">
+                    <Search className="w-6 h-6 lg:w-8 lg:h-8 text-gray-400" />
                   </div>
-                  <p className="font-medium">No conversations found</p>
-                  <p className="text-sm">Try adjusting your search or filters</p>
+                  <p className="font-medium text-sm lg:text-base">No conversations found</p>
+                  <p className="text-xs lg:text-sm">Try adjusting your search or filters</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Enhanced Chat Area */}
+          {/* Enhanced Chat Area - Mobile Responsive */}
           <div className={`chat-area w-full lg:flex-1 flex flex-col ${
-            showChatArea ? 'chat-active' : ''
+            showChatArea ? 'flex' : 'hidden lg:flex'
           }`}>
             {selectedConversation ? (
               <>
-                {/* Enhanced Chat Header */}
-                <div className="p-6 border-b border-gray-200 bg-white/50">
+                {/* Enhanced Chat Header - Mobile Optimized */}
+                <div className="p-3 lg:p-6 border-b border-gray-200 bg-white/50">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2 lg:space-x-4 min-w-0 flex-1">
                       <button
                         onClick={handleBackToList}
-                        className="back-button p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-2xl transition-all duration-200"
+                        className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 flex-shrink-0"
                       >
                         <ArrowLeft className="w-5 h-5" />
                       </button>
                       
-                      <div className="relative">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center text-white font-bold shadow-lg">
+                      <div className="relative flex-shrink-0">
+                        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl lg:rounded-3xl flex items-center justify-center text-white font-bold text-sm lg:text-base shadow-lg">
                           {selectedConversation.avatar}
                         </div>
                         {selectedConversation.online && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          <div className="absolute -bottom-0.5 -right-0.5 lg:-bottom-1 lg:-right-1 w-3 h-3 lg:w-4 lg:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                         )}
                       </div>
                       
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-900 text-lg">{selectedConversation.name}</h3>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                            <span className="text-sm text-gray-600 font-medium">{selectedConversation.rating}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 lg:gap-2 mb-0.5 lg:mb-1">
+                          <h3 className="font-bold text-gray-900 text-sm lg:text-lg truncate">{selectedConversation.name}</h3>
+                          <div className="flex items-center gap-0.5 lg:gap-1 flex-shrink-0">
+                            <Star className="w-3 h-3 lg:w-4 lg:h-4 text-yellow-500 fill-current" />
+                            <span className="text-xs lg:text-sm text-gray-600 font-medium">{selectedConversation.rating}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <span className="text-lg">{getCategoryIcon(selectedConversation.category)}</span>
-                          <span className="font-medium">{selectedConversation.job}</span>
+                        <div className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm text-gray-600">
+                          <span className="text-sm lg:text-lg">{getCategoryIcon(selectedConversation.category)}</span>
+                          <span className="font-medium truncate">{selectedConversation.job}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                          <div className={`w-2 h-2 rounded-full ${selectedConversation.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                        <div className="flex items-center gap-1 lg:gap-2 text-xs text-gray-500 mt-0.5 lg:mt-1">
+                          <div className={`w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full ${selectedConversation.online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                           <span>{selectedConversation.online ? 'Online now' : 'Last seen 2h ago'}</span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button className="w-12 h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                        <Phone className="w-5 h-5" />
+                    <div className="flex items-center gap-1 lg:gap-2 flex-shrink-0">
+                      <button className="w-8 h-8 lg:w-12 lg:h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
+                        <Phone className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
                       </button>
-                      <button className="w-12 h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                        <Video className="w-5 h-5" />
+                      <button className="w-8 h-8 lg:w-12 lg:h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
+                        <Video className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
                       </button>
-                      <button className="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                        <MoreVertical className="w-5 h-5" />
+                      <button className="w-8 h-8 lg:w-12 lg:h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
+                        <MoreVertical className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Enhanced Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-white/30 to-blue-50/30">
+                {/* Enhanced Messages - Mobile Responsive */}
+                <div className="flex-1 overflow-y-auto p-3 lg:p-6 space-y-4 lg:space-y-6 bg-gradient-to-b from-white/30 to-blue-50/30">
                   {messages.map((message) => (
                     <div
                       key={message.id}
                       className={`flex ${message.isMe ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-sm transition-all duration-200 hover:shadow-md ${
+                      <div className={`max-w-[280px] sm:max-w-xs lg:max-w-md px-3 py-2.5 lg:px-6 lg:py-4 rounded-2xl lg:rounded-3xl shadow-sm transition-all duration-200 hover:shadow-md ${
                         message.isMe
                           ? 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
                           : 'bg-white/80 backdrop-blur-sm text-gray-900 border border-gray-200'
                       }`}>
-                        <p className="text-sm leading-relaxed">{message.content}</p>
-                        <div className={`flex items-center justify-between mt-3 text-xs ${
+                        <p className="text-xs lg:text-sm leading-relaxed">{message.content}</p>
+                        <div className={`flex items-center justify-between mt-2 lg:mt-3 text-xs ${
                           message.isMe ? 'text-blue-100' : 'text-gray-500'
                         }`}>
                           <span className="font-medium">{message.time}</span>
                           {message.isMe && (
-                            <div className="ml-3">
+                            <div className="ml-2 lg:ml-3">
                               {message.status === 'read' ? (
-                                <CheckCheck className="w-4 h-4 text-blue-200" />
+                                <CheckCheck className="w-3 h-3 lg:w-4 lg:h-4 text-blue-200" />
                               ) : message.status === 'delivered' ? (
-                                <Check className="w-4 h-4 text-blue-200" />
+                                <Check className="w-3 h-3 lg:w-4 lg:h-4 text-blue-200" />
                               ) : (
-                                <Clock className="w-4 h-4 text-blue-200" />
+                                <Clock className="w-3 h-3 lg:w-4 lg:h-4 text-blue-200" />
                               )}
                             </div>
                           )}
@@ -532,11 +458,11 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
                   ))}
                 </div>
 
-                {/* Enhanced Message Input */}
-                <div className="p-6 border-t border-gray-200 bg-white/50">
-                  <div className="flex items-center space-x-4">
-                    <button className="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                      <Paperclip className="w-5 h-5" />
+                {/* Enhanced Message Input - Mobile Responsive */}
+                <div className="p-3 lg:p-6 border-t border-gray-200 bg-white/50">
+                  <div className="flex items-center space-x-2 lg:space-x-4">
+                    <button className="w-8 h-8 lg:w-12 lg:h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 flex-shrink-0">
+                      <Paperclip className="w-4 h-4 lg:w-5 lg:h-5" />
                     </button>
                     
                     <div className="flex-1 relative">
@@ -546,30 +472,30 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                        className="w-full px-6 py-4 border border-gray-200 rounded-3xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200 text-sm"
+                        className="w-full px-4 py-2.5 lg:px-6 lg:py-4 border border-gray-200 rounded-2xl lg:rounded-3xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200 text-sm"
                       />
                     </div>
                     
                     <button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim()}
-                      className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-2xl hover:shadow-xl transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none flex items-center justify-center"
+                      className="w-8 h-8 lg:w-12 lg:h-12 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl lg:rounded-2xl hover:shadow-xl transition-all duration-200 hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none flex items-center justify-center flex-shrink-0"
                     >
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 h-4 lg:w-5 lg:h-5" />
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
                 <div className="text-center">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                    <MessageSquare className="w-12 h-12 text-white" />
+                  <div className="w-16 h-16 lg:w-24 lg:h-24 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 lg:mb-6 shadow-xl">
+                    <MessageSquare className="w-8 h-8 lg:w-12 lg:h-12 text-white" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Select a Conversation</h3>
-                  <p className="text-gray-600 mb-6">Choose a client from the left to start messaging</p>
-                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl flex items-center gap-2 mx-auto">
-                    <Plus className="w-4 h-4" />
+                  <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-1 lg:mb-2">Select a Conversation</h3>
+                  <p className="text-gray-600 mb-4 lg:mb-6 text-sm lg:text-base">Choose a client from the left to start messaging</p>
+                  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2.5 lg:px-6 lg:py-3 rounded-xl lg:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl flex items-center gap-2 mx-auto text-sm lg:text-base">
+                    <Plus className="w-3 h-3 lg:w-4 lg:h-4" />
                     <span>Start New Chat</span>
                   </button>
                 </div>
@@ -578,31 +504,6 @@ const Messages: React.FC<MessagesProps> = ({ notifications = 3, setNotifications
           </div>
         </div>
       </div>
-
-      <style>{`
-        @media (max-width: 1024px) {
-          .conversation-list {
-            display: block;
-          }
-          .chat-area {
-            display: none;
-          }
-          .conversation-list.chat-active {
-            display: none;
-          }
-          .chat-area.chat-active {
-            display: flex;
-          }
-          .back-button {
-            display: flex;
-          }
-        }
-        @media (min-width: 1025px) {
-          .back-button {
-            display: none;
-          }
-        }
-      `}</style>
     </div>
   );
 };
