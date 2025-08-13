@@ -678,7 +678,6 @@ const Customer: React.FC = () => {
           />
         )} */}
       </main>
-
       <PostJobModal
         isOpen={showPostJob}
         onClose={() => setShowPostJob(false)}
