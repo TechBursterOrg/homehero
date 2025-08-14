@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Filter,
   ArrowRight,
@@ -47,6 +47,9 @@ const Customer: React.FC = () => {
   const [currentLocationAddress, setCurrentLocationAddress] = useState('San Francisco, CA');
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>(providers);
+  
+  // Add ref for providers section
+  const providersRef = useRef<HTMLDivElement>(null);
   
   const [profileData, setProfileData] = useState<UserProfile>({
   name: 'John Doe',
@@ -99,8 +102,21 @@ const Customer: React.FC = () => {
 
   const favoriteProviders = providers.filter(p => favorites.includes(p.id));
 
+  // Updated handleServiceClick to scroll to providers section
   const handleServiceClick = (service: Service) => {
     setSearchQuery(service.name);
+    
+    // Scroll to providers section with smooth animation
+    if (providersRef.current) {
+      const yOffset = -100; // Offset to account for header
+      const element = providersRef.current;
+      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      
+      window.scrollTo({
+        top: y,
+        behavior: 'smooth'
+      });
+    }
   };
 
   const handleProviderBook = (provider: Provider) => {
@@ -462,7 +478,8 @@ const Customer: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-6">
+            {/* Add ref to providers section */}
+            <div ref={providersRef} className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">
                   {serviceType === 'immediate' ? 'Available Providers' : 'Top Rated Providers'}
