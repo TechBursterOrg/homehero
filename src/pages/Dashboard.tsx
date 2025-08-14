@@ -206,15 +206,19 @@ const Dashboard: React.FC = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0 gap-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg sm:text-xl">A</span>
+             <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl sm:rounded-2xl md:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
+                  <span className="text-white font-bold text-sm sm:text-lg md:text-xl">A</span>
                 </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                    Welcome back, Alex! 👋
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
+                    <span className="block sm:inline">Welcome back, Alex!</span> 
+                    <span className="inline sm:inline">👋</span>
                   </h1>
-                  <p className="text-gray-600 text-base sm:text-lg">Ready to make today productive? Here's your overview.</p>
+                  <p className="text-gray-600 text-sm sm:text-base md:text-lg mt-1 leading-relaxed">
+                    <span className="hidden xs:inline">Ready to make today productive? Here's your overview.</span>
+                    <span className="xs:hidden">Here's your overview for today.</span>
+                  </p>
                 </div>
               </div>
             </div>

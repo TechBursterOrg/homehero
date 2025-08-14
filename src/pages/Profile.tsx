@@ -175,18 +175,20 @@ const Profile: React.FC = () => {
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl flex items-center justify-center shadow-lg">
-                  <User className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                    Professional Profile 👤
-                  </h1>
-                  <p className="text-gray-600 text-lg">Manage your profile and showcase your expertise</p>
-                </div>
-              </div>
-            </div>
+  <div className="flex items-center gap-3 sm:gap-4">
+    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
+      <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <h1 className="text-xl sm:text-2xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent break-words">
+        Professional Profile 👤
+      </h1>
+      <p className="text-gray-600 text-sm sm:text-base lg:text-lg mt-1">
+        Manage your profile and showcase your expertise
+      </p>
+    </div>
+  </div>
+</div>
             
             <button
               onClick={() => setIsEditing(!isEditing)}

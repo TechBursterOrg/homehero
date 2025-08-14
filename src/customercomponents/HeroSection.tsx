@@ -79,7 +79,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
   return (
     <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto  sm:px-6 lg:px-8  sm:py-8">
+      <div className="max-w-7xl mx-auto sm:px-6 lg:px-8  sm:py-8">
         {/* Modern Hero Section */}
         <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl">
           {/* Background decorations */}
@@ -91,15 +91,15 @@ const HeroSection: React.FC<HeroSectionProps> = ({
           <div className="relative">
             {/* Header */}
             <div className="text-center mb-8 sm:mb-12">
-              <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl sm:rounded-3xl flex items-center justify-center backdrop-blur-sm border border-white/20">
                   <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-300" />
                 </div>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">
                   Find Trusted Professionals
                 </h1>
               </div>
-              <p className="text-lg sm:text-xl text-blue-100 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-base sm:text-lg lg:text-xl text-blue-100 max-w-2xl mx-auto leading-relaxed">
                 Connect with verified local service providers for all your home needs.
                 From immediate repairs to long-term projects.
               </p>
@@ -107,10 +107,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
             {/* Service Type Toggle */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
-              <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg">
+              <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg w-full sm:w-auto">
                 <button
                   onClick={() => setServiceType('immediate')}
-                  className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 ${
+                  className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 flex-1 sm:flex-initial ${
                     serviceType === 'immediate'
                       ? 'bg-white text-blue-600 shadow-lg transform scale-105'
                       : 'text-white hover:bg-white/20'
@@ -125,7 +125,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </button>
                 <button
                   onClick={() => setServiceType('long-term')}
-                  className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 ${
+                  className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 flex-1 sm:flex-initial ${
                     serviceType === 'long-term'
                       ? 'bg-white text-blue-600 shadow-lg transform scale-105'
                       : 'text-white hover:bg-white/20'
@@ -141,28 +141,28 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg">
+              <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg w-full sm:w-auto">
                 <button
                   onClick={() => onViewModeChange('list')}
-                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all duration-300 ${
+                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all duration-300 flex-1 sm:flex-initial ${
                     viewMode === 'list'
                       ? 'bg-white text-blue-600 shadow-md'
                       : 'text-white hover:bg-white/20'
                   }`}
                 >
                   <List className="w-4 h-4" />
-                  <span className="hidden sm:inline">List</span>
+                  <span>List</span>
                 </button>
                 <button
                   onClick={() => onViewModeChange('map')}
-                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all duration-300 ${
+                  className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all duration-300 flex-1 sm:flex-initial ${
                     viewMode === 'map'
                       ? 'bg-white text-blue-600 shadow-md'
                       : 'text-white hover:bg-white/20'
                   }`}
                 >
                   <Map className="w-4 h-4" />
-                  <span className="hidden sm:inline">Map</span>
+                  <span>Map</span>
                 </button>
               </div>
             </div>
@@ -183,7 +183,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   />
                 </div>
                 
-                <div className="lg:w-80">
+                <div className="w-full lg:w-80">
                   <div className="relative">
                     <div className="absolute left-4 sm:left-6 top-4 sm:top-5 w-5 h-5 sm:w-6 sm:h-6 text-gray-400 bg-gray-100 rounded-lg flex items-center justify-center">
                       <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -204,13 +204,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   </div>
                 </div>
                 
-                <div className="flex space-x-2 sm:space-x-3">
+                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 sm:space-x-3">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`bg-white/20 backdrop-blur-sm text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-2xl hover:bg-white/30 transition-all duration-200 border border-white/20 flex items-center space-x-2 shadow-lg font-medium ${showFilters ? 'bg-white/30' : ''}`}
+                    className={`bg-white/20 backdrop-blur-sm text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-2xl hover:bg-white/30 transition-all duration-200 border border-white/20 flex items-center justify-center space-x-2 shadow-lg font-medium ${showFilters ? 'bg-white/30' : ''}`}
                   >
                     <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="hidden sm:inline">Filters</span>
+                    <span>Filters</span>
                   </button>
                   
                   {serviceType === 'immediate' ? (
@@ -234,7 +234,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               {/* Enhanced Filters Panel */}
               {showFilters && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20 animate-in slide-in-from-top-2 duration-200 shadow-lg">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-bold text-white/90 mb-3">
                         Search Radius
@@ -273,7 +273,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                       </div>
                     </div>
                     
-                    <div>
+                    <div className="md:col-span-2 lg:col-span-1">
                       <label className="block text-sm font-bold text-white/90 mb-3">
                         When do you need it?
                       </label>

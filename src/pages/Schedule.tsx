@@ -176,28 +176,30 @@ const Schedule: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Modern Header */}
         <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-blue-700 rounded-3xl flex items-center justify-center shadow-lg">
-                  <Calendar className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                    Schedule Management 📅
-                  </h1>
-                  <p className="text-gray-600 text-lg">Organize your appointments and track your availability</p>
-                </div>
-              </div>
-            </div>
-            
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center gap-3">
-              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                <Plus className="w-4 h-4" />
-              </div>
-              <span>Add Appointment</span>
-            </button>
-          </div>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
+  <div className="space-y-2">
+    <div className="flex items-center gap-3 sm:gap-4">
+      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-blue-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
+        <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
+          Schedule Management 📅
+        </h1>
+        <p className="text-gray-600 text-sm sm:text-base lg:text-lg mt-1">
+          Organize your appointments and track your availability
+        </p>
+      </div>
+    </div>
+  </div>
+  
+  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
+    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
+      <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+    </div>
+    <span className="text-sm sm:text-base">Add Appointment</span>
+  </button>
+</div>
         </div>
 
         {/* Enhanced Stats Cards */}

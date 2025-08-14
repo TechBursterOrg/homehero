@@ -911,7 +911,7 @@ const Jobs: React.FC = () => {
 
                     <form onSubmit={handleApplicationSubmit} className="space-y-4 sm:space-y-6">
                       <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
+                        {/* <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
                           Why are you the right person for this job? *
                         </label>
                         <textarea
@@ -921,7 +921,7 @@ const Jobs: React.FC = () => {
                           rows={4}
                           className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
                           placeholder={selectedJob.isImmediate ? "Explain how quickly you can respond and why you're available immediately..." : "Tell the customer about your experience and why you're perfect for this job..."}
-                        />
+                        /> */}
                       </div>
 
                       <div>
@@ -952,7 +952,7 @@ const Jobs: React.FC = () => {
                         />
                       </div>
 
-                      <div>
+                      {/* <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
                           Relevant Experience (Optional)
                         </label>
@@ -963,7 +963,7 @@ const Jobs: React.FC = () => {
                           className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
                           placeholder="Share any relevant experience, certifications, or previous similar work..."
                         />
-                      </div>
+                      </div> */}
 
                       <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-0 sm:justify-between pt-4 sm:pt-6 border-t border-gray-100">
                         <button
