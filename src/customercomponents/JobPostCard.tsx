@@ -85,9 +85,20 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
     return 'from-green-600 to-blue-600';
   };
 
+  const handleCardClick = () => {
+    onViewProposals(jobPost.id);
+  };
+
+  const handleStopPropagation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
     <>
-      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden">
+      <div 
+        className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden cursor-pointer"
+        onClick={handleCardClick}
+      >
         {/* Mobile Layout */}
         <div className="flex flex-col sm:hidden space-y-4">
           {/* Header Row */}
@@ -109,7 +120,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1" onClick={handleStopPropagation}>
                   {onToggleFavorite && (
                     <button
                       onClick={() => onToggleFavorite(jobPost.id)}
@@ -195,7 +206,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100" onClick={handleStopPropagation}>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => onViewProposals(jobPost.id)}
@@ -243,7 +254,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                 </p>
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" onClick={handleStopPropagation}>
                 {onToggleFavorite && (
                   <button
                     onClick={() => onToggleFavorite(jobPost.id)}
@@ -337,7 +348,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3" onClick={handleStopPropagation}>
                 <button 
                   onClick={() => onViewProposals(jobPost.id)}
                   className="p-3 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-xl transition-all duration-200 hover:scale-105"

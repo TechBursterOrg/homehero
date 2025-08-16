@@ -282,7 +282,7 @@ const Settings: React.FC = () => {
                   {activeSection === "general" && (
                     <div className="space-y-6 lg:space-y-8">
                       {/* Theme Toggle */}
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
+                      {/* <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
                         <div className="flex items-center justify-between gap-3 sm:gap-4">
                           <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                             <div
@@ -324,7 +324,7 @@ const Settings: React.FC = () => {
                             />
                           </button>
                         </div>
-                      </div>
+                      </div> */}
 
                       {/* Language & Region */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
