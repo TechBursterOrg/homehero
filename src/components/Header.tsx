@@ -33,9 +33,9 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
             <a href="#providers" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
               Become a Provider
             </a>
-            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
-              Get Started
-            </button>
+            <a href="/waitlist" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+              Join Waitlist
+            </a>
           </nav>
 
           <button
@@ -58,9 +58,9 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
               <a href="#providers" className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors">
                 Become a Provider
               </a>
-              <button className="w-full text-left bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Get Started
-              </button>
+              <a href="/waitlist" className="block w-full text-left bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                Join Waitlist
+              </a>
             </div>
           </div>
         )}
