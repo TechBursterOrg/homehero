@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Home,
   Mail,
@@ -9,7 +9,7 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const LoginPage: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -36,7 +36,7 @@ const LoginPage: React.FC = () => {
     if (error) setError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
 
@@ -50,9 +50,9 @@ const LoginPage: React.FC = () => {
 
       // Check credentials
       if (formData.email === "techuredev@gmail.com" && formData.password === "Password123") {
-        // Redirect based on user type selection
+        // Redirect based on user type selection - FIXED TYPO
         if (formData.userType === "provider") {
-          navigate("/dasboard");
+          navigate("/dashboard"); // Fixed: was "/dasboard"
         } else {
           navigate("/customer");
         }
@@ -60,8 +60,32 @@ const LoginPage: React.FC = () => {
         setError("Invalid email or password. Please try again.");
       }
     } else {
-      // Handle sign up logic here if needed
+      // Handle sign up logic
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
+        setError("Please fill in all required fields.");
+        return;
+      }
+      
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters long.");
+        return;
+      }
+      
       console.log("Sign up form submitted:", formData);
+      // Reset form and switch to login
+      setIsLogin(true);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        userType: "customer",
+      });
     }
   };
 
@@ -381,22 +405,24 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
 
-      {/* <style jsx>{`
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
+      <style>
+        {`
+          @keyframes fade-in-up {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
           }
-          to {
-            opacity: 1;
-            transform: translateY(0);
+          
+          .animate-fade-in-up {
+            animation: fade-in-up 0.6s ease-out forwards;
           }
-        }
-        
-        .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out forwards;
-        }
-      `}</style> */}
+        `}
+      </style>
     </div>
   );
 };

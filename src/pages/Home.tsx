@@ -1,4 +1,4 @@
-import  { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import Features from '../components/Features';
@@ -16,15 +16,20 @@ function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-
   return (
     <div>
       <Header scrollY={scrollY}/>
       <Hero />
       <Features />
-      <HowItWorks />
-      <Services />
-      <ProviderOpportunity />
+      <div id="how-it-works">
+        <HowItWorks />
+      </div>
+      <div id="services">
+        <Services />
+      </div>
+      <div id="providers">
+        <ProviderOpportunity />
+      </div>
       <Footer />
     </div>
   )
