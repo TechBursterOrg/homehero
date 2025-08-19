@@ -1,10 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
-import LandingHome from './pages/LandingHome';
 import CustomerPage from './customerpages/Customer';
 import Waitlist from './pages/Waitlist';
+import ProviderLayout from './pages/Provider';
 
 function App() {
   return (
@@ -13,9 +14,10 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/waitlist" element={<Waitlist />} />
-          <Route path="/dashboard" element={<LandingHome />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/customer" element={<CustomerPage />} />
+          <Route path="/dashboard" element={<Navigate to="/provider/dashboard" replace />} />
+          <Route path="/customer/*" element={<CustomerPage />} />
+          <Route path="/provider/*" element={<ProviderLayout />} />
         </Routes>
       </Router>
     </div>

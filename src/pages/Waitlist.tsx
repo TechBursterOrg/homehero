@@ -1,5 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, User, Phone, MapPin, CheckCircle, ArrowLeft, Sparkles } from 'lucide-react';
+
+// Extend the Window interface to include emailjs
+declare global {
+  interface Window {
+    emailjs: {
+      init: (publicKey: string) => void;
+      send: (
+        serviceId: string,
+        templateId: string,
+        templateParams: Record<string, unknown>,
+        publicKey: string
+      ) => Promise<void>;
+    };
+  }
+}
 
 const WaitlistPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +26,20 @@ const WaitlistPage: React.FC = () => {
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Load EmailJS script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js';
+    script.onload = () => {
+      window.emailjs.init('saHD3teB_50Q5qcEb');
+    };
+    document.head.appendChild(script);
+    
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -24,19 +53,38 @@ const WaitlistPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+    try {
+      // Send email using EmailJS with your actual credentials
+      await window.emailjs.send(
+        'service_f88ijhp', // Your service ID
+        'template_2e9xh29', // Your template ID
+        {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          location: formData.location,
+          userType: formData.userType,
+          joinDate: new Date().toLocaleDateString(),
+          waitlistNumber: Math.floor(Math.random() * 1000) + 1300
+        },
+        'saHD3teB_50Q5qcEb' // Your public key
+      );
+      
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error('Failed to submit:', error);
+      setIsSubmitting(false);
+      alert('Failed to join waitlist. Please try again.');
+    }
   };
 
   if (isSubmitted) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center px-4">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2260%22%20height=%2260%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern%20id=%22confetti%22%20width=%2260%22%20height=%2260%22%20patternUnits=%22userSpaceOnUse%22%3E%3Ccircle%20cx=%2210%22%20cy=%2210%22%20r=%221%22%20fill=%22%23dbeafe%22/%3E%3Ccircle%20cx=%2250%22%20cy=%2250%22%20r=%221.5%22%20fill=%22%23dcfce7%22/%3E%3Cpolygon%20points=%2230,5%2032,10%2028,10%22%20fill=%22%23fef3c7%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22url(%23confetti)%22/%3E%3C/svg%3E')] opacity-30"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2760%22%20height=%2760%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern%20id=%22confetti%22%20width=%2760%22%20height=%2760%22%20patternUnits=%22userSpaceOnUse%22%3E%3Ccircle%20cx=%2210%22%20cy=%2210%22%20r=%221%22%20fill=%22%23dbeafe%22/%3E%3Ccircle%20cx=%2750%22%20cy=%2750%22%20r=%221.5%22%20fill=%22%23dcfce7%22/%3E%3Cpolygon%20points=%2230,5%2032,10%2028,10%22%20fill=%22%23fef3c7%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22url(%23confetti)%22/%3E%3C/svg%3E')] opacity-30"></div>
         
-        <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full text-center animate-fade-in-up">
+        <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full text-center">
           <div className="animate-bounce mb-6">
             <CheckCircle className="w-20 h-20 text-green-500 mx-auto animate-pulse" />
           </div>
@@ -184,7 +232,7 @@ const WaitlistPage: React.FC = () => {
           </div>
 
           <button
-            type="submit"
+            onClick={handleSubmit}
             disabled={isSubmitting}
             className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-4 rounded-xl font-semibold hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center space-x-2"
           >

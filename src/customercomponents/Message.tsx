@@ -641,34 +641,7 @@ const Messages: React.FC<MessagesProps> = ({
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-100">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 lg:py-8">
           {/* Mobile-First Header - Updated Colors */}
-          <div className="mb-4 lg:mb-8">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 lg:gap-6">
-              <div className="space-y-1 lg:space-y-2">
-                <div className="flex items-center gap-2 lg:gap-4">
-                  <div className="w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg">
-                    <MessageSquare className="w-6 h-6 lg:w-8 lg:h-8 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-lg sm:text-xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                      Service Providers 💬
-                    </h1>
-                    <p className="text-gray-600 text-sm lg:text-lg hidden sm:block">Connect with trusted professionals</p>
-                  </div>
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => onStartConversation('new')}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center gap-2 lg:gap-3 text-sm lg:text-base"
-              >
-                <div className="w-5 h-5 lg:w-6 lg:h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Plus className="w-3 h-3 lg:w-4 lg:h-4" />
-                </div>
-                <span className="hidden sm:inline">Find New Provider</span>
-                <span className="sm:hidden">Find Provider</span>
-              </button>
-            </div>
-          </div>
+          
 
           {/* Main Messages Interface */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl lg:rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-140px)] lg:h-[calc(100vh-400px)] min-h-[500px] lg:min-h-[600px] flex">

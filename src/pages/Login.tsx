@@ -1,4 +1,5 @@
-import { useState } from "react";
+import React, { useState } from "react";
+import { useNavigate } from 'react-router-dom';
 import {
   Home,
   Mail,
@@ -9,9 +10,9 @@ import {
   Shield,
   Star,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 const LoginPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -23,11 +24,7 @@ const LoginPage: React.FC = () => {
     userType: "customer",
   });
 
-  const navigate = useNavigate();
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -50,11 +47,11 @@ const LoginPage: React.FC = () => {
 
       // Check credentials
       if (formData.email === "techuredev@gmail.com" && formData.password === "Password123") {
-        // Redirect based on user type selection - FIXED TYPO
+        // Redirect based on user type selection
         if (formData.userType === "provider") {
-          navigate("/dashboard"); // Fixed: was "/dasboard"
+          navigate("/dashboard"); // This will redirect to /provider/dashboard via App.js
         } else {
-          navigate("/customer");
+          navigate("/customer"); // This will go to customer page
         }
       } else {
         setError("Invalid email or password. Please try again.");
@@ -199,7 +196,6 @@ const LoginPage: React.FC = () => {
                       onChange={handleInputChange}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                       placeholder="Enter your full name"
-                      required={!isLogin}
                     />
                   </div>
                 </div>
@@ -218,7 +214,6 @@ const LoginPage: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     placeholder="Enter your email"
-                    required
                   />
                 </div>
               </div>
@@ -236,7 +231,6 @@ const LoginPage: React.FC = () => {
                     onChange={handleInputChange}
                     className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     placeholder="Enter your password"
-                    required
                   />
                   <button
                     type="button"
@@ -266,7 +260,6 @@ const LoginPage: React.FC = () => {
                       onChange={handleInputChange}
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                       placeholder="Confirm your password"
-                      required={!isLogin}
                     />
                   </div>
                 </div>
@@ -301,9 +294,8 @@ const LoginPage: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                   >
                     <option value="customer">Find Services (Customer)</option>
-                    <option value="provider">
-                      Provide Services (Provider)
-                    </option>
+                    <option value="provider">Provide Services (Provider)</option>
+                    <option value="both">Both (Customer & Provider)</option>
                   </select>
                 </div>
               )}
@@ -317,12 +309,12 @@ const LoginPage: React.FC = () => {
                     />
                     <span className="ml-2 text-gray-600">Remember me</span>
                   </label>
-                  <a
-                    href="#"
+                  <button
+                    type="button"
                     className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
                   >
                     Forgot password?
-                  </a>
+                  </button>
                 </div>
               )}
 
@@ -355,7 +347,10 @@ const LoginPage: React.FC = () => {
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button className="w-full flex justify-center items-center px-4 py-3 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 hover:scale-105">
+                <button 
+                  type="button"
+                  className="w-full flex justify-center items-center px-4 py-3 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 hover:scale-105"
+                >
                   <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
@@ -376,7 +371,10 @@ const LoginPage: React.FC = () => {
                   </svg>
                   Google
                 </button>
-                <button className="w-full flex justify-center items-center px-4 py-3 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 hover:scale-105">
+                <button 
+                  type="button"
+                  className="w-full flex justify-center items-center px-4 py-3 border border-gray-300 rounded-xl shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 hover:scale-105"
+                >
                   <svg
                     className="w-5 h-5 mr-2"
                     fill="currentColor"
@@ -395,6 +393,7 @@ const LoginPage: React.FC = () => {
                 ? "Don't have an account? "
                 : "Already have an account? "}
               <button
+                type="button"
                 onClick={() => setIsLogin(!isLogin)}
                 className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
               >

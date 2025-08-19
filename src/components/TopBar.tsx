@@ -1,13 +1,28 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { Bell, User, Menu } from 'lucide-react';
 
 interface TopBarProps {
-  activeTab: string;
   notifications: number;
   setSidebarOpen: (open: boolean) => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ activeTab, notifications, setSidebarOpen }) => {
+const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
+  const location = useLocation();
+  
+  // Get the current page title from the path
+  const getPageTitle = (): string => {
+    const path = location.pathname;
+    if (path.includes('/dashboard')) return 'Dashboard';
+    if (path.includes('/jobs')) return 'Jobs';
+    if (path.includes('/schedule')) return 'Schedule';
+    if (path.includes('/messages')) return 'Messages';
+    if (path.includes('/earnings')) return 'Earnings';
+    if (path.includes('/profile')) return 'Profile';
+    if (path.includes('/settings')) return 'Settings';
+    return 'Dashboard'; // Default
+  };
+
   return (
     <div className="bg-white shadow-sm border-b border-gray-200 p-4">
       <div className="flex items-center justify-between">
@@ -18,8 +33,8 @@ const TopBar: React.FC<TopBarProps> = ({ activeTab, notifications, setSidebarOpe
           >
             <Menu className="w-5 h-5 text-gray-600" />
           </button>
-          <h2 className="text-lg font-semibold text-gray-900 capitalize">
-            {activeTab === 'messages' ? 'Messages' : activeTab}
+          <h2 className="text-lg font-semibold text-gray-900">
+            {getPageTitle()}
           </h2>
         </div>
         

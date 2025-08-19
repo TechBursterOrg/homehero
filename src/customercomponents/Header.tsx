@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Bell,
   User,
@@ -7,11 +8,9 @@ import {
   MessageCircle,
   Home
 } from 'lucide-react';
-import { ActiveTab, UserProfile } from '../types';
+import { UserProfile } from '../types';
 
 interface HeaderProps {
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
   isMenuOpen: boolean;
   setIsMenuOpen: (isOpen: boolean) => void;
   profileData: UserProfile;
@@ -19,20 +18,33 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({
-  activeTab,
-  setActiveTab,
   isMenuOpen,
   setIsMenuOpen,
   unreadMessagesCount = 0,
   profileData
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const navigation = [
-    { id: 'services', label: 'Find Services' },
-    { id: 'bookings', label: 'My Bookings' },
-    { id: 'jobs', label: 'My Jobs' },
-    { id: 'favorites', label: 'Favorites' },
-    { id: 'messages', label: 'Messages' } // Fixed: Changed from 'Message' to 'Messages'
+    { id: 'services', label: 'Find Services', path: '/customer' },
+    { id: 'bookings', label: 'My Bookings', path: '/customer/bookings' },
+    { id: 'jobs', label: 'My Jobs', path: '/customer/jobs' },
+    { id: 'favorites', label: 'Favorites', path: '/customer/favorites' },
+    { id: 'messages', label: 'Messages', path: '/customer/messages' }
   ] as const;
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    setIsMenuOpen(false);
+  };
+
+  const isActivePath = (path: string) => {
+    if (path === '/customer') {
+      return location.pathname === '/customer' || location.pathname === '/customer/';
+    }
+    return location.pathname === path;
+  };
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -43,9 +55,12 @@ const Header: React.FC<HeaderProps> = ({
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
               <Home className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            <button
+              onClick={() => navigate('/customer')}
+              className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+            >
               HomeHero
-            </span>
+            </button>
           </div>
 
           {/* Desktop Navigation */}
@@ -53,9 +68,9 @@ const Header: React.FC<HeaderProps> = ({
             {navigation.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id as ActiveTab)}
+                onClick={() => handleNavigation(item.path)}
                 className={`text-sm font-medium transition-colors duration-200 relative ${
-                  activeTab === item.id ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  isActivePath(item.path) ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {item.label}
@@ -78,7 +93,7 @@ const Header: React.FC<HeaderProps> = ({
 
             {/* Quick Messages Button - Mobile Only */}
             <button
-              onClick={() => setActiveTab('messages')}
+              onClick={() => handleNavigation('/customer/messages')}
               className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
             >
               <MessageCircle className="w-5 h-5" />
@@ -91,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({
             
             <div className="hidden md:flex items-center space-x-3">
               <button
-                onClick={() => setActiveTab('profile')}
+                onClick={() => {/* Add profile navigation if needed */}}
                 className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
               >
                 {profileData.avatar ? (
@@ -128,12 +143,9 @@ const Header: React.FC<HeaderProps> = ({
             {navigation.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id as ActiveTab);
-                  setIsMenuOpen(false);
-                }}
+                onClick={() => handleNavigation(item.path)}
                 className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                  isActivePath(item.path) ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 <span>{item.label}</span>
@@ -147,12 +159,10 @@ const Header: React.FC<HeaderProps> = ({
             ))}
             <button
               onClick={() => {
-                setActiveTab('profile');
+                // Add profile navigation if needed
                 setIsMenuOpen(false);
               }}
-              className={`block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === 'profile' ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50"
             >
               Profile
             </button>

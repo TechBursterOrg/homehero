@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
   Briefcase, 
@@ -12,32 +13,29 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
   notifications: number;
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-  activeTab, 
-  setActiveTab, 
   notifications, 
   sidebarOpen, 
   setSidebarOpen 
 }) => {
+  const location = useLocation();
+  
   const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'jobs', label: 'Jobs', icon: Briefcase },
-    { id: 'schedule', label: 'Schedule', icon: Calendar },
-    { id: 'messages', label: 'Messages', icon: MessageSquare },
-    { id: 'earnings', label: 'Earnings', icon: DollarSign },
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/provider/dashboard' },
+    { id: 'jobs', label: 'Jobs', icon: Briefcase, path: '/provider/jobs' },
+    { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/provider/schedule' },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/provider/messages' },
+    { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/provider/earnings' },
+    { id: 'profile', label: 'Profile', icon: User, path: '/provider/profile' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/provider/settings' },
   ];
 
-  const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
+  const handleLinkClick = () => {
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
     }
@@ -80,28 +78,32 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation */}
         <nav className="flex-1 p-4">
           <ul className="space-y-2">
-            {sidebarItems.map((item) => (
-              <li key={item.id}>
-                <button
-                  onClick={() => handleTabClick(item.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 text-left group ${
-                    activeTab === item.id
-                      ? 'bg-gradient-to-r from-blue-50 to-green-50 text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }`}
-                >
-                  <item.icon className={`w-5 h-5 transition-colors ${
-                    activeTab === item.id ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
-                  }`} />
-                  <span className="font-medium">{item.label}</span>
-                  {item.id === 'messages' && notifications > 0 && (
-                    <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-auto animate-pulse">
-                      {notifications}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
+            {sidebarItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <li key={item.id}>
+                  <Link
+                    to={item.path}
+                    onClick={handleLinkClick}
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 text-left group ${
+                      isActive
+                        ? 'bg-gradient-to-r from-blue-50 to-green-50 text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <item.icon className={`w-5 h-5 transition-colors ${
+                      isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
+                    }`} />
+                    <span className="font-medium">{item.label}</span>
+                    {item.id === 'messages' && notifications > 0 && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full ml-auto animate-pulse">
+                        {notifications}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
