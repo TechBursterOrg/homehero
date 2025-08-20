@@ -7,28 +7,59 @@ import {
   Phone, 
   MapPin, 
   Camera,
-  Shield,
   Award,
   Clock,
   CheckCircle,
   Calendar,
-  ThumbsUp,
   Settings,
   Trophy,
   Heart,
   Zap,
   Target,
-  Activity,
-  ChevronRight,
   Sparkles,
   BadgeCheck,
-  Globe,
-  TrendingUp
+  TrendingUp,
+  Images,
+  X,
+  Eye,
+  Plus
 } from 'lucide-react';
+
+// Define types for better TypeScript support
+interface GalleryImage {
+  id: number;
+  url: string;
+  title: string;
+  category: string;
+  description: string;
+  date: string;
+}
+
+interface Review {
+  id: number;
+  client: string;
+  rating: number;
+  date: string;
+  comment: string;
+  service: string;
+  avatar: string;
+}
+
+interface Service {
+  name: string;
+  price: string;
+  experience: string;
+  icon: string;
+  popularity: number;
+  category: string;
+}
 
 const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
+  const [isGalleryModalOpen, setIsGalleryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   const profileData = {
     name: 'Alex Rodriguez',
@@ -46,7 +77,7 @@ const Profile: React.FC = () => {
     repeatCustomers: 85
   };
 
-  const services = [
+  const services: Service[] = [
     { 
       name: 'House Cleaning', 
       price: '$25-35/hr', 
@@ -97,7 +128,74 @@ const Profile: React.FC = () => {
     }
   ];
 
-  const reviews = [
+  const galleryImages: GalleryImage[] = [
+    {
+      id: 1,
+      url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&h=400&fit=crop',
+      title: 'Modern Kitchen Deep Clean',
+      category: 'cleaning',
+      description: 'Complete deep cleaning of a modern kitchen including appliances and countertops. Used specialized cleaning products to restore the kitchen to pristine condition.',
+      date: '2024-08-15'
+    },
+    {
+      id: 2,
+      url: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600&h=400&fit=crop',
+      title: 'Luxury Bathroom Renovation',
+      category: 'handyman',
+      description: 'Full bathroom renovation including plumbing, tiling, and fixture installation. Transformed an outdated bathroom into a modern luxury space.',
+      date: '2024-08-10'
+    },
+    {
+      id: 3,
+      url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&h=400&fit=crop',
+      title: 'Living Room Transformation',
+      category: 'cleaning',
+      description: 'Professional cleaning and organization of spacious living area. Deep cleaned carpets, furniture, and all surfaces for a fresh new look.',
+      date: '2024-08-08'
+    },
+    {
+      id: 4,
+      url: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=600&h=400&fit=crop',
+      title: 'Garden Landscape Design',
+      category: 'gardening',
+      description: 'Complete garden makeover with new plantings and landscaping. Created a beautiful outdoor space with seasonal flowers and plants.',
+      date: '2024-08-05'
+    },
+    {
+      id: 5,
+      url: 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=600&h=400&fit=crop',
+      title: 'Kitchen Plumbing Repair',
+      category: 'handyman',
+      description: 'Professional sink and faucet installation with new plumbing. Fixed leaks and upgraded to modern, efficient fixtures.',
+      date: '2024-07-30'
+    },
+    {
+      id: 6,
+      url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=600&h=400&fit=crop',
+      title: 'Bedroom Deep Clean',
+      category: 'cleaning',
+      description: 'Thorough cleaning and sanitizing of master bedroom. Organized closets and cleaned all surfaces for a peaceful environment.',
+      date: '2024-07-28'
+    },
+    {
+      id: 7,
+      url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=600&h=400&fit=crop',
+      title: 'Backyard Garden Maintenance',
+      category: 'gardening',
+      description: 'Regular maintenance and pruning of backyard garden. Kept the garden healthy and beautiful throughout the growing season.',
+      date: '2024-07-25'
+    },
+    {
+      id: 8,
+      url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&h=400&fit=crop',
+      title: 'Interior Painting Project',
+      category: 'handyman',
+      description: 'Professional interior painting of multiple rooms. Used premium paint and techniques for a flawless finish.',
+      date: '2024-07-20'
+    }
+  ];
+
+  const reviews: Review[] = [
     {
       id: 1,
       client: 'Sarah Johnson',
@@ -161,11 +259,21 @@ const Profile: React.FC = () => {
     ));
   };
 
+  const filteredImages = selectedCategory === 'all' 
+    ? galleryImages 
+    : galleryImages.filter(img => img.category === selectedCategory);
+
   const tabs = [
     { id: 'overview', name: 'Overview', icon: User },
     { id: 'services', name: 'Services', icon: Settings },
+    { id: 'gallery', name: 'Gallery', icon: Images },
     { id: 'reviews', name: 'Reviews', icon: Star }
   ];
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Image';
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -308,6 +416,11 @@ const Profile: React.FC = () => {
                       {profileData.totalReviews}
                     </span>
                   )}
+                  {tab.id === 'gallery' && (
+                    <span className="bg-purple-100 text-purple-600 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold">
+                      {galleryImages.length}
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -428,6 +541,96 @@ const Profile: React.FC = () => {
               </div>
             )}
 
+            {activeTab === 'gallery' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <Images className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900">Work Gallery</h3>
+                      <p className="text-gray-600 text-sm sm:text-base">Showcase of completed projects</p>
+                    </div>
+                  </div>
+                  {isEditing && (
+                    <button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
+                      <Plus className="w-4 h-4" />
+                      <span>Add Photo</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex flex-wrap gap-2 sm:gap-3">
+                  {['all', 'cleaning', 'handyman', 'gardening'].map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl border transition-all duration-200 text-sm sm:text-base font-medium capitalize ${
+                        selectedCategory === category
+                          ? 'bg-purple-500 text-white border-purple-500'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                      }`}
+                    >
+                      {category} {category !== 'all' && `(${galleryImages.filter(img => img.category === category).length})`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Image Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                  {filteredImages.map((image) => (
+                    <div
+                      key={image.id}
+                      className="group relative bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer"
+                      onClick={() => {
+                        setSelectedImage(image);
+                        setIsGalleryModalOpen(true);
+                      }}
+                    >
+                      <div className="aspect-square bg-gray-100">
+                        <img
+                          src={image.url}
+                          alt={image.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          onError={handleImageError}
+                        />
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                          <h4 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2">
+                            {image.title}
+                          </h4>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-300 capitalize">{image.category}</span>
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      </div>
+                      {/* Category Badge */}
+                      <div className="absolute top-2 left-2">
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium text-white shadow-lg ${
+                          image.category === 'cleaning' ? 'bg-blue-500' :
+                          image.category === 'handyman' ? 'bg-orange-500' :
+                          'bg-green-500'
+                        }`}>
+                          {image.category}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {filteredImages.length === 0 && (
+                  <div className="text-center py-12">
+                    <Images className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">No images found for this category</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'reviews' && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -480,6 +683,112 @@ const Profile: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Gallery Modal */}
+        {isGalleryModalOpen && selectedImage && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                    <Images className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">Work Gallery</h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsGalleryModalOpen(false);
+                    setSelectedImage(null);
+                  }}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
+                >
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                </button>
+              </div>
+              <div className="p-4 sm:p-6 max-h-[calc(95vh-80px)] overflow-y-auto">
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="aspect-video bg-gray-100 rounded-xl sm:rounded-2xl overflow-hidden">
+                      <img
+                        src={selectedImage.url}
+                        alt={selectedImage.title}
+                        className="w-full h-full object-cover"
+                        onError={handleImageError}
+                      />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {galleryImages.map((image) => (
+                        <button
+                          key={image.id}
+                          onClick={() => setSelectedImage(image)}
+                          className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                            selectedImage.id === image.id ? 'border-purple-500' : 'border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <img
+                            src={image.url}
+                            alt={image.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://via.placeholder.com/64x64/e2e8f0/64748b?text=Img';
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <h4 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{selectedImage.title}</h4>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`px-3 py-1 rounded-lg text-sm font-medium text-white ${
+                          selectedImage.category === 'cleaning' ? 'bg-blue-500' :
+                          selectedImage.category === 'handyman' ? 'bg-orange-500' :
+                          'bg-green-500'
+                        }`}>
+                          {selectedImage.category}
+                        </span>
+                        <span className="text-sm text-gray-600">{selectedImage.date}</span>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Award className="w-5 h-5 text-purple-600" />
+                        <span className="font-semibold text-purple-900">Project Highlights</span>
+                      </div>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Completed on time and within budget
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Used eco-friendly materials and methods
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Customer satisfaction: 100%
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
+                        Similar Service
+                      </button>
+                      <button className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Share
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

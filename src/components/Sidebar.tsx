@@ -31,6 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/provider/schedule' },
     { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/provider/messages' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/provider/earnings' },
+    { id: 'Gallery', label: 'Gallery', icon: DollarSign, path: '/provider/gallery' },
     { id: 'profile', label: 'Profile', icon: User, path: '/provider/profile' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/provider/settings' },
   ];

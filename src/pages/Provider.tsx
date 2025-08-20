@@ -9,6 +9,7 @@ import Messages from './Messages';
 import Earnings from './Earnings';
 import Profile from './Profile';
 import Settings from './Settings';
+import Gallery from './Gallery';
 
 const ProviderLayout = () => {
   const [notifications, setNotifications] = useState(3);
@@ -36,6 +37,7 @@ const ProviderLayout = () => {
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/messages" element={<Messages notifications={notifications} setNotifications={setNotifications} />} />
             <Route path="/earnings" element={<Earnings />} />
+            <Route path="/gallery" element={<Gallery/>} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
