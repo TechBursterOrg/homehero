@@ -19,14 +19,83 @@ import {
   Activity,
   Sparkles,
   Target,
-  Zap
+  Zap,
+  PoundSterling
 } from 'lucide-react';
 
-const Schedule: React.FC = () => {
+interface ScheduleProps {
+  // Temporary prop for country selection - remove when authentication is complete
+  userCountry?: 'UK' | 'USA' | 'CANADA' | 'NIGERIA';
+}
+
+const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending'>('all');
+
+  // Currency configuration based on country
+  const getCurrencyConfig = (country: string) => {
+    switch (country) {
+      case 'UK':
+        return {
+          symbol: '£',
+          icon: PoundSterling,
+          name: 'GBP'
+        };
+      case 'NIGERIA':
+        return {
+          symbol: '₦',
+          icon: () => <span className="text-base font-bold">₦</span>, // Custom Naira symbol
+          name: 'NGN'
+        };
+      case 'CANADA':
+        return {
+          symbol: 'C$',
+          icon: DollarSign,
+          name: 'CAD'
+        };
+      case 'USA':
+      default:
+        return {
+          symbol: '$',
+          icon: DollarSign,
+          name: 'USD'
+        };
+    }
+  };
+
+  const currencyConfig = getCurrencyConfig(userCountry);
+  const CurrencyIcon = currencyConfig.icon;
+
+  // Get localized payments based on country
+  const getLocalizedPayments = () => {
+    const basePayments = [75, 120, 80, 60]; // Base prices in USD
+    const multipliers = {
+      'UK': { multiplier: 0.79, symbol: '£' },
+      'NIGERIA': { multiplier: 1650, symbol: '₦' },
+      'CANADA': { multiplier: 1.35, symbol: 'C$' },
+      'USA': { multiplier: 1, symbol: '$' }
+    };
+
+    const config = multipliers[userCountry] || multipliers['USA'];
+    return basePayments.map(payment => ({
+      amount: Math.round(payment * config.multiplier),
+      symbol: config.symbol
+    }));
+  };
+
+  const localizedPayments = getLocalizedPayments();
+
+  const getCountryFlag = (country: string) => {
+    switch (country) {
+      case 'UK': return '🇬🇧';
+      case 'USA': return '🇺🇸';
+      case 'CANADA': return '🇨🇦';
+      case 'NIGERIA': return '🇳🇬';
+      default: return '🇺🇸';
+    }
+  };
 
   const appointments = [
     {
@@ -39,7 +108,7 @@ const Schedule: React.FC = () => {
       time: '10:00 AM',
       endTime: '1:00 PM',
       duration: '3 hours',
-      payment: '$75',
+      payment: `${localizedPayments[0].symbol}${localizedPayments[0].amount}`,
       status: 'confirmed',
       notes: 'Client prefers eco-friendly products',
       category: 'cleaning',
@@ -55,7 +124,7 @@ const Schedule: React.FC = () => {
       time: '2:00 PM',
       endTime: '4:00 PM',
       duration: '2 hours',
-      payment: '$120',
+      payment: `${localizedPayments[1].symbol}${localizedPayments[1].amount}`,
       status: 'confirmed',
       notes: 'Kitchen sink leak repair',
       category: 'handyman',
@@ -71,7 +140,7 @@ const Schedule: React.FC = () => {
       time: '9:00 AM',
       endTime: '1:00 PM',
       duration: '4 hours',
-      payment: '$80',
+      payment: `${localizedPayments[2].symbol}${localizedPayments[2].amount}`,
       status: 'pending',
       notes: 'Weekly maintenance service',
       category: 'gardening',
@@ -87,7 +156,7 @@ const Schedule: React.FC = () => {
       time: '11:00 AM',
       endTime: '1:00 PM',
       duration: '2 hours',
-      payment: '$60',
+      payment: `${localizedPayments[3].symbol}${localizedPayments[3].amount}`,
       status: 'confirmed',
       notes: 'Post-renovation cleanup',
       category: 'cleaning',
@@ -169,7 +238,14 @@ const Schedule: React.FC = () => {
   );
 
   const todayAppointments = getAppointmentsForDate(today);
-  const totalRevenue = filteredAppointments.reduce((sum, apt) => sum + parseInt(apt.payment.replace('$', '')), 0);
+  const totalRevenue = filteredAppointments.reduce((sum, apt) => {
+    const amount = parseInt(apt.payment.replace(/[^0-9]/g, ''));
+    return sum + amount;
+  }, 0);
+
+  const formatRevenue = (amount: number) => {
+    return `${currencyConfig.symbol}${amount.toLocaleString()}`;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -177,29 +253,35 @@ const Schedule: React.FC = () => {
         {/* Modern Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
-  <div className="space-y-2">
-    <div className="flex items-center gap-3 sm:gap-4">
-      <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-blue-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
-        <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
-          Schedule Management 📅
-        </h1>
-        <p className="text-gray-600 text-sm sm:text-base lg:text-lg mt-1">
-          Organize your appointments and track your availability
-        </p>
-      </div>
-    </div>
-  </div>
-  
-  <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
-    <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
-      <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-    </div>
-    <span className="text-sm sm:text-base">Add Appointment</span>
-  </button>
-</div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-blue-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
+                  <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
+                    Schedule Management 📅
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-gray-600 text-sm sm:text-base lg:text-lg">
+                      Organize your appointments and track your availability
+                    </p>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
+                      <span className="text-sm">{getCountryFlag(userCountry)}</span>
+                      <span className="text-xs font-medium text-gray-600">{currencyConfig.name}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
+                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+              </div>
+              <span className="text-sm sm:text-base">Add Appointment</span>
+            </button>
+          </div>
         </div>
 
         {/* Enhanced Stats Cards */}
@@ -265,7 +347,11 @@ const Schedule: React.FC = () => {
           <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-4">
               <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <DollarSign className="w-7 h-7 text-white" />
+                {currencyConfig.symbol === '₦' ? (
+                  <span className="text-white font-bold text-xl">₦</span>
+                ) : (
+                  <CurrencyIcon className="w-7 h-7 text-white" />
+                )}
               </div>
               <div className="text-green-600">
                 <Sparkles className="w-5 h-5" />
@@ -273,7 +359,7 @@ const Schedule: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-medium text-gray-600">Expected Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">${totalRevenue}</p>
+              <p className="text-3xl font-bold text-gray-900">{formatRevenue(totalRevenue)}</p>
               <div className="text-sm text-green-600 font-semibold">
                 This week
               </div>
@@ -524,7 +610,7 @@ const Schedule: React.FC = () => {
           </div>
         </div>
 
-        {/* FIXED: Mobile-Responsive Upcoming Appointments */}
+        {/* Mobile-Responsive Upcoming Appointments */}
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100">
           <div className="p-4 sm:p-8 border-b border-gray-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -610,7 +696,11 @@ const Schedule: React.FC = () => {
                         <span>{appointment.time} - {appointment.endTime}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        {currencyConfig.symbol === '₦' ? (
+                          <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">₦</span>
+                        ) : (
+                          <DollarSign className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                        )}
                         <span className="font-bold text-emerald-600 text-base">{appointment.payment}</span>
                       </div>
                     </div>
@@ -673,7 +763,11 @@ const Schedule: React.FC = () => {
                             <span>{appointment.time} - {appointment.endTime}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <DollarSign className="w-4 h-4 text-emerald-500" />
+                            {currencyConfig.symbol === '₦' ? (
+                              <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">₦</span>
+                            ) : (
+                              <DollarSign className="w-4 h-4 text-emerald-500" />
+                            )}
                             <span className="font-bold text-emerald-600 text-lg">{appointment.payment}</span>
                           </div>
                         </div>

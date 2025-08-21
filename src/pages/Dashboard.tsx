@@ -16,7 +16,8 @@ import {
   Zap,
   Activity,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  PoundSterling
 } from 'lucide-react';
 
 interface AvailabilitySlot {
@@ -37,7 +38,12 @@ interface NewSlotData {
   notes: string;
 }
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  // Temporary prop for country selection - remove when authentication is complete
+  userCountry?: 'UK' | 'USA' | 'CANADA' | 'NIGERIA';
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ userCountry = 'USA' }) => {
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
   const [newSlot, setNewSlot] = useState<NewSlotData>({
@@ -47,6 +53,78 @@ const Dashboard: React.FC = () => {
     serviceType: '',
     notes: ''
   });
+
+  // Currency configuration based on country
+  const getCurrencyConfig = (country: string) => {
+    switch (country) {
+      case 'UK':
+        return {
+          symbol: '£',
+          icon: PoundSterling,
+          name: 'GBP'
+        };
+      case 'NIGERIA':
+        return {
+          symbol: '₦',
+          icon: () => <span className="text-base font-bold">₦</span>, // Custom Naira symbol
+          name: 'NGN'
+        };
+      case 'CANADA':
+        return {
+          symbol: 'C$',
+          icon: DollarSign,
+          name: 'CAD'
+        };
+      case 'USA':
+      default:
+        return {
+          symbol: '$',
+          icon: DollarSign,
+          name: 'USD'
+        };
+    }
+  };
+
+  const currencyConfig = getCurrencyConfig(userCountry);
+  const CurrencyIcon = currencyConfig.icon;
+
+  // Update job payments based on country
+  const getLocalizedPayments = () => {
+    const basePayments = [75, 120, 60];
+    const multipliers = {
+      'UK': { multiplier: 0.79, symbol: '£' },
+      'NIGERIA': { multiplier: 1650, symbol: '₦' },
+      'CANADA': { multiplier: 1.35, symbol: 'C$' },
+      'USA': { multiplier: 1, symbol: '$' }
+    };
+
+    const config = multipliers[userCountry] || multipliers['USA'];
+    return basePayments.map(payment => ({
+      amount: Math.round(payment * config.multiplier),
+      symbol: config.symbol
+    }));
+  };
+
+  const localizedPayments = getLocalizedPayments();
+
+  // Update earnings based on country
+  const getLocalizedEarnings = () => {
+    const baseEarnings = 2850;
+    const multipliers = {
+      'UK': { multiplier: 0.79, symbol: '£' },
+      'NIGERIA': { multiplier: 1650, symbol: '₦' },
+      'CANADA': { multiplier: 1.35, symbol: 'C$' },
+      'USA': { multiplier: 1, symbol: '$' }
+    };
+
+    const config = multipliers[userCountry] || multipliers['USA'];
+    return {
+      amount: Math.round(baseEarnings * config.multiplier).toLocaleString(),
+      symbol: config.symbol
+    };
+  };
+
+  const localizedEarnings = getLocalizedEarnings();
 
   const serviceTypes = [
     'House Cleaning',
@@ -66,7 +144,7 @@ const Dashboard: React.FC = () => {
       location: '123 Oak Street',
       date: '2025-01-08',
       time: '10:00 AM',
-      payment: '$75',
+      payment: `${localizedPayments[0].symbol}${localizedPayments[0].amount}`,
       status: 'upcoming',
       category: 'cleaning'
     },
@@ -77,7 +155,7 @@ const Dashboard: React.FC = () => {
       location: '456 Pine Avenue',
       date: '2025-01-06',
       time: '2:00 PM',
-      payment: '$120',
+      payment: `${localizedPayments[1].symbol}${localizedPayments[1].amount}`,
       status: 'completed',
       category: 'handyman'
     },
@@ -88,7 +166,7 @@ const Dashboard: React.FC = () => {
       location: '789 Elm Drive',
       date: '2025-01-05',
       time: '9:00 AM',
-      payment: '$60',
+      payment: `${localizedPayments[2].symbol}${localizedPayments[2].amount}`,
       status: 'completed',
       category: 'gardening'
     }
@@ -199,6 +277,16 @@ const Dashboard: React.FC = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  const getCountryFlag = (country: string) => {
+    switch (country) {
+      case 'UK': return '🇬🇧';
+      case 'USA': return '🇺🇸';
+      case 'CANADA': return '🇨🇦';
+      case 'NIGERIA': return '🇳🇬';
+      default: return '🇺🇸';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -215,10 +303,16 @@ const Dashboard: React.FC = () => {
                     <span className="block sm:inline">Welcome back, Alex!</span> 
                     <span className="inline sm:inline">👋</span>
                   </h1>
-                  <p className="text-gray-600 text-sm sm:text-base md:text-lg mt-1 leading-relaxed">
-                    <span className="hidden xs:inline">Ready to make today productive? Here's your overview.</span>
-                    <span className="xs:hidden">Here's your overview for today.</span>
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-gray-600 text-sm sm:text-base md:text-lg leading-relaxed">
+                      <span className="hidden xs:inline">Ready to make today productive? Here's your overview.</span>
+                      <span className="xs:hidden">Here's your overview for today.</span>
+                    </p>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
+                      <span className="text-sm">{getCountryFlag(userCountry)}</span>
+                      <span className="text-xs font-medium text-gray-600">{currencyConfig.name}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -240,7 +334,11 @@ const Dashboard: React.FC = () => {
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <DollarSign className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                {currencyConfig.symbol === '₦' ? (
+                  <span className="text-white font-bold text-lg sm:text-xl">₦</span>
+                ) : (
+                  <CurrencyIcon className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
+                )}
               </div>
               <div className="text-emerald-600">
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -248,7 +346,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-xl sm:text-3xl font-bold text-gray-900">$2,850</p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900">{localizedEarnings.symbol}{localizedEarnings.amount}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
                 <span className="text-emerald-600 font-semibold">+12%</span>
                 <span className="text-gray-500 hidden sm:inline">from last month</span>

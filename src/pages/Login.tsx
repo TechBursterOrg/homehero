@@ -9,6 +9,7 @@ import {
   EyeOff,
   Shield,
   Star,
+  Globe,
 } from "lucide-react";
 
 const LoginPage: React.FC = () => {
@@ -22,6 +23,7 @@ const LoginPage: React.FC = () => {
     password: "",
     confirmPassword: "",
     userType: "customer",
+    country: "UK", // Default country
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -58,7 +60,7 @@ const LoginPage: React.FC = () => {
       }
     } else {
       // Handle sign up logic
-      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.country.trim()) {
         setError("Please fill in all required fields.");
         return;
       }
@@ -82,6 +84,7 @@ const LoginPage: React.FC = () => {
         password: "",
         confirmPassword: "",
         userType: "customer",
+        country: "UK",
       });
     }
   };
@@ -261,6 +264,34 @@ const LoginPage: React.FC = () => {
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                       placeholder="Confirm your password"
                     />
+                  </div>
+                </div>
+              )}
+
+              {!isLogin && (
+                <div className="animate-fade-in-up">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country
+                  </label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                    <select
+                      name="country"
+                      value={formData.country}
+                      onChange={handleInputChange}
+                      className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
+                    >
+                      <option value="UK">🇬🇧 United Kingdom</option>
+                      <option value="USA">🇺🇸 United States</option>
+                      <option value="CANADA">🇨🇦 Canada</option>
+                      <option value="NIGERIA">🇳🇬 Nigeria</option>
+                    </select>
+                    {/* Custom dropdown arrow */}
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                    </div>
                   </div>
                 </div>
               )}
