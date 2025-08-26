@@ -206,11 +206,7 @@ const LoginPage = () => {
             </div>
 
             {/* API Connection Status */}
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-xs text-blue-600">
-                Demo Mode - API: {API_BASE_URL}
-              </p>
-            </div>
+           
 
             {/* Toggle Buttons */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
