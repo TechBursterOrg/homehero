@@ -248,9 +248,7 @@ const GalleryPage: React.FC = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 sm:gap-4">
-              <button className="w-10 h-10 sm:w-12 sm:h-12 bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl border border-gray-200 flex items-center justify-center hover:bg-white transition-colors shadow-sm">
-                <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600" />
-              </button>
+              
               <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
                 <Images className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-white" />
               </div>

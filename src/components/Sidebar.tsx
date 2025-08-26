@@ -119,10 +119,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               <p className="text-sm text-gray-600">Provider</p>
             </div>
           </div>
-          <button className="w-full flex items-center space-x-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors group">
+          <Link to="/login" className="w-full flex items-center space-x-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors group">
             <LogOut className="w-5 h-5 group-hover:text-red-500 transition-colors" />
             <span className="group-hover:text-red-500 transition-colors">Sign Out</span>
-          </button>
+          </Link>
         </div>
       </div>
     </>

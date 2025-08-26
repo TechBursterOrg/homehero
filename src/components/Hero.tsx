@@ -13,7 +13,7 @@ const Hero: React.FC = () => {
           <div className="flex justify-center mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
             <div className="flex items-center space-x-2 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200 hover:shadow-lg transition-all duration-300">
               <Star className="w-4 h-4 text-yellow-500 fill-current animate-pulse" />
-              <span className="text-sm font-medium text-gray-700">Trusted by 1,000+ homeowners</span>npm run build
+              <span className="text-sm font-medium text-gray-700">Trusted by 1,000+ homeowners</span>
             </div>
           </div>
 

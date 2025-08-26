@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import {Link ,useNavigate, useLocation } from 'react-router-dom';
 import {
   Bell,
   User,
@@ -167,9 +167,9 @@ const Header: React.FC<HeaderProps> = ({
               Profile
             </button>
             <hr className="my-2 border-gray-200" />
-            <button className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+            <Link to='/login' className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
               Sign Out
-            </button>
+            </Link>
           </div>
         )}
       </div>
