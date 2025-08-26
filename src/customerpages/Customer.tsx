@@ -16,6 +16,7 @@ import ProviderCard from '../customercomponents/ProviderCard';
 import ProfileSection from '../customercomponents/ProfileSection';
 import PostJobModal from '../customercomponents/PostJobModal';
 import MapView from '../customercomponents/MapView';
+import { logoutUser } from '../services/authService';
 
 // Pages
 import BookingsPage from './BookingsPage';
@@ -50,6 +51,7 @@ const CustomerContent: React.FC = () => {
   const [filteredProviders, setFilteredProviders] = useState<Provider[]>(providers);
   const navigate = useNavigate();
   
+  
   // Add ref for providers section
   const providersRef = useRef<HTMLDivElement>(null);
   
@@ -61,6 +63,33 @@ const CustomerContent: React.FC = () => {
     bio: 'Homeowner looking for reliable service providers for regular maintenance and repairs.',
     avatar: null
   });
+
+  const handleLogout = async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Logout failed');
+      }
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+  } finally {
+    // Always clear local storage and redirect
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('favorites');
+    navigate('/login');
+  }
+};
 
   const [chatState, setChatState] = useState<ChatState>({
     conversations: [
@@ -539,6 +568,7 @@ const CustomerContent: React.FC = () => {
         setIsMenuOpen={setIsMenuOpen}
         profileData={profileData}
         unreadMessagesCount={unreadMessagesCount}
+        onLogout={handleLogout} // Add the onLogout prop
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

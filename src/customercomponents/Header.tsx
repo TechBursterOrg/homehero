@@ -1,5 +1,5 @@
 import React from 'react';
-import {Link ,useNavigate, useLocation } from 'react-router-dom';
+import {Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Bell,
   User,
@@ -15,13 +15,15 @@ interface HeaderProps {
   setIsMenuOpen: (isOpen: boolean) => void;
   profileData: UserProfile;
   unreadMessagesCount?: number;
+  onLogout: () => void; // Add this prop
 }
 
 const Header: React.FC<HeaderProps> = ({
   isMenuOpen,
   setIsMenuOpen,
   unreadMessagesCount = 0,
-  profileData
+  profileData,
+  onLogout // Add this prop
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,6 +46,19 @@ const Header: React.FC<HeaderProps> = ({
       return location.pathname === '/customer' || location.pathname === '/customer/';
     }
     return location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Call the logout function passed from parent
+      await onLogout();
+      setIsMenuOpen(false);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      // Even if API call fails, redirect to login
+      navigate('/login');
+    }
   };
 
   return (
@@ -167,9 +182,12 @@ const Header: React.FC<HeaderProps> = ({
               Profile
             </button>
             <hr className="my-2 border-gray-200" />
-            <Link to='/login' className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+            <button 
+              onClick={handleLogout}
+              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
               Sign Out
-            </Link>
+            </button>
           </div>
         )}
       </div>
