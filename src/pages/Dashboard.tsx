@@ -80,18 +80,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userCountry = 'USA' }) => {
   // Fetch dashboard data from backend
   useEffect(() => {
    // In your fetchDashboardData function
+// In your Dashboard component, replace the fetch call:
 const fetchDashboardData = async () => {
   try {
     setLoading(true);
     setError(null);
     
-    // Check for both possible token keys for backward compatibility
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     
     if (!token) {
       throw new Error('No authentication token found. Please log in again.');
     }
 
+    // Use API_BASE_URL here instead of hardcoded URL
     const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -102,7 +103,6 @@ const fetchDashboardData = async () => {
     console.log('Response status:', response.status, response.statusText);
     
     if (response.status === 401 || response.status === 403) {
-      // Token is invalid, expired, or unauthorized
       localStorage.removeItem('authToken');
       localStorage.removeItem('token');
       localStorage.removeItem('userData');
@@ -115,7 +115,6 @@ const fetchDashboardData = async () => {
 
     const data = await response.json();
     
-    // Check if the response indicates an authentication error
     if (data.success === false && data.message.includes('token')) {
       localStorage.removeItem('authToken');
       localStorage.removeItem('token');
@@ -130,14 +129,12 @@ const fetchDashboardData = async () => {
     setError(errorMessage);
     console.error('Dashboard fetch error:', err);
     
-    // Redirect to login on authentication errors
     if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
       setTimeout(() => {
         window.location.href = '/login';
       }, 2000);
     }
     
-    // For development: show mock data if API fails
     if (process.env.NODE_ENV === 'development') {
       console.warn('Using mock data for development');
       setDashboardData(getMockData());
@@ -269,39 +266,39 @@ const fetchDashboardData = async () => {
   };
 
   const handleSaveAvailability = async (): Promise<void> => {
-    if (newSlot.date && newSlot.startTime && newSlot.endTime && newSlot.serviceType) {
-      try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch('/api/availability', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(newSlot),
-        });
+  if (newSlot.date && newSlot.startTime && newSlot.endTime && newSlot.serviceType) {
+    try {
+      const token = localStorage.getItem('authToken');
+      // Use API_BASE_URL here too
+      const response = await fetch(`${API_BASE_URL}/api/availability`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newSlot),
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to save availability');
-        }
-
-        const result = await response.json();
-        setAvailabilitySlots([...availabilitySlots, result.data.slot]);
-        setNewSlot({
-          date: '',
-          startTime: '',
-          endTime: '',
-          serviceType: '',
-          notes: ''
-        });
-        setShowAvailabilityModal(false);
-      } catch (err) {
-        // Type assertion to handle unknown error type
-        const errorMessage = err instanceof Error ? err.message : 'Failed to save availability';
-        setError(errorMessage);
+      if (!response.ok) {
+        throw new Error('Failed to save availability');
       }
+
+      const result = await response.json();
+      setAvailabilitySlots([...availabilitySlots, result.data.slot]);
+      setNewSlot({
+        date: '',
+        startTime: '',
+        endTime: '',
+        serviceType: '',
+        notes: ''
+      });
+      setShowAvailabilityModal(false);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save availability';
+      setError(errorMessage);
     }
-  };
+  }
+};
 
   const handleCloseModal = () => {
     setShowAvailabilityModal(false);
