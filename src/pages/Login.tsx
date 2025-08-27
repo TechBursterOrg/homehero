@@ -97,21 +97,22 @@ const LoginPage = () => {
         const result = await makeApiCall('login', loginData);
 
         if (result.success) {
-          // Store real authentication data in memory (for artifacts)
-          // In a real app, you'd use localStorage/sessionStorage
-          const authData = {
-            token: result.data.token,
-            user: result.data.user
-          };
-
-          console.log('Login successful:', result);
-          setSuccessMessage(`Login successful! Welcome back, ${result.data.user.name}!`);
-          
-          // Navigate to appropriate dashboard
-          setTimeout(() => {
-            navigate(result.data.redirectTo || '/dashboard');
-          }, 1000);
-        }
+  console.log('Login successful:', result);
+  setSuccessMessage(`Login successful! Welcome back, ${result.data.user.name}!`);
+  
+  // Store user data in localStorage
+  localStorage.setItem('authToken', result.data.token);
+  localStorage.setItem('userData', JSON.stringify(result.data.user));
+  
+  // Navigate to appropriate dashboard based on userType
+  setTimeout(() => {
+    if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
+      navigate('/provider/dashboard');
+    } else {
+      navigate('/customer');
+    }
+  }, 1000);
+}
         
       } else {
         // REAL SIGNUP API CALL
