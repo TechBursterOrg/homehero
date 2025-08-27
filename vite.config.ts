@@ -8,5 +8,15 @@ export default defineConfig({
   build: {
     outDir: 'docs', // Output to docs folder for GitHub Pages
     assetsDir: 'assets',
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   }
 })

@@ -27,3 +27,4 @@ export const logoutUser = async (token: string): Promise<void> => {
     throw error;
   }
 };
+

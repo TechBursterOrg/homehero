@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
   Briefcase, 
@@ -24,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   setSidebarOpen 
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/provider/dashboard' },
@@ -31,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/provider/schedule' },
     { id: 'messages', label: 'Messages', icon: MessageSquare, path: '/provider/messages' },
     { id: 'earnings', label: 'Earnings', icon: DollarSign, path: '/provider/earnings' },
-    { id: 'Gallery', label: 'Gallery', icon: DollarSign, path: '/provider/gallery' },
+    { id: 'gallery', label: 'Gallery', icon: DollarSign, path: '/provider/gallery' },
     { id: 'profile', label: 'Profile', icon: User, path: '/provider/profile' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/provider/settings' },
   ];
@@ -39,6 +40,26 @@ const Sidebar: React.FC<SidebarProps> = ({
   const handleLinkClick = () => {
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Clear local storage
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      
+      // Close sidebar if open
+      setSidebarOpen(false);
+      
+      // Redirect to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Even if there's an error, clear storage and redirect
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      navigate('/login');
     }
   };
 
@@ -80,7 +101,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         <nav className="flex-1 p-4">
           <ul className="space-y-2">
             {sidebarItems.map((item) => {
+              const IconComponent = item.icon;
               const isActive = location.pathname === item.path;
+              
               return (
                 <li key={item.id}>
                   <Link
@@ -92,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
-                    <item.icon className={`w-5 h-5 transition-colors ${
+                    <IconComponent className={`w-5 h-5 transition-colors ${
                       isActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'
                     }`} />
                     <span className="font-medium">{item.label}</span>
@@ -119,10 +142,15 @@ const Sidebar: React.FC<SidebarProps> = ({
               <p className="text-sm text-gray-600">Provider</p>
             </div>
           </div>
-          <Link to="/login" className="w-full flex items-center space-x-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors group">
+          
+          {/* Logout Button */}
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center space-x-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors group hover:text-red-600"
+          >
             <LogOut className="w-5 h-5 group-hover:text-red-500 transition-colors" />
             <span className="group-hover:text-red-500 transition-colors">Sign Out</span>
-          </Link>
+          </button>
         </div>
       </div>
     </>

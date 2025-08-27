@@ -18,6 +18,7 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
     if (path.includes('/schedule')) return 'Schedule';
     if (path.includes('/messages')) return 'Messages';
     if (path.includes('/earnings')) return 'Earnings';
+    if (path.includes('/gallery')) return 'Gallery';
     if (path.includes('/profile')) return 'Profile';
     if (path.includes('/settings')) return 'Settings';
     return 'Dashboard'; // Default
