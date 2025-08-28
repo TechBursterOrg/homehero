@@ -42,13 +42,10 @@ interface Appointment {
   priority: 'high' | 'medium' | 'low';
 }
 
-interface ScheduleProps {
-  userCountry?: 'UK' | 'USA' | 'CANADA' | 'NIGERIA';
-}
-
+// Remove the ScheduleProps interface since we'll fetch the country
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
+const Schedule: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,13 +54,40 @@ const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [userCountry, setUserCountry] = useState<string>('USA'); // Default to USA
 
-  // Initialize auth token from localStorage
+  // Initialize auth token from localStorage and fetch user data
   useEffect(() => {
-    // Read token from localStorage
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     setAuthToken(token);
+    
+    if (token) {
+      fetchUserData(token);
+    }
   }, []);
+
+  // Fetch user data to get country
+  const fetchUserData = async (token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data.user.country) {
+          setUserCountry(result.data.user.country);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+      // Continue with default country
+    }
+  };
 
   // Fetch appointments from backend API
   useEffect(() => {
@@ -88,7 +112,6 @@ const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
         console.log('Schedule response status:', response.status);
         
         if (response.status === 401 || response.status === 403) {
-          // Token is invalid, expired, or unauthorized
           localStorage.removeItem('authToken');
           localStorage.removeItem('token');
           setAuthToken(null);
@@ -112,7 +135,6 @@ const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
         setError(errorMessage);
         console.error('Schedule fetch error:', err);
         
-        // Don't set appointments to empty array on error - let user retry
         if (errorMessage.includes('session') || errorMessage.includes('authentication')) {
           setAppointments([]);
         }
@@ -164,20 +186,24 @@ const Schedule: React.FC<ScheduleProps> = ({ userCountry = 'USA' }) => {
 
   // Get localized payments based on country
   const getLocalizedPayments = () => {
-    const basePayments = [75, 120, 80, 60]; // Base prices in USD
-    const multipliers = {
-      'UK': { multiplier: 0.79, symbol: '£' },
-      'NIGERIA': { multiplier: 1650, symbol: '₦' },
-      'CANADA': { multiplier: 1.35, symbol: 'C$' },
-      'USA': { multiplier: 1, symbol: '$' }
-    };
-
-    const config = multipliers[userCountry] || multipliers['USA'];
-    return basePayments.map(payment => ({
-      amount: Math.round(payment * config.multiplier),
-      symbol: config.symbol
-    }));
+  const basePayments = [75, 120, 80, 60]; // Base prices in USD
+  
+  type CountryKey = 'UK' | 'NIGERIA' | 'CANADA' | 'USA';
+  
+  const multipliers: Record<CountryKey, { multiplier: number; symbol: string }> = {
+    'UK': { multiplier: 0.79, symbol: '£' },
+    'NIGERIA': { multiplier: 1650, symbol: '₦' },
+    'CANADA': { multiplier: 1.35, symbol: 'C$' },
+    'USA': { multiplier: 1, symbol: '$' }
   };
+
+  const config = multipliers[userCountry as CountryKey] || multipliers['USA'];
+  
+  return basePayments.map(payment => ({
+    amount: Math.round(payment * config.multiplier),
+    symbol: config.symbol
+  }));
+};
 
   // Mock data for development
   const getMockAppointments = (): Appointment[] => {
