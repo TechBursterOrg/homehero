@@ -152,6 +152,10 @@ const Profile: React.FC = () => {
       
       if (data.success && data.data.user) {
         const user = data.data.user;
+        
+        // FIXED: Properly map profile image fields
+        const profileImageUrl = user.profileImage || user.profilePicture || '';
+        
         setProfileData({
           name: user.name || '',
           title: user.services && user.services.length > 0 
@@ -175,7 +179,7 @@ const Profile: React.FC = () => {
           services: user.services || [],
           hourlyRate: user.hourlyRate || 0,
           experience: user.experience || '',
-          profileImage: user.profileImage || ''
+          profileImage: profileImageUrl // FIXED: Use the mapped value
         });
 
         setEditForm({
@@ -228,6 +232,7 @@ const Profile: React.FC = () => {
       const data = await response.json();
       
       if (data.success) {
+        // FIXED: Update profile data with the form data AND preserve the existing profile image
         setProfileData(prev => ({
           ...prev,
           name: editForm.name,
@@ -236,6 +241,7 @@ const Profile: React.FC = () => {
           services: editForm.services,
           hourlyRate: editForm.hourlyRate,
           experience: editForm.experience
+          // Don't override profileImage here - it should be updated separately via image upload
         }));
         
         setIsEditing(false);
@@ -248,10 +254,12 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Upload profile image with proper typing
+  // FIXED: Upload profile image function
   const uploadProfileImage = async (file: File) => {
     try {
       setUploadingImage(true);
+      setError(null); // Clear any existing errors
+      
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       if (!token) {
@@ -265,28 +273,33 @@ const Profile: React.FC = () => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type header when using FormData
-          // The browser will set it automatically with the correct boundary
+          // FIXED: Don't set Content-Type when using FormData - browser sets it automatically
         },
         body: formData,
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload image');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (data.success) {
+      if (data.success && data.data.imageUrl) {
+        // FIXED: Update the profile image in state immediately after successful upload
         setProfileData(prev => ({
           ...prev,
           profileImage: data.data.imageUrl
         }));
+        
+        console.log('Profile image updated successfully:', data.data.imageUrl);
         return data.data.imageUrl;
+      } else {
+        throw new Error('Image upload succeeded but no image URL returned');
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
+      console.error('Profile image upload error:', err);
       setError(errorMessage);
       throw err;
     } finally {
@@ -301,23 +314,34 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Handle file selection
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // FIXED: Handle file selection
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please select an image file');
-        return;
-      }
-      
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image size should be less than 5MB');
-        return;
-      }
-      
-      uploadProfileImage(file);
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (JPG, PNG, GIF, etc.)');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      return;
+    }
+    
+    try {
+      await uploadProfileImage(file);
+      // Success - the uploadProfileImage function already updates the state
+    } catch (error) {
+      console.error('File upload error:', error);
+      // Error is already set in uploadProfileImage function
+    }
+    
+    // Clear the file input so the same file can be selected again if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -342,33 +366,6 @@ const Profile: React.FC = () => {
       }
     } catch (err) {
       console.error('Gallery fetch error:', err);
-      // Set some mock data for demo purposes
-      // setGalleryImages([
-      //   {
-      //     id: 1,
-      //     url: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=400',
-      //     title: 'Kitchen Deep Cleaning',
-      //     category: 'cleaning',
-      //     description: 'Complete kitchen sanitization and organization service.',
-      //     date: '2024-01-15'
-      //   },
-      //   {
-      //     id: 2,
-      //     url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=400',
-      //     title: 'Plumbing Repair',
-      //     category: 'handyman',
-      //     description: 'Fixed leaking pipes and installed new fixtures.',
-      //     date: '2024-01-10'
-      //   },
-      //   {
-      //     id: 3,
-      //     url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400',
-      //     title: 'Garden Maintenance',
-      //     category: 'gardening',
-      //     description: 'Seasonal garden care and landscape maintenance.',
-      //     date: '2024-01-05'
-      //   }
-      // ]);
     }
   };
 
@@ -394,39 +391,8 @@ const Profile: React.FC = () => {
       }
     } catch (err) {
       console.error('Reviews fetch error:', err);
-      // Set some mock data for demo purposes
-      // setReviews([
-      //   {
-      //     id: 1,
-      //     client: 'Sarah Johnson',
-      //     rating: 5,
-      //     date: '2024-01-20',
-      //     comment: 'Excellent service! Very professional and thorough. My house has never been cleaner. Highly recommend!',
-      //     service: 'House Cleaning',
-      //     avatar: 'SJ'
-      //   },
-      //   {
-      //     id: 2,
-      //     client: 'Mike Chen',
-      //     rating: 5,
-      //     date: '2024-01-18',
-      //     comment: 'Fixed my plumbing issue quickly and efficiently. Great communication and fair pricing. Will definitely use again.',
-      //     service: 'Plumbing Repair',
-      //     avatar: 'MC'
-      //   },
-      //   {
-      //     id: 3,
-      //     client: 'Emma Davis',
-      //     rating: 4,
-      //     date: '2024-01-15',
-      //     comment: 'Good work on the garden maintenance. Plants look much healthier now. Very knowledgeable about plant care.',
-      //     service: 'Garden Maintenance',
-      //     avatar: 'ED'
-      //   }
-      // ]);
     }
   };
-
 
   useEffect(() => {
     fetchProfileData();
@@ -602,33 +568,42 @@ const Profile: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 sm:gap-6">
               <div className="relative mx-auto sm:mx-0">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl sm:rounded-3xl flex items-center justify-center border-2 sm:border-4 border-white shadow-xl overflow-hidden">
+                  {/* FIXED: Profile image display logic */}
                   {profileData.profileImage ? (
                     <img
-                      src={`${API_BASE_URL}${profileData.profileImage}`}
+                      src={profileData.profileImage.startsWith('/') 
+                        ? `${API_BASE_URL}${profileData.profileImage}` 
+                        : profileData.profileImage
+                      }
                       alt="Profile"
                       className="w-full h-full object-cover"
                       onError={(e) => {
+                        console.error('Profile image failed to load:', profileData.profileImage);
                         const target = e.target as HTMLImageElement;
                         target.style.display = 'none';
-                        target.nextElementSibling?.classList.remove('hidden');
+                        const fallback = target.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.classList.remove('hidden');
                       }}
                     />
                   ) : null}
                   <span className={`text-white font-bold text-lg sm:text-xl lg:text-4xl ${profileData.profileImage ? 'hidden' : ''}`}>
-                    {profileData.name.split(' ').map(n => n[0]).join('')}
+                    {profileData.name.split(' ').map(n => n[0]).join('') || 'U'}
                   </span>
                 </div>
-                <button 
-                  onClick={handleCameraClick}
-                  disabled={uploadingImage}
-                  className="absolute -bottom-1 sm:-bottom-2 -right-1 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white rounded-xl sm:rounded-2xl border-2 border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-50"
-                >
-                  {uploadingImage ? (
-                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-600 animate-spin" />
-                  ) : (
-                    <Camera className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-600" />
-                  )}
-                </button>
+                {/* FIXED: Only show camera button when editing */}
+                {isEditing && (
+                  <button 
+                    onClick={handleCameraClick}
+                    disabled={uploadingImage}
+                    className="absolute -bottom-1 sm:-bottom-2 -right-1 sm:-right-2 w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-white rounded-xl sm:rounded-2xl border-2 border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-lg disabled:opacity-50"
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-600 animate-spin" />
+                    ) : (
+                      <Camera className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-gray-600" />
+                    )}
+                  </button>
+                )}
               </div>
               
               <div className="flex-1 text-center sm:text-left">
@@ -638,7 +613,7 @@ const Profile: React.FC = () => {
                       type="text"
                       value={editForm.name}
                       onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                      className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200"
+                      className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 w-full"
                     />
                   ) : (
                     <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
