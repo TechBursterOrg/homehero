@@ -31,7 +31,7 @@ import axios from 'axios';
 interface GalleryImage {
   _id: string;
   imageUrl: string;
-  fullImageUrl?: string; // Add this field
+  fullImageUrl?: string;
   title: string;
   category: string;
   description: string;
@@ -45,7 +45,7 @@ interface GalleryImage {
     profileImage?: string;
   };
   tags?: string[];
-  filename?: string; // Add this field for image serving
+  filename?: string;
 }
 
 interface Category {
@@ -76,6 +76,10 @@ const GalleryPage: React.FC = () => {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    show: boolean;
+    image: GalleryImage | null;
+  }>({ show: false, image: null });
 
   // Fetch gallery images from backend
   useEffect(() => {
@@ -103,10 +107,8 @@ const GalleryPage: React.FC = () => {
       const response = await axios.get(`${API_BASE_URL}/api/gallery`, { params });
       
       if (response.data.success) {
-        // Process images to ensure they have proper URLs
         const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => ({
           ...image,
-          // Use fullImageUrl if available, otherwise construct from imageUrl
           fullImageUrl: image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`
         }));
         setGalleryImages(imagesWithUrls || []);
@@ -157,7 +159,6 @@ const GalleryPage: React.FC = () => {
   const handleImageClick = async (image: GalleryImage) => {
     setSelectedImage(image);
     
-    // Increment view count via API
     try {
       await axios.get(`${API_BASE_URL}/api/gallery/${image._id}`);
       fetchGalleryImages();
@@ -314,6 +315,67 @@ const GalleryPage: React.FC = () => {
     }
   };
 
+  // Delete handlers
+  const handleDeleteClick = (image: GalleryImage, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteConfirm({ show: true, image });
+  };
+
+  const handleDelete = async (image: GalleryImage, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to delete images');
+        return;
+      }
+
+      const response = await axios.delete(`${API_BASE_URL}/api/gallery/${image._id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.data.success) {
+        setGalleryImages(prev => prev.filter(img => img._id !== image._id));
+        
+        if (selectedImage && selectedImage._id === image._id) {
+          setSelectedImage(null);
+        }
+        
+        setError(null);
+      } else {
+        setError(response.data.message || 'Failed to delete image');
+      }
+    } catch (error: any) {
+      console.error('Error deleting image:', error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        setError('Your session has expired. Please log in again.');
+      } else if (error.response?.status === 403) {
+        setError('You can only delete your own images');
+      } else {
+        setError('Failed to delete image. Please try again.');
+      }
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.image) return;
+    
+    await handleDelete(deleteConfirm.image);
+    setDeleteConfirm({ show: false, image: null });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, image: null });
+  };
+
   const clearFilters = () => {
     setSelectedCategory('all');
     setSearchTerm('');
@@ -381,7 +443,6 @@ const GalleryPage: React.FC = () => {
           </div>
         )}
 
-        {/* Gallery Stats */}
         {/* Gallery Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
           <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
@@ -582,6 +643,13 @@ const GalleryPage: React.FC = () => {
                         >
                           <Share2 className="w-5 h-5 text-white" />
                         </button>
+                        {/* Delete button */}
+                        <button 
+                          className="w-10 h-10 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-red-600/80 transition-colors"
+                          onClick={(e) => handleDeleteClick(image, e)}
+                        >
+                          <Trash2 className="w-4 h-4 text-white" />
+                        </button>
                       </div>
                     </div>
 
@@ -676,6 +744,13 @@ const GalleryPage: React.FC = () => {
                           >
                             <Share2 className="w-4 h-4 text-gray-600" />
                           </button>
+                          {/* Delete button for list view */}
+                          <button 
+                            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                            onClick={(e) => handleDeleteClick(image, e)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -706,17 +781,19 @@ const GalleryPage: React.FC = () => {
 
         {/* Image Modal */}
         {selectedImage && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-              <div className="relative">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
+            <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-3xl w-full h-full sm:w-auto sm:h-auto sm:max-w-[95vw] sm:max-h-[95vh] lg:max-w-6xl xl:max-w-7xl overflow-hidden shadow-2xl flex flex-col sm:flex-row">
+              
+              {/* Image Section */}
+              <div className="relative flex-1 sm:flex-[2] lg:flex-[3] min-h-[50vh] sm:min-h-[60vh] lg:min-h-[70vh]">
                 <button
                   onClick={closeModal}
-                  className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/40 transition-colors"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 w-8 h-8 sm:w-10 sm:h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
                 
-                <div className="aspect-[4/3] max-h-[60vh] overflow-hidden">
+                <div className="w-full h-full">
                   <img
                     src={selectedImage.fullImageUrl || `${API_BASE_URL}${selectedImage.imageUrl}`}
                     alt={selectedImage.title}
@@ -725,87 +802,133 @@ const GalleryPage: React.FC = () => {
                   />
                 </div>
               </div>
-              
-              <div className="p-6 sm:p-8">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{selectedImage.title}</h2>
-                      {selectedImage.featured && (
-                        <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-lg flex items-center gap-1 text-sm font-medium">
-                          <Star className="w-4 h-4 fill-current" />
-                          <span>Featured</span>
+
+              {/* Content Section */}
+              <div className="flex-1 sm:flex-[1] lg:flex-[1] bg-white overflow-y-auto">
+                <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col">
+                  {/* Header Section */}
+                  <div className="mb-4 lg:mb-6">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1 pr-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 line-clamp-2">{selectedImage.title}</h2>
+                          {selectedImage.featured && (
+                            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 rounded-md flex items-center gap-1 text-xs font-medium flex-shrink-0">
+                              <Star className="w-3 h-3 fill-current" />
+                              <span className="hidden sm:inline">Featured</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 mb-3">
-                      <Tag className="w-4 h-4 text-blue-500" />
-                      <span className="text-blue-600 font-medium capitalize">{selectedImage.category}</span>
+                        <div className="flex items-center gap-1 mb-3">
+                          <Tag className="w-4 h-4 text-blue-500" />
+                          <span className="text-blue-600 font-medium capitalize text-sm">{selectedImage.category}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-1 sm:gap-2 flex-shrink-0">
+                        <button className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-colors">
+                          <Download className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                        </button>
+                        <button 
+                          className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-colors"
+                          onClick={(e) => handleShare(selectedImage, e)}
+                        >
+                          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                        </button>
+                        <button 
+                          className="p-2 sm:p-3 hover:bg-red-100 rounded-lg transition-colors"
+                          onClick={(e) => handleDeleteClick(selectedImage, e)}
+                        >
+                          <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex gap-2">
-                    <button className="p-3 hover:bg-gray-100 rounded-xl transition-colors">
-                      <Download className="w-5 h-5 text-gray-600" />
+                  {/* Description */}
+                  <div className="mb-4 lg:mb-6 flex-1 overflow-y-auto">
+                    <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{selectedImage.description}</p>
+                  </div>
+                  
+                  {/* Stats Grid */}
+                  <div className="mb-4 lg:mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg mx-auto mb-1">
+                          <Eye className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">{selectedImage.views}</p>
+                        <p className="text-xs text-gray-500">Views</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center w-8 h-8 bg-pink-100 rounded-lg mx-auto mb-1">
+                          <Heart className="w-4 h-4 text-pink-600" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">{selectedImage.likes}</p>
+                        <p className="text-xs text-gray-500">Likes</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg mx-auto mb-1">
+                          <Calendar className="w-4 h-4 text-green-600" />
+                        </div>
+                        <p className="text-xs sm:text-sm font-medium text-gray-900">{formatDate(selectedImage.createdAt)}</p>
+                        <p className="text-xs text-gray-500">Created</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-lg mx-auto mb-1">
+                          <Tag className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 capitalize">{selectedImage.category}</p>
+                        <p className="text-xs text-gray-500">Category</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3 mt-auto">
+                    <button 
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
+                      onClick={(e) => handleLike(selectedImage, e)}
+                    >
+                      <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Like Project</span>
                     </button>
                     <button 
-                      className="p-3 hover:bg-gray-100 rounded-xl transition-colors"
+                      className="flex-1 bg-gray-100 text-gray-700 px-4 sm:px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                       onClick={(e) => handleShare(selectedImage, e)}
                     >
-                      <Share2 className="w-5 h-5 text-gray-600" />
+                      <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Share</span>
                     </button>
                   </div>
                 </div>
-                
-                <p className="text-gray-700 leading-relaxed mb-6">{selectedImage.description}</p>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl">
-                  <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg mx-auto mb-1">
-                      <Eye className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">{selectedImage.views}</p>
-                    <p className="text-xs text-gray-500">Views</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-pink-100 rounded-lg mx-auto mb-1">
-                      <Heart className="w-4 h-4 text-pink-600" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">{selectedImage.likes}</p>
-                    <p className="text-xs text-gray-500">Likes</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg mx-auto mb-1">
-                      <Calendar className="w-4 h-4 text-green-600" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(selectedImage.createdAt)}</p>
-                    <p className="text-xs text-gray-500">Created</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-lg mx-auto mb-1">
-                      <Tag className="w-4 h-4 text-purple-600" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-900 capitalize">{selectedImage.category}</p>
-                    <p className="text-xs text-gray-500">Category</p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                  <button 
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
-                    onClick={(e) => handleLike(selectedImage, e)}
-                  >
-                    <Heart className="w-5 h-5" />
-                    <span>Like Project</span>
-                  </button>
-                  <button 
-                    className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                    onClick={(e) => handleShare(selectedImage, e)}
-                  >
-                    <Share2 className="w-5 h-5" />
-                    <span>Share</span>
-                  </button>
-                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm.show && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Delete</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete "{deleteConfirm.image?.title}"? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={cancelDelete}
+                  className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
