@@ -106,7 +106,7 @@ function App() {
     <Router>
       <div className="App">
         <Routes>
-          {/* Public Routes */}
+          
           <Route 
             path="/" 
             element={
@@ -125,7 +125,7 @@ function App() {
             } 
           />
           
-          {/* Auth Routes - redirect if already logged in */}
+          
           <Route 
             path="/login" 
             element={
@@ -135,19 +135,19 @@ function App() {
             } 
           />
           
-          {/* Email Verification Route */}
+          
           <Route 
             path="/verify-email" 
             element={<EmailVerificationPage />} 
           />
           
-          {/* Dashboard redirect route */}
+          
           <Route 
             path="/dashboard" 
             element={<AuthenticatedRedirect />} 
           />
           
-          {/* Protected Routes */}
+          
           <Route 
             path="/customer/*" 
             element={
@@ -166,7 +166,7 @@ function App() {
             } 
           />
           
-          {/* Catch all redirect */}
+          
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
