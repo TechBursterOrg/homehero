@@ -146,13 +146,18 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
   const target = e.target as HTMLImageElement;
   console.error('Image failed to load:', target.src);
   
+  // If this is already a placeholder, don't try again
+  if (target.src.includes('via.placeholder.com')) {
+    return;
+  }
+  
   // Try to fallback to different URL formats
   if (target.src.includes(API_BASE_URL)) {
     // If the API_BASE_URL version failed, try direct URL
     const relativePath = target.src.split(API_BASE_URL)[1];
     target.src = `https://homeheroes.help${relativePath}`;
-  } else {
-    // Final fallback to placeholder
+  } else if (target.src.includes('homeheroes.help')) {
+    // If direct URL also failed, use placeholder
     target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
   }
 };
