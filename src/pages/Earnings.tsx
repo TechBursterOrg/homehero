@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -9,104 +9,322 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  Star,
-  Award,
   Activity,
-  Zap,
   Target,
-  ChevronRight,
   Sparkles,
   ArrowUp,
   ArrowDown,
   Filter,
-  Search
+  Search,
+  Loader2,
+  AlertCircle as AlertCircleIcon
 } from 'lucide-react';
 
-const Earnings: React.FC = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [searchQuery, setSearchQuery] = useState('');
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-  const earningsData = {
-    total: 2850,
-    thisMonth: 890,
-    lastMonth: 750,
-    pending: 125,
-    growth: 18.7,
-    avgPerJob: 60
+// Define proper types
+interface EarningsData {
+  total: number;
+  thisMonth: number;
+  lastMonth: number;
+  pending: number;
+  growth: number;
+  avgPerJob: number;
+  currency: string;
+}
+
+interface Transaction {
+  id: number;
+  client: string;
+  service: string;
+  amount: number;
+  date: string;
+  status: 'completed' | 'pending' | 'failed';
+  method: string;
+  category: string;
+}
+
+interface MonthlyData {
+  month: string;
+  amount: number;
+  growth: number;
+}
+
+interface CurrencyConfig {
+  symbol: string;
+  name: string;
+}
+
+// Define currency multipliers with proper typing
+const CURRENCY_MULTIPLIERS: Record<string, number> = {
+  UK: 0.79,
+  NIGERIA: 1650,
+  CANADA: 1.35,
+  USA: 1
+} as const;
+
+const Earnings: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('month');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [earningsData, setEarningsData] = useState<EarningsData>({
+    total: 0,
+    thisMonth: 0,
+    lastMonth: 0,
+    pending: 0,
+    growth: 0,
+    avgPerJob: 0,
+    currency: 'USD'
+  });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfig>({
+    symbol: '$',
+    name: 'USD'
+  });
+
+  // Fetch user data and currency configuration
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('No authentication token found. Please log in again.');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success === false) {
+          throw new Error(data.message || 'Failed to fetch user data');
+        }
+        
+        // Set currency based on user's country
+        const country = data.data.user.country || 'USA';
+        setCurrencyConfig(getCurrencyConfig(country));
+        
+        // Now fetch earnings data
+        await fetchEarningsData(token, country);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+        setError(errorMessage);
+        console.error('User data fetch error:', err);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Fetch earnings data from backend
+  const fetchEarningsData = async (token: string, country: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_BASE_URL}/api/earnings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success === false) {
+        throw new Error(data.message || 'Failed to fetch earnings data');
+      }
+      
+      // Convert amounts based on user's country
+      const convertedData = convertEarningsData(data.data, country);
+      
+      setEarningsData(convertedData.earningsData);
+      setTransactions(convertedData.transactions);
+      setMonthlyData(convertedData.monthlyData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      console.error('Earnings fetch error:', err);
+      
+      // Use mock data for development if API fails
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using mock data for development');
+        const mockData = getMockEarningsData(country);
+        setEarningsData(mockData.earningsData);
+        setTransactions(mockData.transactions);
+        setMonthlyData(mockData.monthlyData);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const transactions = [
-    {
-      id: 1,
-      client: 'Sarah Johnson',
-      service: 'Deep House Cleaning',
-      amount: 75,
-      date: '2025-01-06',
-      status: 'completed',
-      method: 'Credit Card',
-      category: 'cleaning'
-    },
-    {
-      id: 2,
-      client: 'Mike Chen',
-      service: 'Plumbing Repair',
-      amount: 120,
-      date: '2025-01-06',
-      status: 'completed',
-      method: 'Cash',
-      category: 'handyman'
-    },
-    {
-      id: 3,
-      client: 'Emma Wilson',
-      service: 'Garden Maintenance',
-      amount: 60,
-      date: '2025-01-05',
-      status: 'completed',
-      method: 'Bank Transfer',
-      category: 'gardening'
-    },
-    {
-      id: 4,
-      client: 'David Brown',
-      service: 'Bathroom Deep Clean',
-      amount: 80,
-      date: '2025-01-04',
-      status: 'completed',
-      method: 'Credit Card',
-      category: 'cleaning'
-    },
-    {
-      id: 5,
-      client: 'Lisa White',
-      service: 'Kitchen Cleaning',
-      amount: 55,
-      date: '2025-01-03',
-      status: 'pending',
-      method: 'Credit Card',
-      category: 'cleaning'
-    },
-    {
-      id: 6,
-      client: 'Tom Garcia',
-      service: 'Window Cleaning',
-      amount: 70,
-      date: '2025-01-02',
-      status: 'pending',
-      method: 'Bank Transfer',
-      category: 'cleaning'
+  // Currency configuration based on country
+  const getCurrencyConfig = (country: string): CurrencyConfig => {
+    switch (country) {
+      case 'UK':
+        return {
+          symbol: '£',
+          name: 'GBP'
+        };
+      case 'NIGERIA':
+        return {
+          symbol: '₦',
+          name: 'NGN'
+        };
+      case 'CANADA':
+        return {
+          symbol: 'C$',
+          name: 'CAD'
+        };
+      case 'USA':
+      default:
+        return {
+          symbol: '$',
+          name: 'USD'
+        };
     }
-  ];
+  };
 
-  const monthlyData = [
-    { month: 'Jul', amount: 2200, growth: 5.2 },
-    { month: 'Aug', amount: 2400, growth: 9.1 },
-    { month: 'Sep', amount: 2100, growth: -12.5 },
-    { month: 'Oct', amount: 2650, growth: 26.2 },
-    { month: 'Nov', amount: 2300, growth: -13.2 },
-    { month: 'Dec', amount: 2850, growth: 23.9 },
-    { month: 'Jan', amount: 890, growth: 18.7 }
-  ];
+  // Convert earnings data based on country
+  const convertEarningsData = (data: any, country: string) => {
+    // Use type assertion and proper key access
+    const multiplier = (CURRENCY_MULTIPLIERS as Record<string, number>)[country] || CURRENCY_MULTIPLIERS['USA'];
+    
+    // Handle both possible API response structures
+    const earningsSource = data.earnings || data.earningsData || {};
+    const transactionsSource = data.transactions || [];
+    const monthlyDataSource = data.monthlyData || [];
+    
+    return {
+      earningsData: {
+        total: Math.round((earningsSource.total || 0) * multiplier),
+        thisMonth: Math.round((earningsSource.thisMonth || 0) * multiplier),
+        lastMonth: Math.round((earningsSource.lastMonth || 0) * multiplier),
+        pending: Math.round((earningsSource.pending || 0) * multiplier),
+        growth: earningsSource.growth || 0,
+        avgPerJob: Math.round((earningsSource.avgPerJob || 0) * multiplier),
+        currency: country
+      },
+      transactions: transactionsSource.map((transaction: any) => ({
+        ...transaction,
+        amount: Math.round((transaction.amount || 0) * multiplier)
+      })),
+      monthlyData: monthlyDataSource.map((month: any) => ({
+        ...month,
+        amount: Math.round((month.amount || 0) * multiplier)
+      }))
+    };
+  };
+
+  // Mock data for development
+  const getMockEarningsData = (country: string) => {
+    const baseData = {
+      earningsData: {
+        total: 2850,
+        thisMonth: 890,
+        lastMonth: 750,
+        pending: 125,
+        growth: 18.7,
+        avgPerJob: 60,
+        currency: country
+      },
+      transactions: [
+        {
+          id: 1,
+          client: 'Sarah Johnson',
+          service: 'Deep House Cleaning',
+          amount: 75,
+          date: '2025-01-06',
+          status: 'completed' as const,
+          method: 'Credit Card',
+          category: 'cleaning'
+        },
+        {
+          id: 2,
+          client: 'Mike Chen',
+          service: 'Plumbing Repair',
+          amount: 120,
+          date: '2025-01-06',
+          status: 'completed' as const,
+          method: 'Cash',
+          category: 'handyman'
+        },
+        {
+          id: 3,
+          client: 'Emma Wilson',
+          service: 'Garden Maintenance',
+          amount: 60,
+          date: '2025-01-05',
+          status: 'completed' as const,
+          method: 'Bank Transfer',
+          category: 'gardening'
+        },
+        {
+          id: 4,
+          client: 'David Brown',
+          service: 'Bathroom Deep Clean',
+          amount: 80,
+          date: '2025-01-04',
+          status: 'completed' as const,
+          method: 'Credit Card',
+          category: 'cleaning'
+        },
+        {
+          id: 5,
+          client: 'Lisa White',
+          service: 'Kitchen Cleaning',
+          amount: 55,
+          date: '2025-01-03',
+          status: 'pending' as const,
+          method: 'Credit Card',
+          category: 'cleaning'
+        },
+        {
+          id: 6,
+          client: 'Tom Garcia',
+          service: 'Window Cleaning',
+          amount: 70,
+          date: '2025-01-02',
+          status: 'pending' as const,
+          method: 'Bank Transfer',
+          category: 'cleaning'
+        }
+      ],
+      monthlyData: [
+        { month: 'Jul', amount: 2200, growth: 5.2 },
+        { month: 'Aug', amount: 2400, growth: 9.1 },
+        { month: 'Sep', amount: 2100, growth: -12.5 },
+        { month: 'Oct', amount: 2650, growth: 26.2 },
+        { month: 'Nov', amount: 2300, growth: -13.2 },
+        { month: 'Dec', amount: 2850, growth: 23.9 },
+        { month: 'Jan', amount: 890, growth: 18.7 }
+      ]
+    };
+    
+    return convertEarningsData(baseData, country);
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -132,7 +350,7 @@ const Earnings: React.FC = () => {
     }
   };
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = (category: string): string => {
     switch (category) {
       case 'cleaning': return '🧽';
       case 'handyman': return '🔧';
@@ -143,11 +361,11 @@ const Earnings: React.FC = () => {
     }
   };
 
-  const getClientInitials = (name: string) => {
+  const getClientInitials = (name: string): string => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): string => {
     switch (status) {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
@@ -155,10 +373,73 @@ const Earnings: React.FC = () => {
     }
   };
 
-  const filteredTransactions = transactions.filter(transaction =>
+  const filteredTransactions = transactions.filter((transaction: Transaction) =>
     transaction.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
     transaction.service.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleExportData = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found.');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/earnings/export`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `earnings-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to export data';
+      setError(errorMessage);
+      console.error('Export error:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading earnings data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircleIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -174,9 +455,12 @@ const Earnings: React.FC = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                    Earnings Overview 💰
+                    Earnings Overview
                   </h1>
                   <p className="text-gray-600 text-base sm:text-lg">Track your income and financial performance</p>
+                </div>
+                <div className="flex items-center gap-1 px-3 py-1 bg-white/80 rounded-lg border">
+                  <span className="text-sm font-medium text-gray-600">{currencyConfig.name}</span>
                 </div>
               </div>
             </div>
@@ -193,7 +477,10 @@ const Earnings: React.FC = () => {
                 <option value="year">This Year</option>
               </select>
               
-              <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3">
+              <button 
+                onClick={handleExportData}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3"
+              >
                 <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
                   <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                 </div>
@@ -216,7 +503,7 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">${earningsData.total.toLocaleString()}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.total.toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
                 <span className="text-emerald-600 font-semibold">+{earningsData.growth}%</span>
                 <span className="text-gray-500">from last month</span>
@@ -235,9 +522,9 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">This Month</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">${earningsData.thisMonth}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.thisMonth}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
-                <span className="text-blue-600 font-semibold">+${earningsData.thisMonth - earningsData.lastMonth}</span>
+                <span className="text-blue-600 font-semibold">+{currencyConfig.symbol}{earningsData.thisMonth - earningsData.lastMonth}</span>
                 <span className="text-gray-500">vs last month</span>
               </div>
             </div>
@@ -254,9 +541,9 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">${earningsData.pending}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.pending}</p>
               <div className="text-xs sm:text-sm text-gray-500">
-                2 payments processing
+                {transactions.filter(t => t.status === 'pending').length} payments processing
               </div>
             </div>
           </div>
@@ -267,14 +554,14 @@ const Earnings: React.FC = () => {
                 <Target className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
               <div className="text-purple-600">
-                <Award className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Avg per Job</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">${earningsData.avgPerJob}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.avgPerJob}</p>
               <div className="text-xs sm:text-sm text-gray-500">
-                Based on 47 completed jobs
+                Based on {transactions.filter(t => t.status === 'completed').length} completed jobs
               </div>
             </div>
           </div>
@@ -298,7 +585,7 @@ const Earnings: React.FC = () => {
           </div>
           
           <div className="space-y-4 sm:space-y-6">
-            {monthlyData.map((data, index) => {
+            {monthlyData.map((data: MonthlyData) => {
               const maxAmount = Math.max(...monthlyData.map(d => d.amount));
               const width = (data.amount / maxAmount) * 100;
               const isPositive = data.growth > 0;
@@ -316,7 +603,7 @@ const Earnings: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-base sm:text-lg font-bold text-gray-900">${data.amount.toLocaleString()}</span>
+                      <span className="text-base sm:text-lg font-bold text-gray-900">{currencyConfig.symbol}{data.amount.toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="relative">
@@ -369,7 +656,7 @@ const Earnings: React.FC = () => {
           
           <div className="p-4 sm:p-8">
             <div className="space-y-3 sm:space-y-4">
-              {filteredTransactions.map((transaction) => (
+              {filteredTransactions.map((transaction: Transaction) => (
                 <div key={transaction.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
                   
                   {/* Mobile Layout - Vertical Stack */}
@@ -394,7 +681,7 @@ const Earnings: React.FC = () => {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xl font-bold text-emerald-600 mb-1">
-                          ${transaction.amount}
+                          {currencyConfig.symbol}{transaction.amount}
                         </p>
                       </div>
                     </div>
@@ -449,7 +736,7 @@ const Earnings: React.FC = () => {
                     
                     <div className="text-right">
                       <p className="text-2xl font-bold text-emerald-600 mb-1">
-                        ${transaction.amount}
+                        {currencyConfig.symbol}{transaction.amount}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="w-4 h-4" />

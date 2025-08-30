@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Images, 
   ArrowLeft, 
@@ -22,20 +22,40 @@ import {
   Camera,
   Sparkles,
   TrendingUp,
-  Award
+  Award,
+  Loader,
+  AlertCircle
 } from 'lucide-react';
+import axios from 'axios';
 
 interface GalleryImage {
-  id: number;
-  url: string;
+  _id: string;
+  imageUrl: string;
+  fullImageUrl?: string; // Add this field
   title: string;
   category: string;
   description: string;
-  date: string;
-  views?: number;
-  likes?: number;
-  featured?: boolean;
+  createdAt: string;
+  views: number;
+  likes: number;
+  featured: boolean;
+  userId?: {
+    _id: string;
+    name: string;
+    profileImage?: string;
+  };
+  tags?: string[];
+  filename?: string; // Add this field for image serving
 }
+
+interface Category {
+  id: string;
+  name: string;
+  count: number;
+  color: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 const GalleryPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
@@ -43,164 +63,65 @@ const GalleryPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadForm, setUploadForm] = useState({
+    title: '',
+    description: '',
+    category: 'cleaning',
+    tags: '',
+    featured: false
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const galleryImages: GalleryImage[] = [
-    {
-      id: 1,
-      url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&h=600&fit=crop',
-      title: 'Modern Kitchen Deep Clean',
-      category: 'cleaning',
-      description: 'Complete deep cleaning of a modern kitchen including appliances and countertops. Used specialized cleaning products to restore the kitchen to pristine condition.',
-      date: '2024-08-15',
-      views: 124,
-      likes: 18,
-      featured: true
-    },
-    {
-      id: 2,
-      url: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=600&fit=crop',
-      title: 'Luxury Bathroom Renovation',
-      category: 'handyman',
-      description: 'Full bathroom renovation including plumbing, tiling, and fixture installation. Transformed an outdated bathroom into a modern luxury space.',
-      date: '2024-08-10',
-      views: 89,
-      likes: 22,
-      featured: true
-    },
-    {
-      id: 3,
-      url: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=800&h=600&fit=crop',
-      title: 'Living Room Transformation',
-      category: 'cleaning',
-      description: 'Professional cleaning and organization of spacious living area. Deep cleaned carpets, furniture, and all surfaces for a fresh new look.',
-      date: '2024-08-08',
-      views: 156,
-      likes: 31
-    },
-    {
-      id: 4,
-      url: 'https://images.unsplash.com/photo-1540518614846-7eded433c457?w=800&h=600&fit=crop',
-      title: 'Garden Landscape Design',
-      category: 'gardening',
-      description: 'Complete garden makeover with new plantings and landscaping. Created a beautiful outdoor space with seasonal flowers and plants.',
-      date: '2024-08-05',
-      views: 203,
-      likes: 45,
-      featured: true
-    },
-    {
-      id: 5,
-      url: 'https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=800&h=600&fit=crop',
-      title: 'Kitchen Plumbing Repair',
-      category: 'handyman',
-      description: 'Professional sink and faucet installation with new plumbing. Fixed leaks and upgraded to modern, efficient fixtures.',
-      date: '2024-07-30',
-      views: 78,
-      likes: 12
-    },
-    {
-      id: 6,
-      url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&h=600&fit=crop',
-      title: 'Bedroom Deep Clean',
-      category: 'cleaning',
-      description: 'Thorough cleaning and sanitizing of master bedroom. Organized closets and cleaned all surfaces for a peaceful environment.',
-      date: '2024-07-28',
-      views: 95,
-      likes: 16
-    },
-    {
-      id: 7,
-      url: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800&h=600&fit=crop',
-      title: 'Backyard Garden Maintenance',
-      category: 'gardening',
-      description: 'Regular maintenance and pruning of backyard garden. Kept the garden healthy and beautiful throughout the growing season.',
-      date: '2024-07-25',
-      views: 167,
-      likes: 28
-    },
-    {
-      id: 8,
-      url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop',
-      title: 'Interior Painting Project',
-      category: 'handyman',
-      description: 'Professional interior painting of multiple rooms. Used premium paint and techniques for a flawless finish.',
-      date: '2024-07-20',
-      views: 143,
-      likes: 25
-    },
-    {
-      id: 9,
-      url: 'https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?w=800&h=600&fit=crop',
-      title: 'Professional House Cleaning',
-      category: 'cleaning',
-      description: 'Complete residential cleaning service including vacuuming, dusting, and sanitizing. Left the home spotless and fresh.',
-      date: '2024-07-18',
-      views: 112,
-      likes: 19
-    },
-    {
-      id: 10,
-      url: 'https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&h=600&fit=crop',
-      title: 'Deck Restoration',
-      category: 'handyman',
-      description: 'Full deck restoration including sanding, staining, and repair work. Brought an old deck back to life with proper treatment.',
-      date: '2024-07-12',
-      views: 198,
-      likes: 34
-    },
-    {
-      id: 11,
-      url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=600&fit=crop',
-      title: 'Office Deep Clean',
-      category: 'cleaning',
-      description: 'Professional office cleaning and organization service. Sanitized workstations, meeting rooms, and common areas for a healthy workplace.',
-      date: '2024-07-10',
-      views: 87,
-      likes: 14
-    },
-    {
-      id: 12,
-      url: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=600&fit=crop',
-      title: 'Bathroom Tile Cleaning',
-      category: 'cleaning',
-      description: 'Deep cleaning and restoration of bathroom tiles and grout. Removed years of buildup to reveal like-new surfaces.',
-      date: '2024-07-08',
-      views: 134,
-      likes: 21
-    },
-    {
-      id: 13,
-      url: 'https://images.unsplash.com/photo-1503387837-b154d5074bd2?w=800&h=600&fit=crop',
-      title: 'Kitchen Cabinet Painting',
-      category: 'handyman',
-      description: 'Professional kitchen cabinet refinishing project. Transformed old cabinets with high-quality paint and new hardware.',
-      date: '2024-07-05',
-      views: 176,
-      likes: 29
-    },
-    {
-      id: 14,
-      url: 'https://images.unsplash.com/photo-1585128792020-803d29415281?w=800&h=600&fit=crop',
-      title: 'Garden Bed Preparation',
-      category: 'gardening',
-      description: 'Prepared new garden beds with proper soil amendments and drainage. Ready for seasonal plantings and landscaping.',
-      date: '2024-07-03',
-      views: 145,
-      likes: 26
-    },
-    {
-      id: 15,
-      url: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=800&h=600&fit=crop',
-      title: 'Ceiling Fan Installation',
-      category: 'handyman',
-      description: 'Professional ceiling fan installation with proper electrical connections. Improved air circulation and energy efficiency.',
-      date: '2024-06-30',
-      views: 92,
-      likes: 15
+  // Fetch gallery images from backend
+  useEffect(() => {
+    fetchGalleryImages();
+  }, [selectedCategory, searchTerm]);
+
+  const fetchGalleryImages = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params: any = { 
+        page: 1, 
+        limit: 50 
+      };
+      
+      if (selectedCategory !== 'all') {
+        params.category = selectedCategory;
+      }
+      
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/api/gallery`, { params });
+      
+      if (response.data.success) {
+        // Process images to ensure they have proper URLs
+        const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => ({
+          ...image,
+          // Use fullImageUrl if available, otherwise construct from imageUrl
+          fullImageUrl: image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`
+        }));
+        setGalleryImages(imagesWithUrls || []);
+      } else {
+        setError('Failed to fetch gallery images');
+      }
+    } catch (error: any) {
+      console.error('Error fetching gallery images:', error);
+      setError('Failed to load gallery. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const categories = [
+  const categories: Category[] = [
     { id: 'all', name: 'All Projects', count: galleryImages.length, color: 'from-gray-500 to-gray-600' },
     { id: 'cleaning', name: 'Cleaning', count: galleryImages.filter(img => img.category === 'cleaning').length, color: 'from-blue-500 to-blue-600' },
     { id: 'handyman', name: 'Handyman', count: galleryImages.filter(img => img.category === 'handyman').length, color: 'from-purple-500 to-purple-600' },
@@ -210,7 +131,8 @@ const GalleryPage: React.FC = () => {
   const filteredImages = galleryImages.filter(image => {
     const matchesCategory = selectedCategory === 'all' || image.category === selectedCategory;
     const matchesSearch = image.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         image.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         image.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (image.tags && image.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
     return matchesCategory && matchesSearch;
   });
 
@@ -220,7 +142,7 @@ const GalleryPage: React.FC = () => {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Image';
+    target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
   };
 
   const formatDate = (dateString: string) => {
@@ -232,13 +154,198 @@ const GalleryPage: React.FC = () => {
     });
   };
 
-  const handleImageClick = (image: GalleryImage) => {
+  const handleImageClick = async (image: GalleryImage) => {
     setSelectedImage(image);
+    
+    // Increment view count via API
+    try {
+      await axios.get(`${API_BASE_URL}/api/gallery/${image._id}`);
+      fetchGalleryImages();
+    } catch (error) {
+      console.error('Error updating view count:', error);
+    }
   };
 
   const closeModal = () => {
     setSelectedImage(null);
   };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedFile) {
+      setError('Please select an image file');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to upload images');
+        setUploading(false);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      formData.append('title', uploadForm.title);
+      formData.append('description', uploadForm.description);
+      formData.append('category', uploadForm.category);
+      formData.append('tags', uploadForm.tags);
+      formData.append('featured', uploadForm.featured.toString());
+
+      const response = await axios.post(`${API_BASE_URL}/api/gallery/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+        timeout: 30000
+      });
+
+      if (response.data.success) {
+        setShowUploadModal(false);
+        setUploadForm({
+          title: '',
+          description: '',
+          category: 'cleaning',
+          tags: '',
+          featured: false
+        });
+        setSelectedFile(null);
+        fetchGalleryImages();
+      } else {
+        setError(response.data.message || 'Failed to upload image');
+      }
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      
+      if (error.code === 'ECONNABORTED') {
+        setError('Upload timeout. Please try again with a smaller file.');
+      } else if (error.response) {
+        if (error.response.status === 401 || error.response.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          setError('Your session has expired. Please log in again.');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        } else if (error.response.status === 413) {
+          setError('File too large. Maximum size is 5MB.');
+        } else if (error.response.status === 400) {
+          setError(error.response.data.message || 'Invalid form data. Please check your upload.');
+        } else {
+          setError(error.response.data.message || `Server error: ${error.response.status}`);
+        }
+      } else if (error.request) {
+        setError('No response from server. Please check your connection.');
+      } else {
+        setError('Failed to upload image. Please try again.');
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLike = async (image: GalleryImage, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to like images');
+        return;
+      }
+
+      await axios.post(`${API_BASE_URL}/api/gallery/${image._id}/like`, {}, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      setGalleryImages(prev => prev.map(img => 
+        img._id === image._id ? { ...img, likes: (img.likes || 0) + 1 } : img
+      ));
+      
+      if (selectedImage && selectedImage._id === image._id) {
+        setSelectedImage({ ...selectedImage, likes: (selectedImage.likes || 0) + 1 });
+      }
+    } catch (error: any) {
+      console.error('Error liking image:', error);
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        setError('Your session has expired. Please log in again.');
+      } else {
+        setError('Failed to like image. Please try again.');
+      }
+    }
+  };
+
+  const handleShare = async (image: GalleryImage, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: image.title,
+          text: image.description,
+          url: window.location.href,
+        });
+      } else {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const clearFilters = () => {
+    setSelectedCategory('all');
+    setSearchTerm('');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading gallery...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && (error.includes('session') || error?.includes('log in'))) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.href = '/login'}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -248,13 +355,12 @@ const GalleryPage: React.FC = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 sm:gap-4">
-              
               <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
                 <Images className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-white" />
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-lg sm:text-xl lg:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                  Project Gallery 📸
+                  Project Gallery
                 </h1>
                 <p className="text-gray-600 text-xs sm:text-sm lg:text-base xl:text-lg mt-1">
                   Showcase of professional work and completed projects
@@ -264,6 +370,18 @@ const GalleryPage: React.FC = () => {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+            <div className="flex justify-between items-center">
+              <span>{error}</span>
+              <button onClick={() => setError(null)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Gallery Stats */}
         {/* Gallery Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
           <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
@@ -373,11 +491,14 @@ const GalleryPage: React.FC = () => {
             </div>
 
             {/* Add New Button */}
-            <button className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base">
+            <button 
+              onClick={() => setShowUploadModal(true)}
+              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base"
+            >
               <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
               </div>
-              <span>Add Project</span>
+              <span>Add Image</span>
             </button>
           </div>
 
@@ -406,20 +527,20 @@ const GalleryPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Gallery Grid */}
+        {/* Gallery Content */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-4 sm:p-6 lg:p-8">
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {filteredImages.map((image) => (
                   <div
-                    key={image.id}
+                    key={image._id}
                     className="group relative bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
                     onClick={() => handleImageClick(image)}
                   >
                     <div className="aspect-[4/3] overflow-hidden">
                       <img
-                        src={image.url}
+                        src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
                         alt={image.title}
                         onError={handleImageError}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
@@ -440,13 +561,25 @@ const GalleryPage: React.FC = () => {
                     {/* Overlay Actions */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <div className="flex gap-2">
-                        <button className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                        <button 
+                          className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleImageClick(image);
+                          }}
+                        >
                           <Eye className="w-5 h-5 text-white" />
                         </button>
-                        <button className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                        <button 
+                          className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                          onClick={(e) => handleLike(image, e)}
+                        >
                           <Heart className="w-5 h-5 text-white" />
                         </button>
-                        <button className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                        <button 
+                          className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+                          onClick={(e) => handleShare(image, e)}
+                        >
                           <Share2 className="w-5 h-5 text-white" />
                         </button>
                       </div>
@@ -471,7 +604,7 @@ const GalleryPage: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          <span>{formatDate(image.date)}</span>
+                          <span>{formatDate(image.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -482,13 +615,13 @@ const GalleryPage: React.FC = () => {
               <div className="space-y-4">
                 {filteredImages.map((image) => (
                   <div
-                    key={image.id}
+                    key={image._id}
                     className="group flex gap-4 sm:gap-6 bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
                     onClick={() => handleImageClick(image)}
                   >
                     <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
                       <img
-                        src={image.url}
+                        src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
                         alt={image.title}
                         onError={handleImageError}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -523,15 +656,24 @@ const GalleryPage: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span>{formatDate(image.date)}</span>
+                            <span>{formatDate(image.createdAt)}</span>
                           </div>
                         </div>
                         
                         <div className="flex gap-2">
-                          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                            <Edit3 className="w-4 h-4 text-gray-600" />
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLike(image, e);
+                            }}
+                          >
+                            <Heart className="w-4 h-4 text-gray-600" />
                           </button>
-                          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <button 
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            onClick={(e) => handleShare(image, e)}
+                          >
                             <Share2 className="w-4 h-4 text-gray-600" />
                           </button>
                         </div>
@@ -551,7 +693,10 @@ const GalleryPage: React.FC = () => {
                 <p className="text-gray-600 mb-4">
                   {searchTerm ? 'Try adjusting your search terms' : 'No projects match the selected category'}
                 </p>
-                <button className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors">
+                <button 
+                  onClick={clearFilters}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+                >
                   Clear filters
                 </button>
               </div>
@@ -573,7 +718,7 @@ const GalleryPage: React.FC = () => {
                 
                 <div className="aspect-[4/3] max-h-[60vh] overflow-hidden">
                   <img
-                    src={selectedImage.url}
+                    src={selectedImage.fullImageUrl || `${API_BASE_URL}${selectedImage.imageUrl}`}
                     alt={selectedImage.title}
                     onError={handleImageError}
                     className="w-full h-full object-cover"
@@ -603,11 +748,11 @@ const GalleryPage: React.FC = () => {
                     <button className="p-3 hover:bg-gray-100 rounded-xl transition-colors">
                       <Download className="w-5 h-5 text-gray-600" />
                     </button>
-                    <button className="p-3 hover:bg-gray-100 rounded-xl transition-colors">
+                    <button 
+                      className="p-3 hover:bg-gray-100 rounded-xl transition-colors"
+                      onClick={(e) => handleShare(selectedImage, e)}
+                    >
                       <Share2 className="w-5 h-5 text-gray-600" />
-                    </button>
-                    <button className="p-3 hover:bg-gray-100 rounded-xl transition-colors">
-                      <Edit3 className="w-5 h-5 text-gray-600" />
                     </button>
                   </div>
                 </div>
@@ -633,7 +778,7 @@ const GalleryPage: React.FC = () => {
                     <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg mx-auto mb-1">
                       <Calendar className="w-4 h-4 text-green-600" />
                     </div>
-                    <p className="text-sm font-medium text-gray-900">{formatDate(selectedImage.date)}</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(selectedImage.createdAt)}</p>
                     <p className="text-xs text-gray-500">Created</p>
                   </div>
                   <div className="text-center">
@@ -646,15 +791,150 @@ const GalleryPage: React.FC = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row gap-3 mt-6">
-                  <button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2">
+                  <button 
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    onClick={(e) => handleLike(selectedImage, e)}
+                  >
                     <Heart className="w-5 h-5" />
                     <span>Like Project</span>
                   </button>
-                  <button className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                  <button 
+                    className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                    onClick={(e) => handleShare(selectedImage, e)}
+                  >
                     <Share2 className="w-5 h-5" />
                     <span>Share</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upload Modal */}
+        {showUploadModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-6 sm:p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Upload New Image</h2>
+                  <button
+                    onClick={() => setShowUploadModal(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <form onSubmit={handleUploadSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Image File *
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                    {selectedFile && (
+                      <p className="text-sm text-gray-500 mt-1">Selected: {selectedFile.name}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={uploadForm.title}
+                      onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={uploadForm.description}
+                      onChange={(e) => setUploadForm({...uploadForm, description: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={uploadForm.category}
+                      onChange={(e) => setUploadForm({...uploadForm, category: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      required
+                    >
+                      <option value="cleaning">Cleaning</option>
+                      <option value="handyman">Handyman</option>
+                      <option value="gardening">Gardening</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={uploadForm.tags}
+                      onChange={(e) => setUploadForm({...uploadForm, tags: e.target.value})}
+                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      placeholder="e.g., kitchen, renovation, before-after"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="featured"
+                      checked={uploadForm.featured}
+                      onChange={(e) => setUploadForm({...uploadForm, featured: e.target.checked})}
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                    />
+                    <label htmlFor="featured" className="ml-2 text-sm text-gray-700">
+                      Mark as featured
+                    </label>
+                  </div>
+                  
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowUploadModal(false)}
+                      className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={uploading}
+                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                    >
+                      {uploading ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin mr-2" />
+                          Uploading...
+                        </>
+                      ) : (
+                        'Upload Image'
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
