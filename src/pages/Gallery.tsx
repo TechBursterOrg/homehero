@@ -142,10 +142,20 @@ const GalleryPage: React.FC = () => {
   const totalViews = galleryImages.reduce((sum, img) => sum + (img.views || 0), 0);
   const totalLikes = galleryImages.reduce((sum, img) => sum + (img.likes || 0), 0);
 
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
+const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+  const target = e.target as HTMLImageElement;
+  console.error('Image failed to load:', target.src);
+  
+  // Try to fallback to different URL formats
+  if (target.src.includes(API_BASE_URL)) {
+    // If the API_BASE_URL version failed, try direct URL
+    const relativePath = target.src.split(API_BASE_URL)[1];
+    target.src = `https://homeheroes.help${relativePath}`;
+  } else {
+    // Final fallback to placeholder
     target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
-  };
+  }
+};
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
