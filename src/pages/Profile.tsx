@@ -606,28 +606,28 @@ const Profile: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex-1 text-center sm:text-left">
-                <div className="space-y-2 sm:space-y-3">
+              <div className="flex-1 w-full">
+                <div className="space-y-2 sm:space-y-3 text-center sm:text-left">
                   {isEditing ? (
                     <input
                       type="text"
                       value={editForm.name}
                       onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                      className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 w-full"
+                      className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 w-full text-center sm:text-left"
                     />
                   ) : (
                     <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
                   )}
                   <p className="text-sm sm:text-lg lg:text-xl text-gray-600 font-medium">{profileData.title}</p>
-                  <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600">
+                  <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-6 text-xs sm:text-sm text-gray-600">
                     <div className="flex items-center gap-1 sm:gap-2">
                       <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 fill-current" />
                       <span className="font-bold text-sm sm:text-lg text-gray-900">{profileData.rating}</span>
-                      <span>({profileData.totalReviews} reviews)</span>
+                      <span className="text-xs sm:text-sm">({profileData.totalReviews} reviews)</span>
                     </div>
                     <div className="flex items-center gap-1 sm:gap-2">
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500" />
-                      <span>Member since {profileData.joinedDate}</span>
+                      <span className="text-xs sm:text-sm">Member since {profileData.joinedDate}</span>
                     </div>
                   </div>
                 </div>
