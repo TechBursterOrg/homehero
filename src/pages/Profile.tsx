@@ -256,56 +256,64 @@ const Profile: React.FC = () => {
 
   // FIXED: Upload profile image function
   const uploadProfileImage = async (file: File) => {
-    try {
-      setUploadingImage(true);
-      setError(null); // Clear any existing errors
-      
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
-      }
-
-      const formData = new FormData();
-      formData.append('profileImage', file);
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile/image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // FIXED: Don't set Content-Type when using FormData - browser sets it automatically
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success && data.data.imageUrl) {
-        // FIXED: Update the profile image in state immediately after successful upload
-        setProfileData(prev => ({
-          ...prev,
-          profileImage: data.data.imageUrl
-        }));
-        
-        console.log('Profile image updated successfully:', data.data.imageUrl);
-        return data.data.imageUrl;
-      } else {
-        throw new Error('Image upload succeeded but no image URL returned');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
-      console.error('Profile image upload error:', err);
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setUploadingImage(false);
+  try {
+    setUploadingImage(true);
+    setError(null); // Clear any existing errors
+    
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please log in again.');
     }
-  };
+
+    const formData = new FormData();
+    formData.append('profileImage', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile/image`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type when using FormData - browser sets it automatically
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.success && data.data.imageUrl) {
+      // Update the profile image in state immediately after successful upload
+      setProfileData(prev => ({
+        ...prev,
+        profileImage: data.data.imageUrl
+      }));
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('profileUpdated', {
+        detail: {
+          profileImage: data.data.imageUrl,
+          name: profileData.name
+        }
+      }));
+      
+      console.log('Profile image updated successfully:', data.data.imageUrl);
+      return data.data.imageUrl;
+    } else {
+      throw new Error('Image upload succeeded but no image URL returned');
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
+    console.error('Profile image upload error:', err);
+    setError(errorMessage);
+    throw err;
+  } finally {
+    setUploadingImage(false);
+  }
+};
 
   // Handle camera button click
   const handleCameraClick = () => {

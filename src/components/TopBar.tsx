@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bell, User, Menu } from 'lucide-react';
 
@@ -7,8 +7,19 @@ interface TopBarProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
+interface UserProfile {
+  name: string;
+  profileImage: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
   const location = useLocation();
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: '',
+    profileImage: ''
+  });
   
   // Get the current page title from the path
   const getPageTitle = (): string => {
@@ -22,6 +33,64 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
     if (path.includes('/profile')) return 'Profile';
     if (path.includes('/settings')) return 'Settings';
     return 'Dashboard'; // Default
+  };
+
+  // Fetch user profile data
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.user) {
+          const user = data.data.user;
+          setUserProfile({
+            name: user.name || '',
+            profileImage: user.profileImage || user.profilePicture || ''
+          });
+        }
+      }
+    } catch (err) {
+      console.error('TopBar profile fetch error:', err);
+    }
+  };
+
+  // Listen for profile updates
+  useEffect(() => {
+    fetchUserProfile();
+    
+    // Listen for custom events when profile is updated
+    const handleProfileUpdate = () => {
+      fetchUserProfile();
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    // Also check periodically for updates
+    const interval = setInterval(fetchUserProfile, 30000); // Check every 30 seconds
+
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  };
+
+  const getProfileImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return '';
+    return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
   };
 
   return (
@@ -51,9 +120,36 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
             </button>
           </div>
           
-          <button className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center hover:shadow-lg transition-all duration-200 hover:scale-105">
-            <User className="w-4 h-4 text-white" />
-          </button>
+          {/* Updated profile image button */}
+          <div className="relative group">
+            <button className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center hover:shadow-lg transition-all duration-200 hover:scale-105 overflow-hidden">
+              {userProfile.profileImage ? (
+                <>
+                  <img
+                    src={getProfileImageUrl(userProfile.profileImage)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.classList.remove('hidden');
+                    }}
+                  />
+                  <User className="w-4 h-4 text-white hidden" />
+                </>
+              ) : (
+                <span className="text-white font-bold text-sm">
+                  {getInitials(userProfile.name)}
+                </span>
+              )}
+            </button>
+            
+            {/* Tooltip */}
+            <div className="absolute right-0 top-full mt-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+              {userProfile.name || 'Profile'}
+            </div>
+          </div>
         </div>
       </div>
     </div>

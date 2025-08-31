@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Search, 
@@ -68,6 +69,7 @@ const Jobs: React.FC = () => {
   const [maxDistance, setMaxDistance] = useState(50);
   const [showImmediateOnly, setShowImmediateOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedStatFilter, setSelectedStatFilter] = useState<string | null>(null);
   const [applicationData, setApplicationData] = useState({
     coverLetter: '',
     proposedRate: '',
@@ -268,7 +270,24 @@ const Jobs: React.FC = () => {
     const matchesDistance = job.distanceFromProvider <= maxDistance;
     const matchesImmediate = !showImmediateOnly || job.isImmediate;
     
-    return matchesSearch && matchesFilter && matchesDistance && matchesImmediate;
+    // Add stat filter logic
+    let matchesStatFilter = true;
+    if (selectedStatFilter) {
+      switch (selectedStatFilter) {
+        case 'urgent':
+          matchesStatFilter = job.isImmediate;
+          break;
+        case 'nearby':
+          matchesStatFilter = job.distanceFromProvider <= 5;
+          break;
+        case 'all':
+        default:
+          matchesStatFilter = true;
+          break;
+      }
+    }
+    
+    return matchesSearch && matchesFilter && matchesDistance && matchesImmediate && matchesStatFilter;
   });
 
   const immediateJobs = filteredJobs.filter(job => job.isImmediate);
@@ -308,6 +327,16 @@ const Jobs: React.FC = () => {
     setSelectedJob(null);
     setShowApplicationModal(false);
     setApplicationSubmitted(false);
+  };
+
+  const handleStatCardClick = (statType: string) => {
+    if (selectedStatFilter === statType) {
+      // If clicking the same stat, clear the filter
+      setSelectedStatFilter(null);
+    } else {
+      // Set the new stat filter
+      setSelectedStatFilter(statType);
+    }
   };
 
   const getCategoryInfo = (category: string): CategoryInfo => {
@@ -553,45 +582,66 @@ const Jobs: React.FC = () => {
 
         {/* Modern Stats Cards - responsive grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <button 
+            onClick={() => handleStatCardClick('all')}
+            className={`bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border shadow-sm hover:shadow-lg transition-all duration-200 text-left cursor-pointer hover:scale-105 ${
+              selectedStatFilter === 'all' || selectedStatFilter === null 
+                ? 'border-blue-300 bg-blue-50/80 ring-2 ring-blue-200' 
+                : 'border-gray-100 hover:border-blue-200'
+            }`}
+          >
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-2xl flex items-center justify-center">
                 <Briefcase className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">{filteredJobs.length}</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">{availableJobs.length}</p>
                 <p className="text-xs sm:text-sm text-gray-600">Available Jobs</p>
               </div>
             </div>
-          </div>
+          </button>
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <button 
+            onClick={() => handleStatCardClick('urgent')}
+            className={`bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border shadow-sm hover:shadow-lg transition-all duration-200 text-left cursor-pointer hover:scale-105 ${
+              selectedStatFilter === 'urgent' 
+                ? 'border-red-300 bg-red-50/80 ring-2 ring-red-200' 
+                : 'border-gray-100 hover:border-red-200'
+            }`}
+          >
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg sm:rounded-2xl flex items-center justify-center">
                 <Zap className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">{immediateJobs.length}</p>
+                <p className="text-lg sm:text-2xl font-bold text-gray-900">{availableJobs.filter(job => job.isImmediate).length}</p>
                 <p className="text-xs sm:text-sm text-gray-600">Urgent Jobs</p>
               </div>
             </div>
-          </div>
+          </button>
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <button 
+            onClick={() => handleStatCardClick('nearby')}
+            className={`bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border shadow-sm hover:shadow-lg transition-all duration-200 text-left cursor-pointer hover:scale-105 ${
+              selectedStatFilter === 'nearby' 
+                ? 'border-green-300 bg-green-50/80 ring-2 ring-green-200' 
+                : 'border-gray-100 hover:border-green-200'
+            }`}
+          >
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg sm:rounded-2xl flex items-center justify-center">
                 <Navigation className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
                 <p className="text-lg sm:text-2xl font-bold text-gray-900">
-                  {filteredJobs.filter(job => job.distanceFromProvider <= 5).length}
+                  {availableJobs.filter(job => job.distanceFromProvider <= 5).length}
                 </p>
                 <p className="text-xs sm:text-sm text-gray-600">Within 5mi</p>
               </div>
             </div>
-          </div>
+          </button>
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-2xl flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
@@ -605,7 +655,7 @@ const Jobs: React.FC = () => {
         </div>
 
         {/* Urgent Jobs Section */}
-        {immediateJobs.length > 0 && !showImmediateOnly && (
+        {immediateJobs.length > 0 && !showImmediateOnly && !selectedStatFilter && (
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-3 mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
@@ -628,7 +678,7 @@ const Jobs: React.FC = () => {
         )}
 
         {/* Regular Jobs Section */}
-        {regularJobs.length > 0 && !showImmediateOnly && (
+        {regularJobs.length > 0 && !showImmediateOnly && !selectedStatFilter && (
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-3 mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
@@ -647,8 +697,55 @@ const Jobs: React.FC = () => {
           </div>
         )}
 
+        {/* Show filtered jobs when stat filter is active */}
+        {selectedStatFilter && (
+          <div className="mb-6 sm:mb-8">
+            <div className="flex items-center gap-3 mb-4 sm:mb-6">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center ${
+                selectedStatFilter === 'urgent' 
+                  ? 'bg-gradient-to-br from-red-500 to-orange-500' 
+                  : selectedStatFilter === 'nearby'
+                  ? 'bg-gradient-to-br from-green-500 to-emerald-500'
+                  : 'bg-gradient-to-br from-blue-500 to-purple-500'
+              }`}>
+                {selectedStatFilter === 'urgent' ? (
+                  <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                ) : selectedStatFilter === 'nearby' ? (
+                  <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                ) : (
+                  <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                  {selectedStatFilter === 'urgent' && 'Urgent Jobs Only'}
+                  {selectedStatFilter === 'nearby' && 'Jobs Within 5 Miles'}
+                  {selectedStatFilter === 'all' && 'All Available Jobs'}
+                </h2>
+                <p className="text-gray-600 text-sm sm:text-base">
+                  {selectedStatFilter === 'urgent' && 'Customers who need immediate assistance'}
+                  {selectedStatFilter === 'nearby' && 'Jobs close to your location'}
+                  {selectedStatFilter === 'all' && 'Browse all available opportunities'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedStatFilter(null)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                title="Clear filter"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+              {filteredJobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Show all jobs when immediate filter is on */}
-        {showImmediateOnly && (
+        {showImmediateOnly && !selectedStatFilter && (
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-3 mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
@@ -911,20 +1008,6 @@ const Jobs: React.FC = () => {
 
                     <form onSubmit={handleApplicationSubmit} className="space-y-4 sm:space-y-6">
                       <div>
-                        {/* <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
-                          Why are you the right person for this job? *
-                        </label>
-                        <textarea
-                          required
-                          value={applicationData.coverLetter}
-                          onChange={(e) => setApplicationData({...applicationData, coverLetter: e.target.value})}
-                          rows={4}
-                          className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
-                          placeholder={selectedJob.isImmediate ? "Explain how quickly you can respond and why you're available immediately..." : "Tell the customer about your experience and why you're perfect for this job..."}
-                        /> */}
-                      </div>
-
-                      <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
                           Your Rate *
                         </label>
@@ -934,36 +1017,9 @@ const Jobs: React.FC = () => {
                           value={applicationData.proposedRate}
                           onChange={(e) => setApplicationData({...applicationData, proposedRate: e.target.value})}
                           className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
-                          placeholder="e.g., $85 (within budget range)"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
-                          When can you start? *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={applicationData.availability}
-                          onChange={(e) => setApplicationData({...applicationData, availability: e.target.value})}
-                          className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
                           placeholder={selectedJob.isImmediate ? "I can be there within [X] minutes/hours" : "When can you start this job?"}
                         />
                       </div>
-
-                      {/* <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
-                          Relevant Experience (Optional)
-                        </label>
-                        <textarea
-                          value={applicationData.experience}
-                          onChange={(e) => setApplicationData({...applicationData, experience: e.target.value})}
-                          rows={3}
-                          className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
-                          placeholder="Share any relevant experience, certifications, or previous similar work..."
-                        />
-                      </div> */}
 
                       <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-0 sm:justify-between pt-4 sm:pt-6 border-t border-gray-100">
                         <button

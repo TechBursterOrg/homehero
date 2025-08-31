@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Home, 
@@ -18,6 +18,13 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
+interface UserProfile {
+  name: string;
+  profileImage: string;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
 const Sidebar: React.FC<SidebarProps> = ({ 
   notifications, 
   sidebarOpen, 
@@ -25,6 +32,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: 'Alex Rodriguez',
+    profileImage: ''
+  });
   
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/provider/dashboard' },
@@ -36,6 +47,55 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'profile', label: 'Profile', icon: User, path: '/provider/profile' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/provider/settings' },
   ];
+
+  // Fetch user profile data
+  const fetchUserProfile = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.user) {
+          const user = data.data.user;
+          setUserProfile({
+            name: user.name || 'Alex Rodriguez',
+            profileImage: user.profileImage || user.profilePicture || ''
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Sidebar profile fetch error:', err);
+    }
+  };
+
+  // Listen for profile updates
+  useEffect(() => {
+    fetchUserProfile();
+    
+    // Listen for custom events when profile is updated
+    const handleProfileUpdate = () => {
+      fetchUserProfile();
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    
+    // Also check periodically for updates
+    const interval = setInterval(fetchUserProfile, 30000); // Check every 30 seconds
+
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleLinkClick = () => {
     if (window.innerWidth < 1024) {
@@ -61,6 +121,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       localStorage.removeItem('userData');
       navigate('/login');
     }
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+  };
+
+  const getProfileImageUrl = (imageUrl: string) => {
+    if (!imageUrl) return '';
+    return imageUrl.startsWith('/') ? `${API_BASE_URL}${imageUrl}` : imageUrl;
   };
 
   return (
@@ -134,11 +203,32 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* User Section */}
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center space-x-3 mb-4 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center">
-              <User className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center overflow-hidden">
+              {userProfile.profileImage ? (
+                <>
+                  <img
+                    src={getProfileImageUrl(userProfile.profileImage)}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const fallback = target.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.classList.remove('hidden');
+                    }}
+                  />
+                  <span className="text-white font-bold text-sm hidden">
+                    {getInitials(userProfile.name)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-white font-bold text-sm">
+                  {getInitials(userProfile.name)}
+                </span>
+              )}
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">Alex Rodriguez</p>
+              <p className="font-medium text-gray-900">{userProfile.name}</p>
               <p className="text-sm text-gray-600">Provider</p>
             </div>
           </div>

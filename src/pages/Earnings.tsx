@@ -17,7 +17,8 @@ import {
   Filter,
   Search,
   Loader2,
-  AlertCircle as AlertCircleIcon
+  AlertCircle as AlertCircleIcon,
+  PoundSterling
 } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
@@ -53,6 +54,7 @@ interface MonthlyData {
 interface CurrencyConfig {
   symbol: string;
   name: string;
+  icon: React.ComponentType<any>;
 }
 
 // Define currency multipliers with proper typing
@@ -81,7 +83,8 @@ const Earnings: React.FC = () => {
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfig>({
     symbol: '$',
-    name: 'USD'
+    name: 'USD',
+    icon: DollarSign
   });
 
   // Fetch user data and currency configuration
@@ -180,29 +183,33 @@ const Earnings: React.FC = () => {
     }
   };
 
-  // Currency configuration based on country
+  // Currency configuration based on country - Fixed to match Dashboard pattern
   const getCurrencyConfig = (country: string): CurrencyConfig => {
     switch (country) {
       case 'UK':
         return {
           symbol: '£',
-          name: 'GBP'
+          name: 'GBP',
+          icon: PoundSterling
         };
       case 'NIGERIA':
         return {
           symbol: '₦',
-          name: 'NGN'
+          name: 'NGN',
+          icon: () => <span className="text-base font-bold">₦</span>
         };
       case 'CANADA':
         return {
           symbol: 'C$',
-          name: 'CAD'
+          name: 'CAD',
+          icon: DollarSign
         };
       case 'USA':
       default:
         return {
           symbol: '$',
-          name: 'USD'
+          name: 'USD',
+          icon: DollarSign
         };
     }
   };
@@ -413,6 +420,9 @@ const Earnings: React.FC = () => {
     }
   };
 
+  // Get the currency icon component
+  const CurrencyIcon = currencyConfig.icon;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -451,7 +461,7 @@ const Earnings: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
-                  <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  <CurrencyIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
@@ -495,7 +505,11 @@ const Earnings: React.FC = () => {
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <DollarSign className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                {currencyConfig.symbol === '₦' ? (
+                  <span className="text-white font-bold text-lg sm:text-xl">₦</span>
+                ) : (
+                  <CurrencyIcon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                )}
               </div>
               <div className="text-emerald-600">
                 <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
