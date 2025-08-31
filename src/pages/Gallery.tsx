@@ -83,45 +83,66 @@ const GalleryPage: React.FC = () => {
 
   // Fetch gallery images from backend
   useEffect(() => {
-    fetchGalleryImages();
-  }, [selectedCategory, searchTerm]);
+  fetchGalleryImages();
+}, [selectedCategory, searchTerm]);
 
-  const fetchGalleryImages = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const params: any = { 
-        page: 1, 
-        limit: 50 
-      };
-      
-      if (selectedCategory !== 'all') {
-        params.category = selectedCategory;
-      }
-      
-      if (searchTerm) {
-        params.search = searchTerm;
-      }
-      
-      const response = await axios.get(`${API_BASE_URL}/api/gallery`, { params });
-      
-      if (response.data.success) {
-        const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => ({
-          ...image,
-          fullImageUrl: image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`
-        }));
-        setGalleryImages(imagesWithUrls || []);
-      } else {
-        setError('Failed to fetch gallery images');
-      }
-    } catch (error: any) {
-      console.error('Error fetching gallery images:', error);
-      setError('Failed to load gallery. Please try again later.');
-    } finally {
+const fetchGalleryImages = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      setError('Please log in to view gallery');
       setLoading(false);
+      return;
     }
-  };
+    
+    const params: any = { 
+      page: 1, 
+      limit: 50 
+    };
+    
+    if (selectedCategory !== 'all') {
+      params.category = selectedCategory;
+    }
+    
+    if (searchTerm) {
+      params.search = searchTerm;
+    }
+    
+    const response = await axios.get(`${API_BASE_URL}/api/gallery`, { 
+      params,
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (response.data.success) {
+      const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => ({
+        ...image,
+        fullImageUrl: image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`
+      }));
+      setGalleryImages(imagesWithUrls || []);
+    } else {
+      setError('Failed to fetch gallery images');
+    }
+  } catch (error: any) {
+    console.error('Error fetching gallery images:', error);
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      setError('Your session has expired. Please log in again.');
+      // Clear invalid tokens
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+    } else {
+      setError('Failed to load gallery. Please try again later.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   const categories: Category[] = [
     { id: 'all', name: 'All Projects', count: galleryImages.length, color: 'from-gray-500 to-gray-600' },
