@@ -54,6 +54,7 @@ export interface UserProfile {
   address: string;
   bio: string;
   avatar: string | null; // Standardize on null instead of undefined
+  role?: string;
 }
 
 

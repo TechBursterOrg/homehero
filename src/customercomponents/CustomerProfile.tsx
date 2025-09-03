@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Camera,
@@ -18,7 +18,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-// Mock UserProfile type for the demo
+// UserProfile type
 interface UserProfile {
   name: string;
   email: string;
@@ -26,32 +26,141 @@ interface UserProfile {
   address: string;
   bio: string;
   avatar?: string;
-  
+  role?: string;
 }
 
 interface ProfilePageProps {
-  profileData?: UserProfile;
+  profileData?: UserProfile; // Make it optional since component can fetch its own data
   onProfileUpdate?: (data: UserProfile) => void;
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({
-  profileData = {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Main St, City, State 12345',
-    bio: 'Experienced professional seeking quality home services. I value reliability, punctuality, and attention to detail.',
-    avatar: ''
-  },
   onProfileUpdate = () => {}
 }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<UserProfile>(profileData);
+  const [profileData, setProfileData] = useState<UserProfile>({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    bio: '',
+    avatar: '',
+    role: 'customer'
+  });
+  const [editedProfile, setEditedProfile] = useState<UserProfile>({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    bio: '',
+    avatar: '',
+    role: 'customer'
+  });
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences' | 'activity'>('profile');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    onProfileUpdate(editedProfile);
-    setIsEditing(false);
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const userData = data.data.user;
+            console.log('Fetched user data:', userData); // Debug log
+            
+            const profile = {
+              name: userData.name || '',
+              email: userData.email || '',
+              phone: userData.phoneNumber || '',
+              address: userData.address || '',
+              bio: userData.bio || '',
+              avatar: userData.profileImage 
+                ? `${API_BASE_URL}${userData.profileImage}` 
+                : '',
+              role: userData.userType || 'customer'
+            };
+            
+            setProfileData(profile);
+            setEditedProfile(profile);
+          }
+        } else {
+          console.error('Failed to fetch profile data');
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [API_BASE_URL]);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        console.error('No authentication token found');
+        return;
+      }
+
+      // Prepare the data for update
+      const updateData = {
+        name: editedProfile.name,
+        phoneNumber: editedProfile.phone,
+        address: editedProfile.address,
+        bio: editedProfile.bio
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setProfileData(editedProfile);
+          onProfileUpdate(editedProfile);
+          setIsEditing(false);
+        }
+      } else {
+        console.error('Failed to update profile');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -63,15 +172,44 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     setEditedProfile(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setEditedProfile(prev => ({ ...prev, avatar: result }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        setSaving(true);
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('profileImage', file);
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/profile/image`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            const newAvatar = data.data.fullImageUrl || data.data.imageUrl;
+            setEditedProfile(prev => ({ ...prev, avatar: newAvatar }));
+            setProfileData(prev => ({ ...prev, avatar: newAvatar }));
+          }
+        } else {
+          console.error('Failed to upload profile image');
+        }
+      } catch (error) {
+        console.error('Error uploading profile image:', error);
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -81,6 +219,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     { id: 'preferences', label: 'Preferences', icon: Settings },
     { id: 'activity', label: 'Activity', icon: Calendar }
   ] as const;
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="animate-pulse bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center gap-6">
+              <div className="w-32 h-32 bg-gray-200 rounded-full"></div>
+              <div className="space-y-3 flex-1">
+                <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderProfileTab = () => (
     <div className="space-y-4 sm:space-y-6 lg:space-y-8">
@@ -94,7 +252,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
                 {(isEditing ? editedProfile.avatar : profileData.avatar) ? (
                   <img
-                    src={isEditing ? editedProfile.avatar || undefined : profileData.avatar || undefined}
+                    src={isEditing ? editedProfile.avatar : profileData.avatar}
                     alt="Profile"
                     className="w-full h-full object-cover"
                   />
@@ -110,6 +268,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                     accept="image/*"
                     onChange={handleAvatarChange}
                     className="hidden"
+                    disabled={saving}
                   />
                 </label>
               )}
@@ -119,12 +278,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex-1 text-center sm:text-left">
               <div className="space-y-2 sm:space-y-3">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
-                  {isEditing ? editedProfile.name : profileData.name}
+                  {isEditing ? editedProfile.name : profileData.name || 'User'}
                 </h1>
                 <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                   <span className="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800">
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full mr-1.5 sm:mr-2"></span>
-                    Verified Customer
+                    Verified {profileData.role}
                   </span>
                   <div className="flex items-center">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -136,7 +295,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
               
               <p className="text-sm sm:text-base text-gray-600 mt-2 sm:mt-3 line-clamp-2 sm:line-clamp-none">
-                {isEditing ? editedProfile.bio : profileData.bio}
+                {isEditing ? editedProfile.bio : profileData.bio || 'No bio provided'}
               </p>
             </div>
           </div>
@@ -157,14 +316,25 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex flex-col sm:flex-row gap-3 pt-4 sm:pt-6 border-t border-gray-200">
               <button
                 onClick={handleSave}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
+                disabled={saving}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 transition-colors text-sm sm:text-base"
               >
-                <Save className="w-4 h-4" />
-                Save Changes
+                {saving ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
               </button>
               <button
                 onClick={handleCancel}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm sm:text-base"
+                disabled={saving}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-400 transition-colors text-sm sm:text-base"
               >
                 <X className="w-4 h-4" />
                 Cancel
@@ -191,9 +361,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   value={editedProfile.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={saving}
                 />
               ) : (
-                <p className="text-sm sm:text-base text-gray-900 break-words">{profileData.email}</p>
+                <p className="text-sm sm:text-base text-gray-900 break-words">{profileData.email || 'No email provided'}</p>
               )}
             </div>
 
@@ -208,9 +379,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   value={editedProfile.phone}
                   onChange={(e) => handleInputChange('phone', e.target.value)}
                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={saving}
                 />
               ) : (
-                <p className="text-sm sm:text-base text-gray-900">{profileData.phone}</p>
+                <p className="text-sm sm:text-base text-gray-900">{profileData.phone || 'No phone number provided'}</p>
               )}
             </div>
           </div>
@@ -227,9 +399,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   onChange={(e) => handleInputChange('address', e.target.value)}
                   rows={3}
                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  disabled={saving}
                 />
               ) : (
-                <p className="text-sm sm:text-base text-gray-900">{profileData.address}</p>
+                <p className="text-sm sm:text-base text-gray-900">{profileData.address || 'No address provided'}</p>
               )}
             </div>
 
@@ -244,9 +417,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
                   rows={3}
                   placeholder="Tell us about yourself..."
                   className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  disabled={saving}
                 />
               ) : (
-                <p className="text-sm sm:text-base text-gray-900">{profileData.bio}</p>
+                <p className="text-sm sm:text-base text-gray-900">{profileData.bio || 'No bio provided'}</p>
               )}
             </div>
           </div>
