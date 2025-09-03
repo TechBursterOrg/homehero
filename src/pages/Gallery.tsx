@@ -55,7 +55,8 @@ interface Category {
   color: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+// Use the correct API base URL - point to your render backend
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backendhomeheroes.onrender.com';
 
 const GalleryPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
@@ -83,66 +84,85 @@ const GalleryPage: React.FC = () => {
 
   // Fetch gallery images from backend
   useEffect(() => {
-  fetchGalleryImages();
-}, [selectedCategory, searchTerm]);
+    fetchGalleryImages();
+  }, [selectedCategory, searchTerm]);
 
-const fetchGalleryImages = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      setError('Please log in to view gallery');
-      setLoading(false);
-      return;
-    }
-    
-    const params: any = { 
-      page: 1, 
-      limit: 50 
-    };
-    
-    if (selectedCategory !== 'all') {
-      params.category = selectedCategory;
-    }
-    
-    if (searchTerm) {
-      params.search = searchTerm;
-    }
-    
-    const response = await axios.get(`${API_BASE_URL}/api/gallery`, { 
-      params,
-      headers: {
-        'Authorization': `Bearer ${token}`
+  const fetchGalleryImages = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        setError('Please log in to view gallery');
+        setLoading(false);
+        return;
       }
-    });
-    
-    if (response.data.success) {
-      const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => ({
-        ...image,
-        fullImageUrl: image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`
-      }));
-      setGalleryImages(imagesWithUrls || []);
-    } else {
-      setError('Failed to fetch gallery images');
+      
+      const params: any = { 
+        page: 1, 
+        limit: 50 
+      };
+      
+      if (selectedCategory !== 'all') {
+        params.category = selectedCategory;
+      }
+      
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/api/gallery`, { 
+        params,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.data.success) {
+        // Ensure all images have proper URLs
+        const imagesWithUrls = response.data.data.docs.map((image: GalleryImage) => {
+          // Fix image URLs - handle both relative and absolute URLs
+          let fullImageUrl = image.fullImageUrl || image.imageUrl;
+          
+          // If it's a relative path, prepend the API base URL
+          if (fullImageUrl && fullImageUrl.startsWith('/')) {
+            fullImageUrl = `${API_BASE_URL}${fullImageUrl}`;
+          }
+          
+          // If it's an HTTP URL but we're on HTTPS, convert it
+          if (fullImageUrl && fullImageUrl.startsWith('http://') && window.location.protocol === 'https:') {
+            fullImageUrl = fullImageUrl.replace('http://', 'https://');
+          }
+          
+          return {
+            ...image,
+            fullImageUrl
+          };
+        });
+        
+        setGalleryImages(imagesWithUrls || []);
+      } else {
+        setError('Failed to fetch gallery images');
+      }
+    } catch (error: any) {
+      console.error('Error fetching gallery images:', error);
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        setError('Your session has expired. Please log in again.');
+        // Clear invalid tokens
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+      } else if (error.response?.status === 404) {
+        setError('Gallery endpoint not found. Please try again later.');
+      } else {
+        setError('Failed to load gallery. Please check your connection and try again.');
+      }
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    console.error('Error fetching gallery images:', error);
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      setError('Your session has expired. Please log in again.');
-      // Clear invalid tokens
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userData');
-    } else {
-      setError('Failed to load gallery. Please try again later.');
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const categories: Category[] = [
     { id: 'all', name: 'All Projects', count: galleryImages.length, color: 'from-gray-500 to-gray-600' },
@@ -163,25 +183,28 @@ const fetchGalleryImages = async () => {
   const totalViews = galleryImages.reduce((sum, img) => sum + (img.views || 0), 0);
   const totalLikes = galleryImages.reduce((sum, img) => sum + (img.likes || 0), 0);
 
-const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  const target = e.target as HTMLImageElement;
-  console.error('Image failed to load:', target.src);
-  
-  // If this is already a placeholder, don't try again
-  if (target.src.includes('via.placeholder.com')) {
-    return;
-  }
-  
-  // Try to fallback to different URL formats
-  if (target.src.includes(API_BASE_URL)) {
-    // If the API_BASE_URL version failed, try direct URL
-    const relativePath = target.src.split(API_BASE_URL)[1];
-    target.src = `https://homeheroes.help${relativePath}`;
-  } else if (target.src.includes('homeheroes.help')) {
-    // If direct URL also failed, use placeholder
-    target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
-  }
-};
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, image: GalleryImage) => {
+    const target = e.target as HTMLImageElement;
+    console.error('Image failed to load:', target.src);
+    
+    // If this is already a placeholder, don't try again
+    if (target.src.includes('via.placeholder.com')) {
+      return;
+    }
+    
+    // Try different URL strategies
+    if (target.src.includes(API_BASE_URL)) {
+      // If API_BASE_URL version failed, try relative path
+      const relativePath = target.src.split(API_BASE_URL)[1];
+      target.src = relativePath;
+    } else if (target.src.startsWith('/')) {
+      // If relative path failed, try with API base URL but with HTTPS
+      target.src = `https://backendhomeheroes.onrender.com${target.src}`;
+    } else {
+      // If all else fails, use placeholder
+      target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
+    }
+  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -639,7 +662,7 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                       <img
                         src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
                         alt={image.title}
-                        onError={handleImageError}
+                        onError={(e) => handleImageError(e, image)}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -727,7 +750,7 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                       <img
                         src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
                         alt={image.title}
-                        onError={handleImageError}
+                        onError={(e) => handleImageError(e, image)}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>
@@ -833,7 +856,7 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                   <img
                     src={selectedImage.fullImageUrl || `${API_BASE_URL}${selectedImage.imageUrl}`}
                     alt={selectedImage.title}
-                    onError={handleImageError}
+                    onError={(e) => handleImageError(e, selectedImage)}
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -1065,7 +1088,7 @@ const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
                       onChange={(e) => setUploadForm({...uploadForm, featured: e.target.checked})}
                       className="h-4 w-4 text-blue-600 border-gray-300 rounded"
                     />
-                    <label htmlFor="featured" className="ml-2 text-sm text-gray-700">
+                    <label htmlFor='featured' className="ml-2 text-sm text-gray-700">
                       Mark as featured
                     </label>
                   </div>

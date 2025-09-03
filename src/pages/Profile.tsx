@@ -458,9 +458,30 @@ const Profile: React.FC = () => {
   ];
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    const target = e.target as HTMLImageElement;
-    target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Image';
-  };
+  const target = e.target as HTMLImageElement;
+  console.error('Profile image failed to load:', target.src);
+  
+  // If this is already a placeholder, don't try again
+  if (target.src.includes('via.placeholder.com')) {
+    return;
+  }
+  
+  // Try different URL strategies
+  if (target.src.includes(API_BASE_URL)) {
+    // If API_BASE_URL version failed, try relative path
+    const relativePath = target.src.split(API_BASE_URL)[1];
+    target.src = relativePath;
+  } else if (target.src.startsWith('/')) {
+    // If relative path failed, try with API base URL but with HTTPS
+    target.src = `${API_BASE_URL}${target.src}`;
+  } else if (target.src.includes('http://') && window.location.protocol === 'https:') {
+    // If HTTP but page is HTTPS, try HTTPS version
+    target.src = target.src.replace('http://', 'https://');
+  } else {
+    // If all else fails, use placeholder
+    target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image';
+  }
+};
 
   const handleServiceToggle = (service: string) => {
     setEditForm(prev => {
@@ -579,20 +600,15 @@ const Profile: React.FC = () => {
                   {/* FIXED: Profile image display logic */}
                   {profileData.profileImage ? (
                     <img
-                      src={profileData.profileImage.startsWith('/') 
-                        ? `${API_BASE_URL}${profileData.profileImage}` 
-                        : profileData.profileImage
-                      }
-                      alt="Profile"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        console.error('Profile image failed to load:', profileData.profileImage);
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const fallback = target.nextElementSibling as HTMLElement;
-                        if (fallback) fallback.classList.remove('hidden');
-                      }}
-                    />
+  src={profileData.profileImage?.startsWith('/') 
+    ? `${API_BASE_URL}${profileData.profileImage}`
+    : profileData.profileImage || 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image'
+  }
+  alt="Profile"
+  className="w-full h-full object-cover"
+  onError={handleImageError}
+  loading="lazy"
+/>
                   ) : null}
                   <span className={`text-white font-bold text-lg sm:text-xl lg:text-4xl ${profileData.profileImage ? 'hidden' : ''}`}>
                     {profileData.name.split(' ').map(n => n[0]).join('') || 'U'}
