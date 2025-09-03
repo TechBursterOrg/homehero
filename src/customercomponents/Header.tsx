@@ -1,5 +1,5 @@
-import React from 'react';
-import {Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Bell,
   User,
@@ -13,20 +13,89 @@ import { UserProfile } from '../types';
 interface HeaderProps {
   isMenuOpen: boolean;
   setIsMenuOpen: (isOpen: boolean) => void;
-  profileData: UserProfile;
   unreadMessagesCount?: number;
-  onLogout: () => void; // Add this prop
+  onLogout: () => void;
+}
+
+// Extended interface to include role
+interface ExtendedUserProfile extends UserProfile {
+  role?: 'customer' | 'provider';
 }
 
 const Header: React.FC<HeaderProps> = ({
   isMenuOpen,
   setIsMenuOpen,
   unreadMessagesCount = 0,
-  profileData,
-  onLogout // Add this prop
+  onLogout
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [profileData, setProfileData] = useState<ExtendedUserProfile>({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    bio: '',
+    avatar: null,
+    role: 'customer'
+  });
+  const [loading, setLoading] = useState(true);
+
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
+  // Fetch profile data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('authToken');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            // Determine the current role based on the current path
+            const currentRole = location.pathname.startsWith('/provider') ? 'provider' : 'customer';
+            
+            setProfileData({
+              name: data.data.user.name || '',
+              email: data.data.user.email || '',
+              phone: data.data.user.phone || '',
+              address: data.data.user.address || '',
+              bio: data.data.user.bio || '',
+              avatar: data.data.user.profileImage 
+                ? `${API_BASE_URL}${data.data.user.profileImage}` 
+                : null,
+              role: currentRole
+            });
+          }
+        } else {
+          console.error('Failed to fetch profile data');
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [location.pathname, API_BASE_URL]);
 
   const navigation = [
     { id: 'services', label: 'Find Services', path: '/customer' },
@@ -50,16 +119,37 @@ const Header: React.FC<HeaderProps> = ({
 
   const handleLogout = async () => {
     try {
-      // Call the logout function passed from parent
       await onLogout();
       setIsMenuOpen(false);
       navigate('/login');
     } catch (error) {
       console.error('Logout failed:', error);
-      // Even if API call fails, redirect to login
       navigate('/login');
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+                <Home className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                HomeHero
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="animate-pulse bg-gray-200 rounded-full w-10 h-10"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -89,7 +179,6 @@ const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 {item.label}
-                {/* Add unread indicator for Messages */}
                 {item.id === 'messages' && unreadMessagesCount > 0 && (
                   <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
                     {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
@@ -121,7 +210,7 @@ const Header: React.FC<HeaderProps> = ({
             
             <div className="hidden md:flex items-center space-x-3">
               <button
-                onClick={() => {/* Add profile navigation if needed */}}
+                onClick={() => navigate('/customer/profile')}
                 className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
               >
                 {profileData.avatar ? (
@@ -136,8 +225,8 @@ const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-900">{profileData.name}</p>
-                  <p className="text-xs text-gray-600">Customer</p>
+                  <p className="text-sm font-medium text-gray-900">{profileData.name || 'User'}</p>
+                  <p className="text-xs text-gray-600 capitalize">{profileData.role || 'customer'}</p>
                 </div>
               </button>
             </div>
@@ -164,7 +253,6 @@ const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 <span>{item.label}</span>
-                {/* Add unread indicator for Messages in mobile menu */}
                 {item.id === 'messages' && unreadMessagesCount > 0 && (
                   <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                     {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
@@ -174,7 +262,7 @@ const Header: React.FC<HeaderProps> = ({
             ))}
             <button
               onClick={() => {
-                // Add profile navigation if needed
+                navigate('/customer/profile');
                 setIsMenuOpen(false);
               }}
               className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50"

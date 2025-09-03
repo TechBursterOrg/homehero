@@ -1,22 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight,
-  Calendar,
-  CheckCircle,
-  Plus,
-  Sparkles, Star, DollarSign, MoreVertical
+  Sparkles, 
+  MoreVertical
 } from 'lucide-react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
+import ProfilePage  from '../customercomponents/CustomerProfile'
 
 // Components
 import Header from '../customercomponents/Header';
 import HeroSection from '../customercomponents/HeroSection';
 import ServiceCard from '../customercomponents/ServiceCard';
 import ProviderCard from '../customercomponents/ProviderCard';
-import ProfileSection from '../customercomponents/ProfileSection';
 import PostJobModal from '../customercomponents/PostJobModal';
 import MapView from '../customercomponents/MapView';
-import { logoutUser } from '../services/authService';
 
 // Pages
 import BookingsPage from './BookingsPage';
@@ -35,7 +32,7 @@ import {
   Conversation,
   Message
 } from '../types';
-import { services, providers, bookings, jobPosts } from '../data/mockData';
+import { services, providers } from '../data/mockData';
 
 const CustomerContent: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -244,8 +241,6 @@ const CustomerContent: React.FC = () => {
     return R * c;
   };
 
-  const favoriteProviders = providers.filter(p => favorites.includes(p.id));
-
   const handleServiceClick = (service: Service) => {
     setSearchQuery(service.name);
     
@@ -271,14 +266,6 @@ const CustomerContent: React.FC = () => {
         ? prev.filter(id => id !== providerId)
         : [...prev, providerId]
     );
-  };
-
-  const handleBookingAction = (bookingId: string, action: string) => {
-    console.log('Booking action:', action, bookingId);
-  };
-
-  const handleJobAction = (jobId: string, action: string) => {
-    console.log('Job action:', action, jobId);
   };
 
   const handlePostJob = (jobData: any) => {
@@ -566,9 +553,8 @@ const CustomerContent: React.FC = () => {
       <Header
         isMenuOpen={isMenuOpen}
         setIsMenuOpen={setIsMenuOpen}
-        profileData={profileData}
         unreadMessagesCount={unreadMessagesCount}
-        onLogout={handleLogout} // Add the onLogout prop
+        onLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -576,6 +562,18 @@ const CustomerContent: React.FC = () => {
           <Route index element={<HomePage />} />
           <Route path="bookings" element={<BookingsPage />} />
           <Route path="jobs" element={<JobsPage />} />
+          <Route path="profile" element={
+            <ProfilePage 
+              profileData={{
+                ...profileData,
+                avatar: profileData.avatar || undefined
+              }}
+              onProfileUpdate={(data) => handleProfileDataChange({
+                ...data,
+                avatar: data.avatar || null
+              })}
+            />
+          } />
           <Route path="favorites" element={
             <FavoritesPage 
               favorites={favorites}
