@@ -16,26 +16,17 @@ import {
   Activity,
   ChevronRight,
   Sparkles,
-  PoundSterling,
   Loader2,
   AlertCircle
 } from 'lucide-react';
 
-interface AvailabilitySlot {
-  id: number;
-  date: string;
+interface BusinessHours {
+  id?: number;
+  dayOfWeek: string;
   startTime: string;
   endTime: string;
-  serviceType: string;
-  notes: string;
-  status: string;
-}
-
-interface NewSlotData {
-  date: string;
-  startTime: string;
-  endTime: string;
-  serviceType: string;
+  isAvailable: boolean;
+  serviceTypes: string[];
   notes: string;
 }
 
@@ -46,7 +37,7 @@ interface DashboardData {
     id: string;
     country: string;
   };
-  availabilitySlots: AvailabilitySlot[];
+  businessHours: BusinessHours[];
   recentJobs: any[];
   upcomingTasks: any[];
   stats: {
@@ -57,94 +48,116 @@ interface DashboardData {
   };
 }
 
-interface DashboardProps {
-  userCountry?: 'UK' | 'USA' | 'CANADA' | 'NIGERIA';
-}
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-const Dashboard: React.FC<DashboardProps> = ({ userCountry = 'USA' }) => {
+const Dashboard: React.FC = () => {
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [availabilitySlots, setAvailabilitySlots] = useState<AvailabilitySlot[]>([]);
-  const [newSlot, setNewSlot] = useState<NewSlotData>({
-    date: '',
-    startTime: '',
-    endTime: '',
-    serviceType: '',
-    notes: ''
-  });
+  const [businessHours, setBusinessHours] = useState<BusinessHours[]>([]);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string>('Monday');
+
+  // Days of the week
+  const daysOfWeek = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+
+  // Initialize default hours for each day
+  const defaultHours: BusinessHours = {
+    dayOfWeek: 'Monday',
+    startTime: '09:00',
+    endTime: '17:00',
+    isAvailable: true,
+    serviceTypes: [],
+    notes: ''
+  };
+
+  // Get hours for the selected day
+  const getHoursForDay = (day: string): BusinessHours => {
+    const existingHours = businessHours.find(hours => hours.dayOfWeek === day);
+    return existingHours || {
+      ...defaultHours,
+      dayOfWeek: day
+    };
+  };
+
+  // Update hours for the selected day
+  const updateHoursForDay = (updatedHours: BusinessHours) => {
+    const existingIndex = businessHours.findIndex(hours => hours.dayOfWeek === updatedHours.dayOfWeek);
+    
+    if (existingIndex >= 0) {
+      const updatedBusinessHours = [...businessHours];
+      updatedBusinessHours[existingIndex] = updatedHours;
+      setBusinessHours(updatedBusinessHours);
+    } else {
+      setBusinessHours([...businessHours, updatedHours]);
+    }
+  };
 
   // Fetch dashboard data from backend
   useEffect(() => {
-   // In your fetchDashboardData function
-// In your Dashboard component, replace the fetch call:
-const fetchDashboardData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.');
-    }
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('No authentication token found. Please log in again.');
+        }
 
-    // Use API_BASE_URL here instead of hardcoded URL
-    const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+        const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
 
-    console.log('Response status:', response.status, response.statusText);
-    
-    if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userData');
-      throw new Error('Your session has expired. Please log in again.');
-    }
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+        console.log('Response status:', response.status, response.statusText);
+        
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    const data = await response.json();
-    
-    if (data.success === false && data.message.includes('token')) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userData');
-      throw new Error('Authentication failed. Please log in again.');
-    }
-    
-    setDashboardData(data);
-    setAvailabilitySlots(data.availabilitySlots || []);
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-    setError(errorMessage);
-    console.error('Dashboard fetch error:', err);
-    
-    if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 2000);
-    }
-    
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Using mock data for development');
-      setDashboardData(getMockData());
-    }
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+        const data = await response.json();
+        
+        if (data.success === false && data.message.includes('token')) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          throw new Error('Authentication failed. Please log in again.');
+        }
+        
+        setDashboardData(data);
+        setBusinessHours(data.businessHours || []);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+        setError(errorMessage);
+        console.error('Dashboard fetch error:', err);
+        
+        if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Using mock data for development');
+          setDashboardData(getMockData());
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
     fetchDashboardData();
   }, []);
@@ -155,18 +168,43 @@ const fetchDashboardData = async () => {
       name: 'John Doe',
       email: 'john@example.com',
       id: '1',
-      country: userCountry
+      country: 'NIGERIA'
     },
-    availabilitySlots: [],
+    businessHours: [
+      {
+        dayOfWeek: 'Monday',
+        startTime: '09:00',
+        endTime: '17:00',
+        isAvailable: true,
+        serviceTypes: ['House Cleaning'],
+        notes: ''
+      },
+      {
+        dayOfWeek: 'Tuesday',
+        startTime: '09:00',
+        endTime: '17:00',
+        isAvailable: true,
+        serviceTypes: ['Plumbing Repair'],
+        notes: ''
+      },
+      {
+        dayOfWeek: 'Wednesday',
+        startTime: '09:00',
+        endTime: '17:00',
+        isAvailable: true,
+        serviceTypes: ['General Maintenance'],
+        notes: ''
+      }
+    ],
     recentJobs: [
       {
         id: 1,
         title: 'House Cleaning',
         client: 'Sarah Johnson',
         category: 'cleaning',
-        payment: 150,
+        payment: 15000,
         status: 'completed',
-        location: 'Downtown',
+        location: 'Victoria Island',
         date: 'Aug 25',
         time: '2:00 PM'
       },
@@ -175,9 +213,9 @@ const fetchDashboardData = async () => {
         title: 'Garden Maintenance',
         client: 'Mike Wilson',
         category: 'gardening',
-        payment: 200,
+        payment: 25000,
         status: 'upcoming',
-        location: 'Suburbs',
+        location: 'Lekki',
         date: 'Aug 28',
         time: '10:00 AM'
       }
@@ -194,61 +232,16 @@ const fetchDashboardData = async () => {
       }
     ],
     stats: {
-      totalEarnings: 2500,
+      totalEarnings: 350000,
       jobsCompleted: 45,
       averageRating: 4.8,
       activeClients: 12
     }
   });
 
-  // Currency configuration based on country
-  const getCurrencyConfig = (country: string) => {
-    switch (country) {
-      case 'UK':
-        return {
-          symbol: '£',
-          icon: PoundSterling,
-          name: 'GBP'
-        };
-      case 'NIGERIA':
-        return {
-          symbol: '₦',
-          icon: () => <span className="text-base font-bold">₦</span>,
-          name: 'NGN'
-        };
-      case 'CANADA':
-        return {
-          symbol: 'C$',
-          icon: DollarSign,
-          name: 'CAD'
-        };
-      case 'USA':
-      default:
-        return {
-          symbol: '$',
-          icon: DollarSign,
-          name: 'USD'
-        };
-    }
-  };
-
-  const currencyConfig = getCurrencyConfig(userCountry);
-  const CurrencyIcon = currencyConfig.icon;
-
-  // Update earnings based on country
-  const getLocalizedEarnings = (amount: number) => {
-    const multipliers = {
-      'UK': { multiplier: 0.79, symbol: '£' },
-      'NIGERIA': { multiplier: 1650, symbol: '₦' },
-      'CANADA': { multiplier: 1.35, symbol: 'C$' },
-      'USA': { multiplier: 1, symbol: '$' }
-    };
-
-    const config = multipliers[userCountry] || multipliers['USA'];
-    return {
-      amount: Math.round(amount * config.multiplier).toLocaleString(),
-      symbol: config.symbol
-    };
+  // Format amount in Naira
+  const formatNaira = (amount: number) => {
+    return `₦${amount.toLocaleString()}`;
   };
 
   const serviceTypes = [
@@ -265,59 +258,35 @@ const fetchDashboardData = async () => {
     setShowAvailabilityModal(true);
   };
 
-  const handleSaveAvailability = async (): Promise<void> => {
-  if (newSlot.date && newSlot.startTime && newSlot.endTime && newSlot.serviceType) {
+  const handleSaveBusinessHours = async (): Promise<void> => {
     try {
       const token = localStorage.getItem('authToken');
-      // Use API_BASE_URL here too
-      const response = await fetch(`${API_BASE_URL}/api/availability`, {
+      
+      // Save all business hours
+      const response = await fetch(`${API_BASE_URL}/api/business-hours/bulk`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newSlot),
+        body: JSON.stringify({ businessHours }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save availability');
+        throw new Error('Failed to save business hours');
       }
 
       const result = await response.json();
-      setAvailabilitySlots([...availabilitySlots, result.data.slot]);
-      setNewSlot({
-        date: '',
-        startTime: '',
-        endTime: '',
-        serviceType: '',
-        notes: ''
-      });
+      setBusinessHours(result.data.businessHours || []);
       setShowAvailabilityModal(false);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save availability';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save business hours';
       setError(errorMessage);
     }
-  }
-};
+  };
 
   const handleCloseModal = () => {
     setShowAvailabilityModal(false);
-    setNewSlot({
-      date: '',
-      startTime: '',
-      endTime: '',
-      serviceType: '',
-      notes: ''
-    });
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric' 
-    });
   };
 
   const formatTime = (timeString: string): string => {
@@ -361,14 +330,16 @@ const fetchDashboardData = async () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
-  const getCountryFlag = (country: string) => {
-    switch (country) {
-      case 'UK': return '🇬🇧';
-      case 'USA': return '🇺🇸';
-      case 'CANADA': return '🇨🇦';
-      case 'NIGERIA': return '🇳🇬';
-      default: return '🇺🇸';
-    }
+  const handleServiceTypeToggle = (serviceType: string) => {
+    const currentHours = getHoursForDay(selectedDay);
+    const updatedServiceTypes = currentHours.serviceTypes.includes(serviceType)
+      ? currentHours.serviceTypes.filter(st => st !== serviceType)
+      : [...currentHours.serviceTypes, serviceType];
+    
+    updateHoursForDay({
+      ...currentHours,
+      serviceTypes: updatedServiceTypes
+    });
   };
 
   if (loading) {
@@ -410,8 +381,6 @@ const fetchDashboardData = async () => {
     );
   }
 
-  const localizedEarnings = getLocalizedEarnings(dashboardData.stats.totalEarnings);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
@@ -436,8 +405,8 @@ const fetchDashboardData = async () => {
                       <span className="xs:hidden">Here's your overview for today.</span>
                     </p>
                     <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
-                      <span className="text-sm">{getCountryFlag(userCountry)}</span>
-                      <span className="text-xs font-medium text-gray-600">{currencyConfig.name}</span>
+                      <span className="text-sm">🇳🇬</span>
+                      <span className="text-xs font-medium text-gray-600">NGN</span>
                     </div>
                   </div>
                 </div>
@@ -451,7 +420,7 @@ const fetchDashboardData = async () => {
               <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
               </div>
-              <span>Add Availability</span>
+              <span>Set Business Hours</span>
             </button>
           </div>
         </div>
@@ -461,11 +430,7 @@ const fetchDashboardData = async () => {
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                {currencyConfig.symbol === '₦' ? (
-                  <span className="text-white font-bold text-lg sm:text-xl">₦</span>
-                ) : (
-                  <CurrencyIcon className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
-                )}
+                <span className="text-white font-bold text-lg sm:text-xl">₦</span>
               </div>
               <div className="text-emerald-600">
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -473,7 +438,7 @@ const fetchDashboardData = async () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-xl sm:text-3xl font-bold text-gray-900">{localizedEarnings.symbol}{localizedEarnings.amount}</p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900">{formatNaira(dashboardData.stats.totalEarnings)}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
                 <span className="text-emerald-600 font-semibold">+12%</span>
                 <span className="text-gray-500 hidden sm:inline">from last month</span>
@@ -565,95 +530,92 @@ const fetchDashboardData = async () => {
             </div>
             <div className="p-4 sm:p-8">
               <div className="space-y-3 sm:space-y-4">
-                {dashboardData.recentJobs.map((job) => {
-                  const localizedPayment = getLocalizedEarnings(job.payment);
-                  return (
-                    <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
-                      {/* Mobile Layout */}
-                      <div className="flex flex-col sm:hidden space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                              <span className="text-white font-bold text-xs">
-                                {getClientInitials(job.client)}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base">{getCategoryIcon(job.category)}</span>
-                                <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
-                                  {job.title}
-                                </h4>
-                              </div>
-                              <p className="text-sm text-gray-600 font-medium">{job.client}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-lg font-bold text-green-600">{localizedPayment.symbol}{localizedPayment.amount}</p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                              {job.status}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate max-w-[120px]">{job.location}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              <span>{job.date}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{job.time}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Desktop Layout */}
-                      <div className="hidden sm:flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-sm">
+                {dashboardData.recentJobs.map((job) => (
+                  <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                    {/* Mobile Layout */}
+                    <div className="flex flex-col sm:hidden space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-xs">
                               {getClientInitials(job.client)}
                             </span>
                           </div>
                           <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-lg">{getCategoryIcon(job.category)}</span>
-                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-base">{getCategoryIcon(job.category)}</span>
+                              <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
                                 {job.title}
                               </h4>
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                                {job.status}
-                              </span>
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <span className="font-medium">{job.client}</span>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-4 h-4" />
-                                <span>{job.location}</span>
-                              </div>
-                            </div>
+                            <p className="text-sm text-gray-600 font-medium">{job.client}</p>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600 mb-1">{localizedPayment.symbol}{localizedPayment.amount}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="w-4 h-4" />
+                          <p className="text-lg font-bold text-green-600">{formatNaira(job.payment)}</p>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                            {job.status}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate max-w-[120px]">{job.location}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
                             <span>{job.date}</span>
-                            <Clock className="w-4 h-4" />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
                             <span>{job.time}</span>
                           </div>
                         </div>
                       </div>
                     </div>
-                  );
-                })}
+
+                    {/* Desktop Layout */}
+                    <div className="hidden sm:flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                          <span className="text-white font-bold text-sm">
+                            {getClientInitials(job.client)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-lg">{getCategoryIcon(job.category)}</span>
+                            <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                              {job.title}
+                            </h4>
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                              {job.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span className="font-medium">{job.client}</span>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-4 h-4" />
+                              <span>{job.location}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-green-600 mb-1">{formatNaira(job.payment)}</p>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Calendar className="w-4 h-4" />
+                          <span>{job.date}</span>
+                          <Clock className="w-4 h-4" />
+                          <span>{job.time}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -711,8 +673,8 @@ const fetchDashboardData = async () => {
               </div>
             </div>
 
-            {/* Available Slots */}
-            {availabilitySlots.length > 0 && (
+            {/* Business Hours */}
+            {businessHours.length > 0 && (
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
                 <div className="p-4 sm:p-6 border-b border-gray-100">
                   <div className="flex items-center gap-3">
@@ -720,30 +682,34 @@ const fetchDashboardData = async () => {
                       <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg sm:text-xl font-bold text-gray-900">Available Slots</h3>
-                      <p className="text-gray-600 text-xs sm:text-sm">Open for bookings</p>
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900">Business Hours</h3>
+                      <p className="text-gray-600 text-xs sm:text-sm">Your weekly availability</p>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 sm:p-6">
                   <div className="space-y-3 sm:space-y-4">
-                    {availabilitySlots.map((slot) => (
-                      <div key={slot.id} className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl sm:rounded-2xl border border-emerald-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-                          <h4 className="font-bold text-gray-900 text-xs sm:text-sm">{slot.serviceType}</h4>
+                    {businessHours.map((hours, index) => (
+                      <div key={index} className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl sm:rounded-2xl border border-emerald-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-bold text-gray-900 text-xs sm:text-sm">{hours.dayOfWeek}</h4>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${hours.isAvailable ? 'bg-emerald-500' : 'bg-gray-400'}`}></div>
+                            <span className="text-xs text-gray-600">{hours.isAvailable ? 'Available' : 'Unavailable'}</span>
+                          </div>
                         </div>
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span>{formatDate(slot.date)}</span>
-                          </div>
                           <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-600 font-medium">
                             <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span>{formatTime(slot.startTime)} - {formatTime(slot.endTime)}</span>
+                            <span>{formatTime(hours.startTime)} - {formatTime(hours.endTime)}</span>
                           </div>
-                          {slot.notes && (
-                            <p className="text-xs sm:text-sm text-gray-500 mt-2 italic">{slot.notes}</p>
+                          {hours.serviceTypes.length > 0 && (
+                            <p className="text-xs sm:text-sm text-gray-700 font-medium">
+                              Services: {hours.serviceTypes.join(', ')}
+                            </p>
+                          )}
+                          {hours.notes && (
+                            <p className="text-xs sm:text-sm text-gray-500 mt-2 italic">{hours.notes}</p>
                           )}
                         </div>
                       </div>
@@ -755,7 +721,7 @@ const fetchDashboardData = async () => {
           </div>
         </div>
 
-        {/* Add Availability Modal */}
+        {/* Add Business Hours Modal */}
         {showAvailabilityModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -766,8 +732,8 @@ const fetchDashboardData = async () => {
                       <Plus className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Add Availability</h2>
-                      <p className="text-gray-600 text-sm sm:text-base">Set your available time slots</p>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Set Business Hours</h2>
+                      <p className="text-gray-600 text-sm sm:text-base">Configure your weekly availability</p>
                     </div>
                   </div>
                   <button 
@@ -780,18 +746,29 @@ const fetchDashboardData = async () => {
               </div>
               
               <div className="p-6 sm:p-8 space-y-6">
-                {/* Date */}
+                {/* Day Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Date <span className="text-red-500">*</span>
+                    Select Day <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
-                    value={newSlot.date}
-                    onChange={(e) => setNewSlot({ ...newSlot, date: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
+                  <div className="grid grid-cols-4 gap-2">
+                    {daysOfWeek.map((day) => {
+                      const hours = getHoursForDay(day);
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => setSelectedDay(day)}
+                          className={`p-2 text-xs font-medium rounded-lg transition-all ${
+                            selectedDay === day
+                              ? 'bg-blue-600 text-white shadow-md'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Time Range */}
@@ -802,8 +779,11 @@ const fetchDashboardData = async () => {
                     </label>
                     <input
                       type="time"
-                      value={newSlot.startTime}
-                      onChange={(e) => setNewSlot({ ...newSlot, startTime: e.target.value })}
+                      value={getHoursForDay(selectedDay).startTime}
+                      onChange={(e) => updateHoursForDay({
+                        ...getHoursForDay(selectedDay),
+                        startTime: e.target.value
+                      })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     />
                   </div>
@@ -813,30 +793,59 @@ const fetchDashboardData = async () => {
                     </label>
                     <input
                       type="time"
-                      value={newSlot.endTime}
-                      onChange={(e) => setNewSlot({ ...newSlot, endTime: e.target.value })}
+                      value={getHoursForDay(selectedDay).endTime}
+                      onChange={(e) => updateHoursForDay({
+                        ...getHoursForDay(selectedDay),
+                        endTime: e.target.value
+                      })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     />
                   </div>
                 </div>
 
-                {/* Service Type */}
+                {/* Availability Toggle */}
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-gray-700">
+                    Available on this day
+                  </label>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={getHoursForDay(selectedDay).isAvailable}
+                      onChange={(e) => updateHoursForDay({
+                        ...getHoursForDay(selectedDay),
+                        isAvailable: e.target.checked
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {/* Service Types */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Service Type <span className="text-red-500">*</span>
+                    Service Types <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    value={newSlot.serviceType}
-                    onChange={(e) => setNewSlot({ ...newSlot, serviceType: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  >
-                    <option value="">Select a service...</option>
-                    {serviceTypes.map((service) => (
-                      <option key={service} value={service}>
-                        {service}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    {serviceTypes.map((service) => {
+                      const isSelected = getHoursForDay(selectedDay).serviceTypes.includes(service);
+                      return (
+                        <button
+                          key={service}
+                          type="button"
+                          onClick={() => handleServiceTypeToggle(service)}
+                          className={`p-2 text-xs font-medium rounded-lg transition-all ${
+                            isSelected
+                              ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                          }`}
+                        >
+                          {service}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {/* Notes */}
@@ -845,8 +854,11 @@ const fetchDashboardData = async () => {
                     Notes (Optional)
                   </label>
                   <textarea
-                    value={newSlot.notes}
-                    onChange={(e) => setNewSlot({ ...newSlot, notes: e.target.value })}
+                    value={getHoursForDay(selectedDay).notes}
+                    onChange={(e) => updateHoursForDay({
+                      ...getHoursForDay(selectedDay),
+                      notes: e.target.value
+                    })}
                     placeholder="Any special requirements or notes..."
                     rows={3}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
@@ -863,12 +875,11 @@ const fetchDashboardData = async () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleSaveAvailability}
-                  disabled={!newSlot.date || !newSlot.startTime || !newSlot.endTime || !newSlot.serviceType}
+                  onClick={handleSaveBusinessHours}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 font-semibold hover:scale-105"
                 >
                   <Save className="w-5 h-5" />
-                  <span>Save Availability</span>
+                  <span>Save All Hours</span>
                 </button>
               </div>
             </div>

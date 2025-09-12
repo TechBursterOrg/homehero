@@ -73,7 +73,7 @@ const ProviderLayout: React.FC = () => {
             <Route path="/" element={<Navigate to="/provider/dashboard" replace />} />
             
             {/* Provider routes */}
-            <Route path="/dashboard" element={<Dashboard userCountry={userCountry} />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/messages" element={

@@ -53,7 +53,11 @@ interface ProfileData {
   email: string;
   phoneNumber: string;
   address: string;
-  location: string;
+  location: string; // Main location field for display
+  city: string;
+  state: string;
+  country: string;
+  coordinates: [number, number]; // For map functionality
   rating: number;
   totalReviews: number;
   joinedDate: string;
@@ -83,12 +87,16 @@ const Profile: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profileData, setProfileData] = useState<ProfileData>({
-    name: '',
+   name: '',
     title: '',
     email: '',
     phoneNumber: '',
     address: '',
     location: '',
+    city: '',
+    state: '',
+    country: '',
+    coordinates: [0, 0],
     rating: 0,
     totalReviews: 0,
     joinedDate: '',
@@ -102,10 +110,15 @@ const Profile: React.FC = () => {
     experience: '',
     profileImage: ''
   });
+
+  // FIXED: Added city, state, and country to editForm
   const [editForm, setEditForm] = useState({
     name: '',
     phoneNumber: '',
     address: '',
+    city: '',
+    state: '',
+    country: '',
     services: [] as string[],
     hourlyRate: 0,
     experience: ''
@@ -129,6 +142,7 @@ const Profile: React.FC = () => {
           'Content-Type': 'application/json',
         },
       });
+
 
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('authToken');
@@ -164,7 +178,11 @@ const Profile: React.FC = () => {
           email: user.email || '',
           phoneNumber: user.phoneNumber || '',
           address: user.address || '',
-          location: user.country || '',
+          location: user.city || user.country || '',
+          city: user.city || '',
+          state: user.state || '',
+          country: user.country || '',
+          coordinates: [user.longitude || 0, user.latitude || 0],
           rating: user.rating || 0,
           totalReviews: user.totalReviews || 0,
           joinedDate: new Date(user.createdAt).toLocaleDateString('en-US', { 
@@ -179,13 +197,17 @@ const Profile: React.FC = () => {
           services: user.services || [],
           hourlyRate: user.hourlyRate || 0,
           experience: user.experience || '',
-          profileImage: profileImageUrl // FIXED: Use the mapped value
+          profileImage: profileImageUrl
         });
 
+        // FIXED: Initialize editForm with all required fields including city, state, country
         setEditForm({
           name: user.name || '',
           phoneNumber: user.phoneNumber || '',
           address: user.address || '',
+          city: user.city || '',
+          state: user.state || '',
+          country: user.country || '',
           services: user.services || [],
           hourlyRate: user.hourlyRate || 0,
           experience: user.experience || ''
@@ -207,52 +229,65 @@ const Profile: React.FC = () => {
   };
 
   // Save profile data to backend
-  const saveProfileData = async () => {
-    try {
-      setSaving(true);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editForm),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        // FIXED: Update profile data with the form data AND preserve the existing profile image
-        setProfileData(prev => ({
-          ...prev,
-          name: editForm.name,
-          phoneNumber: editForm.phoneNumber,
-          address: editForm.address,
-          services: editForm.services,
-          hourlyRate: editForm.hourlyRate,
-          experience: editForm.experience
-          // Don't override profileImage here - it should be updated separately via image upload
-        }));
-        
-        setIsEditing(false);
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
-      setError(errorMessage);
-    } finally {
-      setSaving(false);
+ const saveProfileData = async () => {
+  try {
+    setSaving(true);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please log in again.');
     }
-  };
+
+    console.log('Sending to backend:', editForm); // DEBUG
+
+    // FIXED: Include all location fields in the request
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...editForm,
+        // Explicitly include location fields to ensure they're sent
+        city: editForm.city,
+        state: editForm.state,
+        country: editForm.country
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update profile');
+    }
+
+    const data = await response.json();
+    
+    if (data.success) {
+      // FIXED: Update profile data with the form data AND preserve the existing profile image
+      setProfileData(prev => ({
+        ...prev,
+        name: editForm.name,
+        phoneNumber: editForm.phoneNumber,
+        address: editForm.address,
+        city: editForm.city,
+        state: editForm.state,
+        country: editForm.country,
+        location: `${editForm.city}, ${editForm.state}, ${editForm.country}`,
+        services: editForm.services,
+        hourlyRate: editForm.hourlyRate,
+        experience: editForm.experience
+        // Don't override profileImage here - it should be updated separately via image upload
+      }));
+      
+      setIsEditing(false);
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
+    setError(errorMessage);
+  } finally {
+    setSaving(false);
+  }
+};
 
   // FIXED: Upload profile image function
   const uploadProfileImage = async (file: File) => {
@@ -633,16 +668,70 @@ const Profile: React.FC = () => {
               <div className="flex-1 w-full">
                 <div className="space-y-2 sm:space-y-3 text-center sm:text-left">
                   {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.name}
-                      onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                      className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 w-full text-center sm:text-left"
-                    />
-                  ) : (
-                    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
-                  )}
-                  <p className="text-sm sm:text-lg lg:text-xl text-gray-600 font-medium">{profileData.title}</p>
+  <div className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+      <input
+        type="text"
+        value={editForm.name}
+        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        placeholder="Full name"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+      <input
+        type="text"
+        value={editForm.address}
+        onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        placeholder="Street address"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+      <input
+        type="text"
+        value={editForm.city}
+        onChange={(e) => setEditForm({...editForm, city: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        placeholder="City"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+      <input
+        type="text"
+        value={editForm.state}
+        onChange={(e) => setEditForm({...editForm, state: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        placeholder="State"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+      <input
+        type="text"
+        value={editForm.country}
+        onChange={(e) => setEditForm({...editForm, country: e.target.value})}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        placeholder="Country"
+      />
+    </div>
+  </div>
+) : (
+  // Display profile information
+  <div className="space-y-2">
+    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
+    <p className="text-sm sm:text-lg lg:text-xl text-gray-600 font-medium">{profileData.title}</p>
+    <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+      Located in {profileData.city}, {profileData.state}, {profileData.country}
+    </p>
+    <p className="text-sm text-gray-600">{profileData.address}</p>
+  </div>
+)}
+
                   <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-6 text-xs sm:text-sm text-gray-600">
                     <div className="flex items-center gap-1 sm:gap-2">
                       <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500 fill-current" />
@@ -759,22 +848,10 @@ const Profile: React.FC = () => {
                           <span className="text-gray-700 font-medium text-sm sm:text-base">{profileData.phoneNumber || 'Not provided'}</span>
                         </div>
                       )}
-                      {isEditing ? (
-                        <div className="p-2 sm:p-3 bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl">
-                          <input
-                            type="text"
-                            value={editForm.address}
-                            onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-                            className="w-full bg-transparent text-gray-700 font-medium text-sm sm:text-base border border-blue-300 rounded-lg px-3 py-2"
-                            placeholder="Address"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 sm:gap-4 p-2 sm:p-3 bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl">
-                          <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 flex-shrink-0" />
-                          <span className="text-gray-700 font-medium text-sm sm:text-base">{profileData.address || 'Not provided'}</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-3 sm:gap-4 p-2 sm:p-3 bg-white/60 backdrop-blur-sm rounded-lg sm:rounded-xl">
+                        <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-purple-500 flex-shrink-0" />
+                        <span className="text-gray-700 font-medium text-sm sm:text-base">{profileData.address || 'Not provided'}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -1075,109 +1152,109 @@ const Profile: React.FC = () => {
 
         {/* Gallery Modal */}
         {isGalleryModalOpen && selectedImage && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                    <Images className="w-4 h-4 text-white" />
-                  </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">Work Gallery</h3>
-                </div>
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+      <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+            <Images className="w-4 h-4 text-white" />
+          </div>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Work Gallery</h3>
+        </div>
+        <button
+          onClick={() => {
+            setIsGalleryModalOpen(false);
+            setSelectedImage(null);
+          }}
+          className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
+        >
+          <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+        </button>
+      </div>
+      <div className="p-4 sm:p-6 max-h-[calc(95vh-80px)] overflow-y-auto">
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="aspect-video bg-gray-100 rounded-xl sm:rounded-2xl overflow-hidden">
+              <img
+                src={selectedImage.url} // FIXED: Changed 'image.url' to 'selectedImage.url'
+                alt={selectedImage.title} // FIXED: Changed 'image.title' to 'selectedImage.title'
+                className="w-full h-full object-cover"
+                onError={handleImageError}
+              />
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {galleryImages.map((img) => ( // FIXED: Renamed 'image' to 'img' to avoid conflict
                 <button
-                  onClick={() => {
-                    setIsGalleryModalOpen(false);
-                    setSelectedImage(null);
-                  }}
-                  className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
+                  key={img.id}
+                  onClick={() => setSelectedImage(img)}
+                  className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                    selectedImage.id === img.id ? 'border-purple-500' : 'border-transparent hover:border-gray-300'
+                  }`}
                 >
-                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                  <img
+                    src={img.url}
+                    alt={img.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://via.placeholder.com/64x64/e2e8f0/64748b?text=Img';
+                    }}
+                  />
                 </button>
-              </div>
-              <div className="p-4 sm:p-6 max-h-[calc(95vh-80px)] overflow-y-auto">
-                <div className="grid lg:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="aspect-video bg-gray-100 rounded-xl sm:rounded-2xl overflow-hidden">
-                      <img
-                        src={selectedImage.url}
-                        alt={selectedImage.title}
-                        className="w-full h-full object-cover"
-                        onError={handleImageError}
-                      />
-                    </div>
-                    <div className="flex gap-2 overflow-x-auto pb-2">
-                      {galleryImages.map((image) => (
-                        <button
-                          key={image.id}
-                          onClick={() => setSelectedImage(image)}
-                          className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
-                            selectedImage.id === image.id ? 'border-purple-500' : 'border-transparent hover:border-gray-300'
-                          }`}
-                        >
-                          <img
-                            src={image.url}
-                            alt={image.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = 'https://via.placeholder.com/64x64/e2e8f0/64748b?text=Img';
-                            }}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-4 sm:space-y-6">
-                    <div>
-                      <h4 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{selectedImage.title}</h4>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className={`px-3 py-1 rounded-lg text-sm font-medium text-white ${
-                          selectedImage.category === 'cleaning' ? 'bg-blue-500' :
-                          selectedImage.category === 'handyman' ? 'bg-orange-500' :
-                          'bg-green-500'
-                        }`}>
-                          {selectedImage.category}
-                        </span>
-                        <span className="text-sm text-gray-600">{selectedImage.date}</span>
-                      </div>
-                      <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
-                    </div>
-                    
-                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Award className="w-5 h-5 text-purple-600" />
-                        <span className="font-semibold text-purple-900">Project Highlights</span>
-                      </div>
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          Completed on time and within budget
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          Used eco-friendly materials and methods
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          Customer satisfaction: 100%
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
-                        Similar Service
-                      </button>
-                      <button className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                        Share
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-        )}
+          <div className="space-y-4 sm:space-y-6">
+            <div>
+              <h4 className="text-xl sm:text-2xl font-bold text-gray-900">{selectedImage.title}</h4>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`px-3 py-1 rounded-lg text-sm font-medium text-white ${
+                  selectedImage.category === 'cleaning' ? 'bg-blue-500' :
+                  selectedImage.category === 'handyman' ? 'bg-orange-500' :
+                  'bg-green-500'
+                }`}>
+                  {selectedImage.category}
+                </span>
+                <span className="text-sm text-gray-600">{selectedImage.date}</span>
+              </div>
+              <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Award className="w-5 h-5 text-purple-600" />
+                <span className="font-semibold text-purple-900">Project Highlights</span>
+              </div>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Completed on time and within budget
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Used eco-friendly materials and methods
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  Customer satisfaction: 100%
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
+                Similar Service
+              </button>
+              <button className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                Share
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

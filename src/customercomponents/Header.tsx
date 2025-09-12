@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Bell,
@@ -40,15 +40,23 @@ const Header: React.FC<HeaderProps> = ({
     role: 'customer'
   });
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const fetchingRef = useRef(false);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
-  // Fetch profile data
+  // Fetch profile data only once on mount
   useEffect(() => {
     const fetchProfileData = async () => {
+      // Prevent multiple simultaneous fetches
+      if (fetchingRef.current || profileLoaded) {
+        return;
+      }
+
       try {
+        fetchingRef.current = true;
         setLoading(true);
         const token = localStorage.getItem('authToken');
         
@@ -59,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({
         }
 
         const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-          method: 'GET',
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -69,9 +77,6 @@ const Header: React.FC<HeaderProps> = ({
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            // Determine the current role based on the current path
-            const currentRole = location.pathname.startsWith('/provider') ? 'provider' : 'customer';
-            
             setProfileData({
               name: data.data.user.name || '',
               email: data.data.user.email || '',
@@ -81,8 +86,9 @@ const Header: React.FC<HeaderProps> = ({
               avatar: data.data.user.profileImage 
                 ? `${API_BASE_URL}${data.data.user.profileImage}` 
                 : null,
-              role: currentRole
+              role: 'customer' // Set default role
             });
+            setProfileLoaded(true);
           }
         } else {
           console.error('Failed to fetch profile data');
@@ -91,11 +97,23 @@ const Header: React.FC<HeaderProps> = ({
         console.error('Error fetching profile data:', error);
       } finally {
         setLoading(false);
+        fetchingRef.current = false;
       }
     };
 
     fetchProfileData();
-  }, [location.pathname, API_BASE_URL]);
+  }, [API_BASE_URL]); // Remove location.pathname dependency
+
+  // Update role based on current path without refetching
+  useEffect(() => {
+    if (profileLoaded) {
+      const currentRole = location.pathname.startsWith('/provider') ? 'provider' : 'customer';
+      setProfileData(prev => ({
+        ...prev,
+        role: currentRole
+      }));
+    }
+  }, [location.pathname, profileLoaded]);
 
   const navigation = [
     { id: 'services', label: 'Find Services', path: '/customer' },
@@ -128,8 +146,8 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  // Show loading state
-  if (loading) {
+  // Show loading state only on initial load, not on navigation
+  if (loading && !profileLoaded) {
     return (
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

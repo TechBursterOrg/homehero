@@ -414,9 +414,9 @@ const LoginPage = () => {
                       className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
                       required
                     >
-                      <option value="UK">🇬🇧 United Kingdom</option>
+                      {/* <option value="UK">🇬🇧 United Kingdom</option>
                       <option value="USA">🇺🇸 United States</option>
-                      <option value="CANADA">🇨🇦 Canada</option>
+                      <option value="CANADA">🇨🇦 Canada</option> */}
                       <option value="NIGERIA">🇳🇬 Nigeria</option>
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

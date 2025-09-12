@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  User, 
-  Plus, 
-  ChevronLeft, 
+import React, { useState, useEffect } from "react";
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  User,
+  Plus,
+  ChevronLeft,
   ChevronRight,
   Edit3,
   Trash2,
@@ -20,10 +20,9 @@ import {
   Sparkles,
   Target,
   Zap,
-  PoundSterling,
   Loader2,
-  AlertCircle as AlertCircleIcon
-} from 'lucide-react';
+  AlertCircle as AlertCircleIcon,
+} from "lucide-react";
 
 interface Appointment {
   id: string;
@@ -36,58 +35,32 @@ interface Appointment {
   endTime: string;
   duration: string;
   payment: string;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  status: "confirmed" | "pending" | "cancelled";
   notes: string;
   category: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: "high" | "medium" | "low";
 }
 
-// Remove the ScheduleProps interface since we'll fetch the country
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const Schedule: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'pending' | 'cancelled'>('all');
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<
+    "all" | "confirmed" | "pending" | "cancelled"
+  >("all");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
-  const [userCountry, setUserCountry] = useState<string>('USA'); // Default to USA
 
-  // Initialize auth token from localStorage and fetch user data
+  // Initialize auth token from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const token =
+      localStorage.getItem("authToken") || localStorage.getItem("token");
     setAuthToken(token);
-    
-    if (token) {
-      fetchUserData(token);
-    }
   }, []);
-
-  // Fetch user data to get country
-  const fetchUserData = async (token: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data.user.country) {
-          setUserCountry(result.data.user.country);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-      // Continue with default country
-    }
-  };
 
   // Fetch appointments from backend API
   useEffect(() => {
@@ -95,47 +68,55 @@ const Schedule: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Check if we have an auth token
         if (!authToken) {
-          throw new Error('No authentication token found. Please log in again.');
+          throw new Error(
+            "No authentication token found. Please log in again."
+          );
         }
 
         const response = await fetch(`${API_BASE_URL}/api/user/schedule`, {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
           },
         });
 
-        console.log('Schedule response status:', response.status);
-        
+        console.log("Schedule response status:", response.status);
+
         if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('token');
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("token");
           setAuthToken(null);
-          throw new Error('Your session has expired. Please log in again.');
+          throw new Error("Your session has expired. Please log in again.");
         }
-        
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+          throw new Error(
+            errorData.message || `HTTP error! status: ${response.status}`
+          );
         }
 
         const result = await response.json();
-        
+
         if (result.success) {
           setAppointments(result.data || []);
         } else {
-          throw new Error(result.message || 'Failed to fetch schedule data');
+          throw new Error(result.message || "Failed to fetch schedule data");
         }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+        const errorMessage =
+          err instanceof Error ? err.message : "An unknown error occurred";
         setError(errorMessage);
-        console.error('Schedule fetch error:', err);
-        
-        if (errorMessage.includes('session') || errorMessage.includes('authentication')) {
+        console.error("Schedule fetch error:", err);
+
+        if (
+          errorMessage.includes("session") ||
+          errorMessage.includes("authentication")
+        ) {
           setAppointments([]);
         }
       } finally {
@@ -150,137 +131,102 @@ const Schedule: React.FC = () => {
     }
   }, [authToken]);
 
-  // Currency configuration based on country
-  const getCurrencyConfig = (country: string) => {
-    switch (country) {
-      case 'UK':
-        return {
-          symbol: '£',
-          icon: PoundSterling,
-          name: 'GBP'
-        };
-      case 'NIGERIA':
-        return {
-          symbol: '₦',
-          icon: () => <span className="text-base font-bold">₦</span>,
-          name: 'NGN'
-        };
-      case 'CANADA':
-        return {
-          symbol: 'C$',
-          icon: DollarSign,
-          name: 'CAD'
-        };
-      case 'USA':
-      default:
-        return {
-          symbol: '$',
-          icon: DollarSign,
-          name: 'USD'
-        };
-    }
+  // Currency configuration - Only Naira
+  const currencyConfig = {
+    symbol: "₦",
+    icon: () => <span className="text-base font-bold">₦</span>,
+    name: "NGN",
   };
 
-  const currencyConfig = getCurrencyConfig(userCountry);
   const CurrencyIcon = currencyConfig.icon;
 
-  // Get localized payments based on country
-  const getLocalizedPayments = () => {
-  const basePayments = [75, 120, 80, 60]; // Base prices in USD
-  
-  type CountryKey = 'UK' | 'NIGERIA' | 'CANADA' | 'USA';
-  
-  const multipliers: Record<CountryKey, { multiplier: number; symbol: string }> = {
-    'UK': { multiplier: 0.79, symbol: '£' },
-    'NIGERIA': { multiplier: 1650, symbol: '₦' },
-    'CANADA': { multiplier: 1.35, symbol: 'C$' },
-    'USA': { multiplier: 1, symbol: '$' }
-  };
+  // Get payments in Naira only
+  const getNairaPayments = () => {
+    const basePayments = [75, 120, 80, 60]; // Base prices in USD
+    const nairaMultiplier = 1650; // Conversion rate to Naira
 
-  const config = multipliers[userCountry as CountryKey] || multipliers['USA'];
-  
-  return basePayments.map(payment => ({
-    amount: Math.round(payment * config.multiplier),
-    symbol: config.symbol
-  }));
-};
+    return basePayments.map((payment) => ({
+      amount: Math.round(payment * nairaMultiplier),
+      symbol: "₦",
+    }));
+  };
 
   // Mock data for development
   const getMockAppointments = (): Appointment[] => {
-    const localizedPayments = getLocalizedPayments();
-    
+    const nairaPayments = getNairaPayments();
+
     return [
       {
-        id: '1',
-        title: 'Deep House Cleaning',
-        client: 'Sarah Johnson',
-        phone: '+1 (555) 123-4567',
-        location: '123 Oak Street',
-        date: '2025-01-08',
-        time: '10:00 AM',
-        endTime: '1:00 PM',
-        duration: '3 hours',
-        payment: `${localizedPayments[0].symbol}${localizedPayments[0].amount}`,
-        status: 'confirmed',
-        notes: 'Client prefers eco-friendly products',
-        category: 'cleaning',
-        priority: 'high'
+        id: "1",
+        title: "Deep House Cleaning",
+        client: "Sarah Johnson",
+        phone: "+234 123 456 7890",
+        location: "123 Oak Street, Lagos",
+        date: "2025-01-08",
+        time: "10:00 AM",
+        endTime: "1:00 PM",
+        duration: "3 hours",
+        payment: `₦${nairaPayments[0].amount.toLocaleString()}`,
+        status: "confirmed",
+        notes: "Client prefers eco-friendly products",
+        category: "cleaning",
+        priority: "high",
       },
       {
-        id: '2',
-        title: 'Plumbing Repair',
-        client: 'Mike Chen',
-        phone: '+1 (555) 987-6543',
-        location: '456 Pine Avenue',
-        date: '2025-01-08',
-        time: '2:00 PM',
-        endTime: '4:00 PM',
-        duration: '2 hours',
-        payment: `${localizedPayments[1].symbol}${localizedPayments[1].amount}`,
-        status: 'confirmed',
-        notes: 'Kitchen sink leak repair',
-        category: 'handyman',
-        priority: 'medium'
+        id: "2",
+        title: "Plumbing Repair",
+        client: "Mike Chen",
+        phone: "+234 987 654 3210",
+        location: "456 Pine Avenue, Abuja",
+        date: "2025-01-08",
+        time: "2:00 PM",
+        endTime: "4:00 PM",
+        duration: "2 hours",
+        payment: `₦${nairaPayments[1].amount.toLocaleString()}`,
+        status: "confirmed",
+        notes: "Kitchen sink leak repair",
+        category: "handyman",
+        priority: "medium",
       },
       {
-        id: '3',
-        title: 'Garden Maintenance',
-        client: 'Emma Wilson',
-        phone: '+1 (555) 246-8135',
-        location: '789 Elm Drive',
-        date: '2025-01-09',
-        time: '9:00 AM',
-        endTime: '1:00 PM',
-        duration: '4 hours',
-        payment: `${localizedPayments[2].symbol}${localizedPayments[2].amount}`,
-        status: 'pending',
-        notes: 'Weekly maintenance service',
-        category: 'gardening',
-        priority: 'low'
+        id: "3",
+        title: "Garden Maintenance",
+        client: "Emma Wilson",
+        phone: "+234 246 813 5790",
+        location: "789 Elm Drive, Port Harcourt",
+        date: "2025-01-09",
+        time: "9:00 AM",
+        endTime: "1:00 PM",
+        duration: "4 hours",
+        payment: `₦${nairaPayments[2].amount.toLocaleString()}`,
+        status: "pending",
+        notes: "Weekly maintenance service",
+        category: "gardening",
+        priority: "low",
       },
       {
-        id: '4',
-        title: 'Bathroom Deep Clean',
-        client: 'David Brown',
-        phone: '+1 (555) 369-2580',
-        location: '321 Maple Street',
-        date: '2025-01-10',
-        time: '11:00 AM',
-        endTime: '1:00 PM',
-        duration: '2 hours',
-        payment: `${localizedPayments[3].symbol}${localizedPayments[3].amount}`,
-        status: 'confirmed',
-        notes: 'Post-renovation cleanup',
-        category: 'cleaning',
-        priority: 'medium'
-      }
+        id: "4",
+        title: "Bathroom Deep Clean",
+        client: "David Brown",
+        phone: "+234 369 258 1470",
+        location: "321 Maple Street, Ibadan",
+        date: "2025-01-10",
+        time: "11:00 AM",
+        endTime: "1:00 PM",
+        duration: "2 hours",
+        payment: `₦${nairaPayments[3].amount.toLocaleString()}`,
+        status: "confirmed",
+        notes: "Post-renovation cleanup",
+        category: "cleaning",
+        priority: "medium",
+      },
     ];
   };
 
   const getWeekDays = () => {
     const startOfWeek = new Date(currentDate);
     startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
-    
+
     const days = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startOfWeek);
@@ -291,96 +237,104 @@ const Schedule: React.FC = () => {
   };
 
   const formatDate = (date: Date) => {
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split("T")[0];
   };
 
   const getAppointmentsForDate = (date: string) => {
-    return appointments.filter(apt => apt.date === date && 
-      (filterStatus === 'all' || apt.status === filterStatus) &&
-      (searchQuery === '' || 
-        apt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        apt.client.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    return appointments.filter(
+      (apt) =>
+        apt.date === date &&
+        (filterStatus === "all" || apt.status === filterStatus) &&
+        (searchQuery === "" ||
+          apt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          apt.client.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   };
 
-  const navigateWeek = (direction: 'prev' | 'next') => {
+  const navigateWeek = (direction: "prev" | "next") => {
     const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() + (direction === 'next' ? 7 : -7));
+    newDate.setDate(currentDate.getDate() + (direction === "next" ? 7 : -7));
     setCurrentDate(newDate);
   };
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'cleaning': return '🧽';
-      case 'handyman': return '🔧';
-      case 'gardening': return '🌿';
-      default: return '💼';
+      case "cleaning":
+        return "🧽";
+      case "handyman":
+        return "🔧";
+      case "gardening":
+        return "🌿";
+      default:
+        return "💼";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      case 'pending': return 'bg-amber-50 border-amber-200 text-amber-700';
-      case 'cancelled': return 'bg-red-50 border-red-200 text-red-700';
-      default: return 'bg-gray-50 border-gray-200 text-gray-700';
+      case "confirmed":
+        return "bg-emerald-50 border-emerald-200 text-emerald-700";
+      case "pending":
+        return "bg-amber-50 border-amber-200 text-amber-700";
+      case "cancelled":
+        return "bg-red-50 border-red-200 text-red-700";
+      default:
+        return "bg-gray-50 border-gray-200 text-gray-700";
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'border-red-400';
-      case 'medium': return 'border-amber-400';
-      case 'low': return 'border-green-400';
-      default: return 'border-blue-400';
+      case "high":
+        return "border-red-400";
+      case "medium":
+        return "border-amber-400";
+      case "low":
+        return "border-green-400";
+      default:
+        return "border-blue-400";
     }
   };
 
   const getClientInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
-
-  const getCountryFlag = (country: string) => {
-    switch (country) {
-      case 'UK': return '🇬🇧';
-      case 'USA': return '🇺🇸';
-      case 'CANADA': return '🇨🇦';
-      case 'NIGERIA': return '🇳🇬';
-      default: return '🇺🇸';
-    }
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
   const handleRetry = async () => {
     // Refresh the token from localStorage
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const token =
+      localStorage.getItem("authToken") || localStorage.getItem("token");
     setAuthToken(token);
     setError(null);
   };
 
   const handleLogin = () => {
     // Redirect to login page
-    window.location.href = '/login';
+    window.location.href = "/login";
   };
 
   const weekDays = getWeekDays();
   const today = formatDate(new Date());
-  const filteredAppointments = appointments.filter(apt => 
-    (filterStatus === 'all' || apt.status === filterStatus) &&
-    (searchQuery === '' || 
-      apt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      apt.client.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+  const filteredAppointments = appointments.filter(
+    (apt) =>
+      (filterStatus === "all" || apt.status === filterStatus) &&
+      (searchQuery === "" ||
+        apt.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        apt.client.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const todayAppointments = getAppointmentsForDate(today);
   const totalRevenue = filteredAppointments.reduce((sum, apt) => {
-    const amount = parseInt(apt.payment.replace(/[^0-9]/g, ''));
+    const amount = parseInt(apt.payment.replace(/[^0-9]/g, ""));
     return sum + (isNaN(amount) ? 0 : amount);
   }, 0);
 
   const formatRevenue = (amount: number) => {
-    return `${currencyConfig.symbol}${amount.toLocaleString()}`;
+    return `₦${amount.toLocaleString()}`;
   };
 
   // Loading state
@@ -401,8 +355,12 @@ const Schedule: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
           <AlertCircleIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h3>
-          <p className="text-gray-600 mb-4">Please log in to view your schedule.</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Authentication Required
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Please log in to view your schedule.
+          </p>
           <button
             onClick={handleLogin}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -420,7 +378,9 @@ const Schedule: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
           <AlertCircleIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Schedule</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Error Loading Schedule
+          </h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={handleRetry}
@@ -459,14 +419,16 @@ const Schedule: React.FC = () => {
                       Organize your appointments and track your availability
                     </p>
                     <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
-                      <span className="text-sm">{getCountryFlag(userCountry)}</span>
-                      <span className="text-xs font-medium text-gray-600">{currencyConfig.name}</span>
+                      <span className="text-sm">🇳🇬</span>
+                      <span className="text-xs font-medium text-gray-600">
+                        NGN
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-            
+
             <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
               <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -480,8 +442,12 @@ const Schedule: React.FC = () => {
         {appointments.length === 0 && !loading && !error && (
           <div className="text-center py-12 bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 mb-8">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No appointments scheduled</h3>
-            <p className="text-gray-600 mb-6">You don't have any upcoming appointments.</p>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              No appointments scheduled
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You don't have any upcoming appointments.
+            </p>
             <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200">
               Create Your First Appointment
             </button>
@@ -501,10 +467,19 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
-                <p className="text-3xl font-bold text-gray-900">{todayAppointments.length}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Today's Appointments
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {todayAppointments.length}
+                </p>
                 <div className="text-sm text-gray-500">
-                  {todayAppointments.filter(apt => apt.status === 'confirmed').length} confirmed
+                  {
+                    todayAppointments.filter(
+                      (apt) => apt.status === "confirmed"
+                    ).length
+                  }{" "}
+                  confirmed
                 </div>
               </div>
             </div>
@@ -519,9 +494,14 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">Confirmed Jobs</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Confirmed Jobs
+                </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {appointments.filter(apt => apt.status === 'confirmed').length}
+                  {
+                    appointments.filter((apt) => apt.status === "confirmed")
+                      .length
+                  }
                 </p>
                 <div className="text-sm text-emerald-600 font-semibold">
                   Ready to go!
@@ -539,9 +519,14 @@ const Schedule: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">Pending Approval</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Pending Approval
+                </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {appointments.filter(apt => apt.status === 'pending').length}
+                  {
+                    appointments.filter((apt) => apt.status === "pending")
+                      .length
+                  }
                 </p>
                 <div className="text-sm text-amber-600 font-semibold">
                   Needs attention
@@ -552,19 +537,19 @@ const Schedule: React.FC = () => {
             <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  {currencyConfig.symbol === '₦' ? (
-                    <span className="text-white font-bold text-xl">₦</span>
-                  ) : (
-                    <CurrencyIcon className="w-7 h-7 text-white" />
-                  )}
+                  <span className="text-white font-bold text-xl">₦</span>
                 </div>
                 <div className="text-green-600">
                   <Sparkles className="w-5 h-5" />
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-600">Expected Revenue</p>
-                <p className="text-3xl font-bold text-gray-900">{formatRevenue(totalRevenue)}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Expected Revenue
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {formatRevenue(totalRevenue)}
+                </p>
                 <div className="text-sm text-green-600 font-semibold">
                   This week
                 </div>
@@ -583,18 +568,22 @@ const Schedule: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
                   {/* View Mode Toggle */}
                   <div className="flex items-center space-x-2 bg-gray-100 rounded-2xl p-1 w-full sm:w-auto">
-                    <button 
-                      onClick={() => setViewMode('week')}
+                    <button
+                      onClick={() => setViewMode("week")}
                       className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        viewMode === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                        viewMode === "week"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
                       Week View
                     </button>
-                    <button 
-                      onClick={() => setViewMode('month')}
+                    <button
+                      onClick={() => setViewMode("month")}
                       className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        viewMode === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                        viewMode === "month"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
                       Month View
@@ -603,17 +592,26 @@ const Schedule: React.FC = () => {
 
                   {/* Week Navigation */}
                   <div className="flex items-center bg-gray-100 rounded-2xl p-1 w-full sm:w-auto">
-                    <button 
-                      onClick={() => navigateWeek('prev')}
+                    <button
+                      onClick={() => navigateWeek("prev")}
                       className="p-2 rounded-xl hover:bg-white transition-all duration-200 hover:shadow-sm"
                     >
                       <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
                     <span className="flex-1 sm:flex-none px-2 sm:px-4 text-xs sm:text-sm font-medium text-gray-700 text-center">
-                      {weekDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {weekDays[0].toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      -{" "}
+                      {weekDays[6].toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </span>
-                    <button 
-                      onClick={() => navigateWeek('next')}
+                    <button
+                      onClick={() => navigateWeek("next")}
                       className="p-2 rounded-xl hover:bg-white transition-all duration-200 hover:shadow-sm"
                     >
                       <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -640,7 +638,15 @@ const Schedule: React.FC = () => {
                     <Filter className="w-5 h-5 text-gray-400 flex-shrink-0" />
                     <select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as 'all' | 'confirmed' | 'pending' | 'cancelled')}
+                      onChange={(e) =>
+                        setFilterStatus(
+                          e.target.value as
+                            | "all"
+                            | "confirmed"
+                            | "pending"
+                            | "cancelled"
+                        )
+                      }
                       className="flex-1 sm:flex-none border border-gray-200 rounded-2xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                     >
                       <option value="all">All Status</option>
@@ -657,18 +663,22 @@ const Schedule: React.FC = () => {
                 <div className="flex items-center gap-4">
                   {/* View Mode Toggle */}
                   <div className="flex items-center space-x-2 bg-gray-100 rounded-2xl p-1">
-                    <button 
-                      onClick={() => setViewMode('week')}
+                    <button
+                      onClick={() => setViewMode("week")}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        viewMode === 'week' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                        viewMode === "week"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
                       Week View
                     </button>
-                    <button 
-                      onClick={() => setViewMode('month')}
+                    <button
+                      onClick={() => setViewMode("month")}
                       className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                        viewMode === 'month' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-800'
+                        viewMode === "month"
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
                       Month View
@@ -677,17 +687,26 @@ const Schedule: React.FC = () => {
 
                   {/* Week Navigation */}
                   <div className="flex items-center bg-gray-100 rounded-2xl p-1">
-                    <button 
-                      onClick={() => navigateWeek('prev')}
+                    <button
+                      onClick={() => navigateWeek("prev")}
                       className="p-2 rounded-xl hover:bg-white transition-all duration-200 hover:shadow-sm"
                     >
                       <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
                     <span className="px-4 text-sm font-medium text-gray-700">
-                      {weekDays[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {weekDays[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {weekDays[0].toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      -{" "}
+                      {weekDays[6].toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
                     </span>
-                    <button 
-                      onClick={() => navigateWeek('next')}
+                    <button
+                      onClick={() => navigateWeek("next")}
                       className="p-2 rounded-xl hover:bg-white transition-all duration-200 hover:shadow-sm"
                     >
                       <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -713,7 +732,15 @@ const Schedule: React.FC = () => {
                     <Filter className="w-5 h-5 text-gray-400" />
                     <select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as 'all' | 'confirmed' | 'pending' | 'cancelled')}
+                      onChange={(e) =>
+                        setFilterStatus(
+                          e.target.value as
+                            | "all"
+                            | "confirmed"
+                            | "pending"
+                            | "cancelled"
+                        )
+                      }
                       className="border border-gray-200 rounded-2xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50 text-sm"
                     >
                       <option value="all">All Status</option>
@@ -730,58 +757,96 @@ const Schedule: React.FC = () => {
             <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-8">
               {/* Days Header */}
               <div className="grid grid-cols-7 border-b border-gray-200">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
-                  <div key={day} className="p-2 sm:p-4 text-center border-r border-gray-200 last:border-r-0">
-                    <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1">
-                      <span className="hidden sm:inline">
-                        {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index]}
-                      </span>
-                      <span className="sm:hidden">{day}</span>
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                  (day, index) => (
+                    <div
+                      key={day}
+                      className="p-2 sm:p-4 text-center border-r border-gray-200 last:border-r-0"
+                    >
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1">
+                        <span className="hidden sm:inline">
+                          {
+                            [
+                              "Sunday",
+                              "Monday",
+                              "Tuesday",
+                              "Wednesday",
+                              "Thursday",
+                              "Friday",
+                              "Saturday",
+                            ][index]
+                          }
+                        </span>
+                        <span className="sm:hidden">{day}</span>
+                      </div>
+                      <div
+                        className={`text-lg sm:text-2xl font-bold transition-all duration-200 ${
+                          formatDate(weekDays[index]) === today
+                            ? "text-white bg-gradient-to-br from-blue-600 to-purple-600 w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto shadow-lg text-sm sm:text-2xl"
+                            : "text-gray-900"
+                        }`}
+                      >
+                        {weekDays[index].getDate()}
+                      </div>
                     </div>
-                    <div className={`text-lg sm:text-2xl font-bold transition-all duration-200 ${
-                      formatDate(weekDays[index]) === today 
-                        ? 'text-white bg-gradient-to-br from-blue-600 to-purple-600 w-8 h-8 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto shadow-lg text-sm sm:text-2xl' 
-                        : 'text-gray-900'
-                    }`}>
-                      {weekDays[index].getDate()}
-                    </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
-              
+
               {/* Calendar Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-7 min-h-64 sm:min-h-96">
                 {weekDays.map((day, index) => {
-                  const dayAppointments = getAppointmentsForDate(formatDate(day));
-                  
+                  const dayAppointments = getAppointmentsForDate(
+                    formatDate(day)
+                  );
+
                   return (
-                    <div key={index} className="p-3 sm:p-4 border-r border-gray-200 last:border-r-0 border-b sm:border-b-0 border-gray-200 min-h-48 sm:min-h-64">
+                    <div
+                      key={index}
+                      className="p-3 sm:p-4 border-r border-gray-200 last:border-r-0 border-b sm:border-b-0 border-gray-200 min-h-48 sm:min-h-64"
+                    >
                       {/* Mobile: Show day name again */}
                       <div className="sm:hidden mb-3 pb-2 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-gray-700">
-                            {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][index]}
+                            {
+                              [
+                                "Sunday",
+                                "Monday",
+                                "Tuesday",
+                                "Wednesday",
+                                "Thursday",
+                                "Friday",
+                                "Saturday",
+                              ][index]
+                            }
                           </span>
-                          <span className={`text-lg font-bold ${
-                            formatDate(weekDays[index]) === today ? 'text-blue-600' : 'text-gray-600'
-                          }`}>
+                          <span
+                            className={`text-lg font-bold ${
+                              formatDate(weekDays[index]) === today
+                                ? "text-blue-600"
+                                : "text-gray-600"
+                            }`}
+                          >
                             {weekDays[index].getDate()}
                           </span>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2 sm:space-y-3">
                         {dayAppointments.map((appointment) => (
-                          <div 
-                            key={appointment.id} 
+                          <div
+                            key={appointment.id}
                             className={`group p-3 sm:p-4 rounded-xl sm:rounded-2xl text-sm border-l-4 hover:shadow-lg transition-all duration-300 cursor-pointer ${
-                              appointment.status === 'confirmed' 
-                                ? 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-500 hover:from-emerald-100 hover:to-green-100' 
-                                : 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-500 hover:from-amber-100 hover:to-yellow-100'
+                              appointment.status === "confirmed"
+                                ? "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-500 hover:from-emerald-100 hover:to-green-100"
+                                : "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-500 hover:from-amber-100 hover:to-yellow-100"
                             } ${getPriorityColor(appointment.priority)}`}
                           >
                             <div className="flex items-center gap-2 mb-2">
-                              <span className="text-sm sm:text-base">{getCategoryIcon(appointment.category)}</span>
+                              <span className="text-sm sm:text-base">
+                                {getCategoryIcon(appointment.category)}
+                              </span>
                               <div className="font-bold text-gray-900 text-xs sm:text-xs">
                                 {appointment.time}
                               </div>
@@ -792,7 +857,9 @@ const Schedule: React.FC = () => {
                             <div className="space-y-1">
                               <div className="text-gray-600 flex items-center gap-1 text-xs">
                                 <User className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">{appointment.client}</span>
+                                <span className="truncate">
+                                  {appointment.client}
+                                </span>
                               </div>
                               <div className="text-green-600 font-bold text-xs">
                                 {appointment.payment}
@@ -800,7 +867,9 @@ const Schedule: React.FC = () => {
                               {/* Mobile: Show location on mobile for better context */}
                               <div className="sm:hidden text-gray-500 flex items-start gap-1 text-xs">
                                 <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
-                                <span className="break-words text-xs leading-tight">{appointment.location}</span>
+                                <span className="break-words text-xs leading-tight">
+                                  {appointment.location}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -829,8 +898,12 @@ const Schedule: React.FC = () => {
                       <Clock className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Upcoming Appointments</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Detailed view of your scheduled services</p>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        Upcoming Appointments
+                      </h3>
+                      <p className="text-gray-600 text-sm sm:text-base">
+                        Detailed view of your scheduled services
+                      </p>
                     </div>
                   </div>
                   <div className="text-sm text-gray-500 self-start sm:self-center">
@@ -841,7 +914,10 @@ const Schedule: React.FC = () => {
               <div className="p-4 sm:p-8">
                 <div className="space-y-4 sm:space-y-6">
                   {filteredAppointments.map((appointment) => (
-                    <div key={appointment.id} className="group bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:shadow-xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300">
+                    <div
+                      key={appointment.id}
+                      className="group bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 hover:shadow-xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300"
+                    >
                       {/* Mobile Layout */}
                       <div className="block sm:hidden space-y-4">
                         {/* Header with avatar and actions */}
@@ -854,21 +930,35 @@ const Schedule: React.FC = () => {
                             </div>
                             <div>
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-lg">{getCategoryIcon(appointment.category)}</span>
+                                <span className="text-lg">
+                                  {getCategoryIcon(appointment.category)}
+                                </span>
                                 <h4 className="font-bold text-gray-900 text-base">
                                   {appointment.title}
                                 </h4>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(appointment.status)}`}>
-                                  {appointment.status === 'confirmed' ? <CheckCircle className="w-3 h-3 mr-1" /> : <AlertCircle className="w-3 h-3 mr-1" />}
+                                <span
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(
+                                    appointment.status
+                                  )}`}
+                                >
+                                  {appointment.status === "confirmed" ? (
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                  ) : (
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                  )}
                                   {appointment.status}
                                 </span>
-                                <div className={`w-1 h-4 rounded-full ${getPriorityColor(appointment.priority).replace('border-', 'bg-')}`}></div>
+                                <div
+                                  className={`w-1 h-4 rounded-full ${getPriorityColor(
+                                    appointment.priority
+                                  ).replace("border-", "bg-")}`}
+                                ></div>
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Mobile action buttons - vertical stack */}
                           <div className="flex flex-col gap-2">
                             <button className="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl flex items-center justify-center transition-all duration-200">
@@ -882,47 +972,68 @@ const Schedule: React.FC = () => {
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Mobile info grid */}
                         <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
                           <div className="flex items-center gap-2">
                             <User className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                            <span className="font-medium truncate">{appointment.client}</span>
+                            <span className="font-medium truncate">
+                              {appointment.client}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-green-500 flex-shrink-0" />
-                            <span className="truncate">{appointment.phone}</span>
+                            <span className="truncate">
+                              {appointment.phone}
+                            </span>
                           </div>
                           <div className="flex items-start gap-2">
                             <MapPin className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
-                            <span className="break-words">{appointment.location}</span>
+                            <span className="break-words">
+                              {appointment.location}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                            <span>{new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                            <span>
+                              {new Date(appointment.date).toLocaleDateString(
+                                "en-US",
+                                {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                }
+                              )}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                            <span>{appointment.time} - {appointment.endTime}</span>
+                            <span>
+                              {appointment.time} - {appointment.endTime}
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
-                            {currencyConfig.symbol === '₦' ? (
-                              <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">₦</span>
-                            ) : (
-                              <DollarSign className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                            )}
-                            <span className="font-bold text-emerald-600 text-base">{appointment.payment}</span>
+                            <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">
+                              ₦
+                            </span>
+                            <span className="font-bold text-emerald-600 text-base">
+                              {appointment.payment}
+                            </span>
                           </div>
                         </div>
-                        
+
                         {/* Mobile notes */}
                         {appointment.notes && (
                           <div className="p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-gray-200">
                             <div className="flex items-start gap-2">
                               <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
                               <div className="min-w-0">
-                                <strong className="text-gray-700 text-sm">Notes:</strong>
-                                <p className="text-gray-600 text-sm mt-1 break-words">{appointment.notes}</p>
+                                <strong className="text-gray-700 text-sm">
+                                  Notes:
+                                </strong>
+                                <p className="text-gray-600 text-sm mt-1 break-words">
+                                  {appointment.notes}
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -937,24 +1048,40 @@ const Schedule: React.FC = () => {
                               {getClientInitials(appointment.client)}
                             </span>
                           </div>
-                          
+
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-3">
-                              <span className="text-2xl">{getCategoryIcon(appointment.category)}</span>
+                              <span className="text-2xl">
+                                {getCategoryIcon(appointment.category)}
+                              </span>
                               <h4 className="font-bold text-gray-900 text-lg group-hover:text-blue-600 transition-colors">
                                 {appointment.title}
                               </h4>
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(appointment.status)}`}>
-                                {appointment.status === 'confirmed' ? <CheckCircle className="w-4 h-4 mr-1" /> : <AlertCircle className="w-4 h-4 mr-1" />}
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold border ${getStatusColor(
+                                  appointment.status
+                                )}`}
+                              >
+                                {appointment.status === "confirmed" ? (
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                ) : (
+                                  <AlertCircle className="w-4 h-4 mr-1" />
+                                )}
                                 {appointment.status}
                               </span>
-                              <div className={`w-1 h-6 rounded-full ${getPriorityColor(appointment.priority).replace('border-', 'bg-')}`}></div>
+                              <div
+                                className={`w-1 h-6 rounded-full ${getPriorityColor(
+                                  appointment.priority
+                                ).replace("border-", "bg-")}`}
+                              ></div>
                             </div>
-                            
+
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4 text-blue-500" />
-                                <span className="font-medium">{appointment.client}</span>
+                                <span className="font-medium">
+                                  {appointment.client}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Phone className="w-4 h-4 text-green-500" />
@@ -962,40 +1089,56 @@ const Schedule: React.FC = () => {
                               </div>
                               <div className="flex items-center gap-2">
                                 <MapPin className="w-4 h-4 text-red-500" />
-                                <span className="truncate">{appointment.location}</span>
+                                <span className="truncate">
+                                  {appointment.location}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-purple-500" />
-                                <span>{new Date(appointment.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                                <span>
+                                  {new Date(
+                                    appointment.date
+                                  ).toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4 text-orange-500" />
-                                <span>{appointment.time} - {appointment.endTime}</span>
+                                <span>
+                                  {appointment.time} - {appointment.endTime}
+                                </span>
                               </div>
                               <div className="flex items-center gap-2">
-                                {currencyConfig.symbol === '₦' ? (
-                                  <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">₦</span>
-                                ) : (
-                                  <DollarSign className="w-4 h-4 text-emerald-500" />
-                                )}
-                                <span className="font-bold text-emerald-600 text-lg">{appointment.payment}</span>
+                                <span className="w-4 h-4 text-emerald-500 flex-shrink-0 font-bold">
+                                  ₦
+                                </span>
+                                <span className="font-bold text-emerald-600 text-lg">
+                                  {appointment.payment}
+                                </span>
                               </div>
                             </div>
-                            
+
                             {appointment.notes && (
                               <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200">
                                 <div className="flex items-start gap-2">
                                   <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
                                   <div>
-                                    <strong className="text-gray-700 text-sm">Notes:</strong>
-                                    <p className="text-gray-600 text-sm mt-1">{appointment.notes}</p>
+                                    <strong className="text-gray-700 text-sm">
+                                      Notes:
+                                    </strong>
+                                    <p className="text-gray-600 text-sm mt-1">
+                                      {appointment.notes}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-2 ml-4">
                           <button className="w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
                             <Edit3 className="w-4 h-4" />

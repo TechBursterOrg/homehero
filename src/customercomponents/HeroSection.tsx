@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
   Zap,
@@ -6,27 +6,38 @@ import {
   AlertCircle,
   Map,
   List,
-  Sliders,
   MapPin,
   Star,
   Clock,
-  DollarSign,
   ChevronDown,
   Filter,
-  Sparkles
+  Sparkles,
+  X,
+  Navigation
 } from 'lucide-react';
+import {LocationSearch} from './LocationSearch';
+
+// Google Maps types
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 interface LocationData {
   address: string;
   coordinates: [number, number];
 }
 
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
 interface HeroSectionProps {
   serviceType: 'immediate' | 'long-term';
   setServiceType: (type: 'immediate' | 'long-term') => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  onPostJob: () => void;
   onLocationChange: (location: LocationData) => void;
   currentLocation: string;
   onSearch: () => void;
@@ -34,6 +45,7 @@ interface HeroSectionProps {
   onViewModeChange: (mode: 'list' | 'map') => void;
   searchRadius: number;
   onSearchRadiusChange: (radius: number) => void;
+  onPostJob?: () => void;
 }
 
 const HeroSection: React.FC<HeroSectionProps> = ({
@@ -41,55 +53,117 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   setServiceType,
   searchQuery,
   setSearchQuery,
-  onPostJob,
   onLocationChange,
   currentLocation,
   onSearch,
   viewMode,
   onViewModeChange,
   searchRadius,
-  onSearchRadiusChange
+  onSearchRadiusChange,
+  onPostJob
 }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState('');
   const [availability, setAvailability] = useState('');
+  const [locationDetected, setLocationDetected] = useState(false);
+  const [serviceSuggestions, setServiceSuggestions] = useState<string[]>([]);
+  const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [currentLocationAddress, setCurrentLocationAddress] = useState(currentLocation);
 
-  const handleCurrentLocationDetect = () => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        onLocationChange({
-          address: 'Current Location',
-          coordinates: [position.coords.latitude, position.coords.longitude]
-        });
-      },
-      (error) => {
-        console.error('Location detection failed:', error);
+  // Fetch service suggestions when search query changes
+  useEffect(() => {
+    const fetchServiceSuggestions = async () => {
+      if (searchQuery.length > 2) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/services?q=${encodeURIComponent(searchQuery)}`);
+          if (response.ok) {
+            const data = await response.json();
+            setServiceSuggestions(data.data?.services || []);
+            setShowServiceSuggestions(true);
+          }
+        } catch (error) {
+          console.error('Error fetching service suggestions:', error);
+          setServiceSuggestions(['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'Carpentry']);
+          setShowServiceSuggestions(true);
+        }
+      } else {
+        setServiceSuggestions([]);
+        setShowServiceSuggestions(false);
       }
-    );
+    };
+
+    const debounceTimer = setTimeout(fetchServiceSuggestions, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+  // Handle search input key press (Enter key)
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
 
-  const serviceCategories = [
-    { id: 'cleaning', name: 'House Cleaning', icon: '🧽' },
-    { id: 'handyman', name: 'Handyman', icon: '🔧' },
-    { id: 'gardening', name: 'Gardening', icon: '🌿' },
-    { id: 'plumbing', name: 'Plumbing', icon: '🚿' },
-    { id: 'electrical', name: 'Electrical', icon: '⚡' },
-    { id: 'painting', name: 'Painting', icon: '🎨' }
-  ];
+  // Enhanced search handler
+  const handleSearch = useCallback(() => {
+    setShowServiceSuggestions(false);
+    
+    // If both inputs are empty, show all providers
+    if (!searchQuery.trim() && !currentLocation.trim()) {
+      setSearchQuery('');
+      setCurrentLocationAddress('');
+    }
+    
+    // Scroll to providers section
+    setTimeout(() => {
+      const providersSection = document.getElementById('providers-section');
+      if (providersSection) {
+        providersSection.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
+    
+    onSearch();
+  }, [onSearch, searchQuery, currentLocation]);
+
+  // Handle service suggestion click
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearchQuery(suggestion);
+    setShowServiceSuggestions(false);
+    handleSearch();
+  };
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowServiceSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto sm:px-6 lg:px-8  sm:py-8">
-        {/* Modern Hero Section */}
+      <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 sm:py-8">
+        {/* Modern Hero Section with enhanced design from second component */}
         <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl">
-          {/* Background decorations */}
+          
+          {/* Enhanced background decorations from second design */}
           <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]"></div>
           <div className="absolute -top-8 -right-8 w-24 h-24 sm:w-32 sm:h-32 bg-white/10 rounded-full blur-2xl"></div>
           <div className="absolute -bottom-12 -left-12 w-32 h-32 sm:w-40 sm:h-40 bg-white/5 rounded-full blur-3xl"></div>
           <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-yellow-400/20 rounded-full blur-xl"></div>
           
           <div className="relative">
-            {/* Header */}
+            {/* Enhanced Header with icon from second design */}
             <div className="text-center mb-8 sm:mb-12">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl sm:rounded-3xl flex items-center justify-center backdrop-blur-sm border border-white/20">
@@ -105,7 +179,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               </p>
             </div>
 
-            {/* Service Type Toggle */}
+            {/* Service Type Toggle with View Mode Toggle */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
               <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg w-full sm:w-auto">
                 <button
@@ -140,7 +214,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </button>
               </div>
 
-              {/* View Mode Toggle */}
+              {/* View Mode Toggle from second design */}
               <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg w-full sm:w-auto">
                 <button
                   onClick={() => onViewModeChange('list')}
@@ -167,41 +241,49 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </div>
 
-            {/* Main Search Bar */}
+            {/* Main Search Bar with enhanced styling */}
             <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
-                <div className="flex-1 relative">
+                <div className="flex-1 relative" ref={searchContainerRef}>
                   <div className="absolute left-4 sm:left-6 top-4 sm:top-5 w-5 h-5 sm:w-6 sm:h-6 text-gray-400 bg-gray-100 rounded-lg flex items-center justify-center">
                     <Search className="w-3 h-3 sm:w-4 sm:h-4" />
                   </div>
                   <input
+                    ref={searchInputRef}
                     type="text"
                     placeholder={serviceType === 'immediate' ? "What do you need help with right now?" : "Describe your project..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    onFocus={() => searchQuery.length > 2 && setShowServiceSuggestions(true)}
                     className="w-full pl-14 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
                   />
+                  
+                  {/* Service Suggestions - maintained from first component */}
+                  {showServiceSuggestions && serviceSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-64 overflow-y-auto z-40">
+                      {serviceSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <Search className="w-4 h-4 text-gray-400" />
+                            <span className="text-sm font-medium text-gray-900">{suggestion}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="w-full lg:w-80">
-                  <div className="relative">
-                    <div className="absolute left-4 sm:left-6 top-4 sm:top-5 w-5 h-5 sm:w-6 sm:h-6 text-gray-400 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Enter your location"
-                      value={currentLocation}
-                      onChange={(e) => onLocationChange({ address: e.target.value, coordinates: [0, 0] })}
-                      className="w-full pl-14 sm:pl-16 pr-12 sm:pr-14 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
-                    />
-                    <button
-                      onClick={handleCurrentLocationDetect}
-                      className="absolute right-2 sm:right-3 top-2 sm:top-3 w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-lg sm:rounded-xl transition-colors flex items-center justify-center shadow-lg"
-                    >
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                    </button>
-                  </div>
+                  <LocationSearch
+                    onLocationSelect={onLocationChange}
+                    currentLocation={currentLocation}
+                    onCurrentLocationDetect={() => setLocationDetected(true)}
+                  />
                 </div>
                 
                 <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 sm:space-x-3">
@@ -215,23 +297,25 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   
                   {serviceType === 'immediate' ? (
                     <button
-                      onClick={onSearch}
+                      onClick={handleSearch}
                       className="bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-500 hover:to-orange-600 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap text-base sm:text-lg shadow-lg"
                     >
                       Find Now
                     </button>
                   ) : (
-                    <button
-                      onClick={onPostJob}
-                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap text-base sm:text-lg shadow-lg"
-                    >
-                      Post Project
-                    </button>
+                    onPostJob && (
+                      <button
+                        onClick={onPostJob}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-bold transition-all duration-200 hover:shadow-xl hover:scale-105 whitespace-nowrap text-base sm:text-lg shadow-lg"
+                      >
+                        Post Project
+                      </button>
+                    )
                   )}
                 </div>
               </div>
 
-              {/* Enhanced Filters Panel */}
+              {/* Enhanced Filters Panel from second design */}
               {showFilters && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20 animate-in slide-in-from-top-2 duration-200 shadow-lg">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -265,9 +349,9 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                           className="w-full px-4 py-3 bg-white/20 backdrop-blur-sm rounded-xl text-white border border-white/30 focus:ring-2 focus:ring-white/50 focus:outline-none appearance-none font-medium"
                         >
                           <option value="" className="text-gray-900">Any budget</option>
-                          <option value="low" className="text-gray-900">$20-40/hr</option>
-                          <option value="medium" className="text-gray-900">$40-60/hr</option>
-                          <option value="high" className="text-gray-900">$60+/hr</option>
+                          <option value="low" className="text-gray-900">₦5000</option>
+                          <option value="medium" className="text-gray-900">₦10000</option>
+                          <option value="high" className="text-gray-900">₦15000</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-white/70 pointer-events-none" />
                       </div>
@@ -297,7 +381,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               )}
             </div>
 
-            {/* Status Indicator */}
+            {/* Status Indicator from second design */}
             {serviceType === 'immediate' && (
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-3 text-sm sm:text-base text-blue-100">
@@ -318,7 +402,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
               </div>
             )}
-
 
           </div>
         </div>

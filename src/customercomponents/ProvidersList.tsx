@@ -1,0 +1,1256 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Phone, 
+  MessageCircle, 
+  Star, 
+  MapPin, 
+  Clock, 
+  User, 
+  AlertCircle,
+  Heart,
+  Shield,
+  Award,
+  PhoneCall,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+  ChevronDown,
+  Filter,
+  SortAsc,
+  Grid3X3,
+  List,
+  Zap
+} from 'lucide-react';
+
+// Unified Provider interface
+export interface Provider {
+  _id?: string;
+  id: string;
+  name: string;
+  email: string;
+  services: string[];
+  hourlyRate: number;
+  averageRating?: number;
+  city: string;
+  state: string;
+  country: string;
+  profileImage?: string;
+  profilePicture?: string; // Alternative field name
+  avatar?: string; // Another alternative field name
+  isAvailableNow: boolean;
+  experience: string;
+  distance?: number;
+  phoneNumber?: string;
+  address?: string;
+  rating?: number;
+  reviewCount?: number;
+  location?: string;
+  priceRange?: string;
+  coordinates?: [number, number];
+  responseTime?: string;
+  isVerified?: boolean;
+  isTopRated?: boolean;
+  completedJobs?: number;
+}
+
+interface ProvidersListProps {
+  serviceType: 'immediate' | 'long-term';
+  searchQuery: string;
+  location: string;
+  onBook?: (provider: Provider) => void;
+  onMessage?: (provider: Provider) => void;
+  onCall?: (provider: Provider) => void;
+  onToggleFavorite?: (providerId: string) => void;
+  authToken?: string;
+  currentUser?: any;
+  favorites?: string[];
+}
+
+interface ProviderCardItemProps {
+  provider: Provider;
+  serviceType: 'immediate' | 'long-term';
+  onBook?: (provider: Provider) => void;
+  onMessage?: (provider: Provider) => void;
+  onCall?: (provider: Provider) => void;
+  onToggleFavorite?: (providerId: string) => void;
+  isFavorite: boolean;
+  viewMode: 'grid' | 'list';
+}
+
+// Sample providers function for fallback
+const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
+  const sampleProviders: Provider[] = [
+    {
+      id: '1',
+      name: 'Sarah Johnson',
+      email: 'sarah@example.com',
+      services: ['House Cleaning', 'Deep Cleaning'],
+      hourlyRate: 2500,
+      averageRating: 4.8,
+      city: 'Lagos',
+      state: 'Lagos',
+      country: 'Nigeria',
+      isAvailableNow: true,
+      experience: '5 years',
+      reviewCount: 127,
+      completedJobs: 234,
+      isVerified: true,
+      isTopRated: true,
+      responseTime: 'within 30 minutes',
+      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
+    },
+    {
+      id: '2', 
+      name: 'Michael Adebayo',
+      email: 'michael@example.com',
+      services: ['Plumbing', 'Electrical'],
+      hourlyRate: 3500,
+      averageRating: 4.6,
+      city: 'Abuja',
+      state: 'FCT',
+      country: 'Nigeria',
+      isAvailableNow: false,
+      experience: '8 years',
+      reviewCount: 89,
+      completedJobs: 156,
+      isVerified: true,
+      isTopRated: false,
+      responseTime: 'within 2 hours',
+      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
+    },
+    {
+      id: '3',
+      name: 'Fatima Ibrahim',
+      email: 'fatima@example.com',
+      services: ['Painting', 'Interior Design'],
+      hourlyRate: 3000,
+      averageRating: 4.9,
+      city: 'Kano',
+      state: 'Kano',
+      country: 'Nigeria',
+      isAvailableNow: true,
+      experience: '6 years',
+      reviewCount: 156,
+      completedJobs: 289,
+      isVerified: true,
+      isTopRated: true,
+      responseTime: 'within 45 minutes',
+      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
+    }
+  ];
+
+  return sampleProviders.filter(provider => {
+    const matchesLocation = !location || 
+      provider.city.toLowerCase().includes(location.toLowerCase()) ||
+      provider.state.toLowerCase().includes(location.toLowerCase());
+    
+    const matchesService = !searchQuery ||
+      provider.services.some(service => 
+        service.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    
+    return matchesLocation && matchesService;
+  });
+};
+
+const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
+  provider,
+  serviceType,
+  onBook,
+  onMessage,
+  onCall,
+  onToggleFavorite,
+  isFavorite,
+  viewMode
+}) => {
+  const [showCallOptions, setShowCallOptions] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const callButtonRef = useRef<HTMLButtonElement>(null);
+  const callOptionsRef = useRef<HTMLDivElement>(null);
+
+  // Mock phone numbers
+  const phoneNumbers: { [key: string]: string } = {
+    '1': '+234 123 456 7890',
+    '2': '+234 123 456 7891',
+    '3': '+234 123 456 7892',
+    '4': '+234 123 456 7893',
+    '5': '+234 123 456 7894',
+    '6': '+234 123 456 7895'
+  };
+
+  const providerPhone = phoneNumbers[provider.id] || provider.phoneNumber || '+234 000 000 0000';
+
+  const handleToggleFavorite = async () => {
+    if (isFavoriting || !onToggleFavorite) return;
+    
+    setIsFavoriting(true);
+    try {
+      onToggleFavorite(provider.id);
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    } finally {
+      setIsFavoriting(false);
+    }
+  };
+
+  const renderStars = (rating: number) => {
+    return [...Array(5)].map((_, i) => (
+      <Star
+        key={i}
+        className={`w-3 h-3 sm:w-4 sm:h-4 transition-colors ${
+          i < Math.floor(rating) ? 'text-amber-400 fill-current' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
+
+  const handleCallClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCallOptions(!showCallOptions);
+  };
+
+  const handlePhoneCall = () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const cleanPhoneNumber = providerPhone.replace(/\D/g, '');
+    
+    if (isMobile) {
+      window.location.href = `tel:${cleanPhoneNumber}`;
+    } else {
+      window.open(`tel:${cleanPhoneNumber}`);
+    }
+    setShowCallOptions(false);
+  };
+
+  const handleCopyNumber = async () => {
+    try {
+      await navigator.clipboard.writeText(providerPhone);
+      alert('Phone number copied to clipboard!');
+    } catch {
+      console.log('Phone number:', providerPhone);
+    }
+    setShowCallOptions(false);
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  };
+
+  // Enhanced image handling
+  const getProfileImage = () => {
+    return provider.profileImage || provider.profilePicture || provider.avatar;
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  // Format price range from hourlyRate
+  const formatPriceRange = (hourlyRate: number) => {
+    if (!hourlyRate || hourlyRate === 0) return 'Contact for pricing';
+    if (hourlyRate < 1000) return `₦${hourlyRate}`;
+    if (hourlyRate < 5000) return `₦${(hourlyRate/1000).toFixed(1)}k`;
+    return `₦${Math.round(hourlyRate/1000)}k/hr`;
+  };
+
+  // Calculate derived values with proper fallbacks
+  const rating = provider.averageRating || provider.rating || 4.0;
+  const reviewCount = provider.reviewCount || 0;
+  const priceRange = provider.priceRange || formatPriceRange(provider.hourlyRate || 0);
+  const completedJobs = provider.completedJobs || 0;
+  const responseTime = provider.responseTime || 'Contact for availability';
+  const locationText = provider.location || `${provider.city || ''}, ${provider.state || ''}`.trim() || 'Location not specified';
+
+  // Profile Avatar Component
+  const ProfileAvatar = ({ className }: { className: string }) => {
+    const profileImageUrl = getProfileImage();
+    
+    return (
+      <div className={`bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white font-bold shadow-xl transition-transform duration-300 group-hover:scale-110 overflow-hidden ${className}`}>
+        {profileImageUrl && !imageError ? (
+          <img 
+            src={profileImageUrl}
+            alt={provider.name}
+            className="w-full h-full object-cover"
+            onError={handleImageError}
+            loading="lazy"
+          />
+        ) : (
+          <span className="text-white font-bold text-xl">
+            {getInitials(provider.name)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        callOptionsRef.current && 
+        !callOptionsRef.current.contains(event.target as Node) &&
+        callButtonRef.current && 
+        !callButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowCallOptions(false);
+      }
+    };
+
+    if (showCallOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCallOptions]);
+
+  if (viewMode === 'list') {
+    return (
+      <div 
+        className="group bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-4 sm:p-6 overflow-hidden relative"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div className="flex flex-col sm:flex-row items-start gap-4">
+          {/* Avatar */}
+          <div className="relative">
+            <ProfileAvatar className="w-16 h-16 sm:w-20 sm:h-20" />
+            {provider.isAvailableNow && serviceType === 'immediate' && (
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center animate-pulse">
+                <Zap className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+          
+          {/* Content */}
+          <div className="flex-1 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex-1">
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                    {provider.name}
+                  </h3>
+                  {provider.isVerified && (
+                    <div className="w-6 h-6 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <Shield className="w-3 h-3 text-blue-600" />
+                    </div>
+                  )}
+                  {provider.isTopRated && (
+                    <div className="w-6 h-6 bg-amber-100 rounded-xl flex items-center justify-center">
+                      <Award className="w-3 h-3 text-amber-600" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Rating */}
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center">
+                    {renderStars(rating)}
+                  </div>
+                  <span className="text-sm font-bold text-gray-900">{rating.toFixed(1)}</span>
+                  {reviewCount > 0 && (
+                    <span className="text-sm text-gray-500">({reviewCount} reviews)</span>
+                  )}
+                </div>
+
+                {/* Services */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {provider.services && provider.services.slice(0, 3).map((service, index) => (
+                    <span
+                      key={index}
+                      className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 text-sm font-medium rounded-xl border border-blue-200/50"
+                    >
+                      {service}
+                    </span>
+                  ))}
+                  {provider.services && provider.services.length > 3 && (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
+                      +{provider.services.length - 3} more
+                    </span>
+                  )}
+                  {(!provider.services || provider.services.length === 0) && (
+                    <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
+                      General Services
+                    </span>
+                  )}
+                </div>
+
+                {/* Location & Response Time */}
+                <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 text-sm text-gray-600 mb-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-gray-400" />
+                    <span className="truncate">{locationText}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                    <span>{responseTime}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Favorite Button */}
+              <div className="flex items-center gap-2">
+                {onToggleFavorite && (
+                  <button
+                    onClick={handleToggleFavorite}
+                    disabled={isFavoriting}
+                    className={`p-2 rounded-xl transition-all duration-200 ${
+                      isFavorite 
+                        ? 'text-red-500 bg-red-50' 
+                        : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                    }`}
+                  >
+                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-6">
+                <div>
+                  <p className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                    {priceRange}
+                  </p>
+                  {completedJobs > 0 && (
+                    <p className="text-sm text-gray-500">{completedJobs} jobs completed</p>
+                  )}
+                </div>
+                
+                {provider.isAvailableNow && serviceType === 'immediate' && (
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span>Available Now</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                {onMessage && (
+                  <button 
+                    onClick={() => onMessage && onMessage(provider)}
+                    className="p-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105 group"
+                  >
+                    <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  </button>
+                )}
+                
+                {onCall && (
+                  <div className="relative">
+                    <button 
+                      ref={callButtonRef}
+                      onClick={handleCallClick}
+                      className="p-3 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-all duration-200 hover:scale-105 group"
+                    >
+                      <Phone className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </button>
+                    
+                    {showCallOptions && (
+                      <div 
+                        ref={callOptionsRef}
+                        className="absolute right-0 bottom-full mb-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-2xl shadow-2xl p-2 z-[200] min-w-48"
+                      >
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onCall && onCall(provider);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                        >
+                          <PhoneCall className="w-4 h-4 text-green-600" />
+                          <span>Web Audio Call</span>
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handlePhoneCall();
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4 text-purple-600" />
+                          <span>Phone App</span>
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleCopyNumber();
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                        >
+                          <Copy className="w-4 h-4 text-gray-600" />
+                          <span>Copy Number</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {onBook && (
+                  <button
+                    onClick={() => onBook && onBook(provider)}
+                    className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
+                  >
+                    <span className="group-hover:scale-110 inline-block transition-transform">
+                      {serviceType === 'immediate' ? 'Book Now' : 'Get Quote'}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Hover Gradient Overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5 rounded-2xl transition-opacity duration-500 pointer-events-none ${
+          isHovered ? 'opacity-100' : 'opacity-0'
+        }`}></div>
+      </div>
+    );
+  }
+
+  // Grid View (Card Mode)
+  return (
+    <div 
+      className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <ProfileAvatar className="w-16 h-16" />
+            {provider.isAvailableNow && serviceType === 'immediate' && (
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full flex items-center justify-center animate-pulse">
+                <Zap className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                {provider.name}
+              </h3>
+              {provider.isVerified && (
+                <Shield className="w-4 h-4 text-blue-500" />
+              )}
+              {provider.isTopRated && (
+                <Award className="w-4 h-4 text-amber-500" />
+              )}
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="flex items-center">
+                {renderStars(rating)}
+              </div>
+              <span className="text-sm font-bold text-gray-900">{rating.toFixed(1)}</span>
+              {reviewCount > 0 && (
+                <span className="text-xs text-gray-500">({reviewCount})</span>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {onToggleFavorite && (
+          <button
+            onClick={handleToggleFavorite}
+            disabled={isFavoriting}
+            className={`p-2 rounded-xl transition-all duration-200 ${
+              isFavorite 
+                ? 'text-red-500 bg-red-50' 
+                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+          </button>
+        )}
+      </div>
+
+      {/* Services */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {provider.services && provider.services.slice(0, 2).map((service, index) => (
+          <span
+            key={index}
+            className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 text-sm font-medium rounded-xl border border-blue-200/50"
+          >
+            {service}
+          </span>
+        ))}
+        {provider.services && provider.services.length > 2 && (
+          <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
+            +{provider.services.length - 2} more
+          </span>
+        )}
+        {(!provider.services || provider.services.length === 0) && (
+          <span className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl">
+            General Services
+          </span>
+        )}
+      </div>
+
+      {/* Availability Badge */}
+      {provider.isAvailableNow && serviceType === 'immediate' && (
+        <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 rounded-xl text-sm font-semibold shadow-lg mb-4">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+          <span>Available Now</span>
+        </div>
+      )}
+
+      {/* Location & Response Time */}
+      <div className="space-y-2 mb-4 text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-gray-400" />
+          <span className="truncate">{locationText}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-gray-400" />
+          <span>{responseTime}</span>
+        </div>
+      </div>
+
+      {/* Bottom */}
+      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+        <div>
+          <p className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+            {priceRange}
+          </p>
+          {completedJobs > 0 && (
+            <p className="text-sm text-gray-500">{completedJobs} jobs</p>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {onMessage && (
+            <button 
+              onClick={() => onMessage && onMessage(provider)}
+              className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </button>
+          )}
+          
+          {onCall && (
+            <div className="relative">
+              <button 
+                ref={callButtonRef}
+                onClick={handleCallClick}
+                className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-all duration-200 hover:scale-105"
+              >
+                <Phone className="w-4 h-4" />
+              </button>
+              
+              {showCallOptions && (
+                <div 
+                  ref={callOptionsRef}
+                  className="absolute right-0 bottom-full mb-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-2xl shadow-2xl p-2 z-[200] min-w-48"
+                >
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onCall && onCall(provider);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <PhoneCall className="w-4 h-4 text-green-600" />
+                    <span>Web Audio Call</span>
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handlePhoneCall();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4 text-purple-600" />
+                    <span>Phone App</span>
+                  </button>
+                  
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCopyNumber();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <Copy className="w-4 h-4 text-gray-600" />
+                    <span>Copy Number</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {onBook && (
+            <button
+              onClick={() => onBook && onBook(provider)}
+              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl text-sm"
+            >
+              {serviceType === 'immediate' ? 'Book' : 'Quote'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Hover Gradient Overlay */}
+      <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5 rounded-3xl transition-opacity duration-500 pointer-events-none ${
+        isHovered ? 'opacity-100' : 'opacity-0'
+      }`}></div>
+    </div>
+  );
+};
+
+const ProvidersList: React.FC<ProvidersListProps> = ({
+  serviceType,
+  searchQuery,
+  location,
+  onBook,
+  onMessage,
+  onCall,
+  onToggleFavorite,
+  authToken,
+  favorites = []
+}) => {
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('rating');
+  const [showFilters, setShowFilters] = useState(false);
+
+  // FIXED: Use consistent API base URL with environment detection
+  const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
+  const fetchProviders = async () => {
+    try {
+      setError(null);
+      console.log('🚀 Starting provider fetch...');
+      console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
+      
+      // Build query parameters more carefully
+      const params = new URLSearchParams();
+      
+      // Only add non-empty search parameters
+      if (searchQuery?.trim()) {
+        params.append('service', searchQuery.trim());
+        console.log('🔍 Added service filter:', searchQuery.trim());
+      }
+      
+      if (location?.trim()) {
+        params.append('location', location.trim());
+        console.log('📍 Added location filter:', location.trim());
+      }
+      
+      // Always add these defaults
+      params.append('limit', '50'); // Increased limit to get more providers
+      
+      if (serviceType === 'immediate') {
+        params.append('availableNow', 'true');
+        console.log('⚡ Added immediate availability filter');
+      }
+      
+      const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
+      console.log('📡 Final API URL:', apiUrl);
+      
+      // Create fetch options
+      const fetchOptions: RequestInit = {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      };
+
+      // Only add auth header if token exists
+      if (authToken?.trim()) {
+        fetchOptions.headers = {
+          ...fetchOptions.headers,
+          'Authorization': `Bearer ${authToken.trim()}`
+        };
+        console.log('🔐 Added auth token to request');
+      }
+
+      console.log('📤 Making fetch request with options:', fetchOptions);
+      
+      // Add timeout to the fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      const response = await fetch(apiUrl, {
+        ...fetchOptions,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('📥 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+      
+      // Get raw response text first for debugging
+      const responseText = await response.text();
+      console.log('📄 Raw response text:', responseText);
+      
+      if (!response.ok) {
+        console.error('❌ API Error Response:', responseText);
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
+      }
+      
+      // Parse JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📦 Parsed response data:', data);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        console.error('📄 Problematic text:', responseText);
+        const errorMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON response';
+        throw new Error(`JSON Parse Error: ${errorMessage}`);
+      }
+      
+      // More robust data validation
+      if (!data) {
+        throw new Error('No data received from API');
+      }
+
+      if (data.success === false) {
+        throw new Error(data.message || 'API returned success: false');
+      }
+
+      // Handle different possible response structures
+      let providersArray = [];
+      
+      if (data.data?.providers) {
+        providersArray = data.data.providers;
+        console.log('✅ Found providers in data.data.providers');
+      } else if (data.providers) {
+        providersArray = data.providers;
+        console.log('✅ Found providers in data.providers');
+      } else if (Array.isArray(data)) {
+        providersArray = data;
+        console.log('✅ Data itself is providers array');
+      } else if (Array.isArray(data.data)) {
+        providersArray = data.data;
+        console.log('✅ Found providers in data.data array');
+      } else {
+        console.log('❓ Unexpected response structure:', Object.keys(data));
+        console.log('📊 Full data object:', data);
+        // If we can't find providers in the expected structure, try to extract them
+        // from any array property in the response
+        for (const key in data) {
+          if (Array.isArray(data[key])) {
+            providersArray = data[key];
+            console.log(`✅ Found providers in data.${key}`);
+            break;
+          }
+        }
+      }
+
+      console.log('🔍 Extracted providers array length:', providersArray.length);
+      
+      if (!Array.isArray(providersArray)) {
+        console.error('❌ Providers data is not an array:', typeof providersArray, providersArray);
+        throw new Error('Invalid providers data format received');
+      }
+
+      console.log(`✅ Found ${providersArray.length} providers in API response`);
+      
+      // Transform providers to ensure consistent format
+      const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
+        console.log(`🔄 Transforming provider ${index + 1}:`, provider);
+        
+        // Ensure services is always an array
+        let services: string[] = [];
+        if (Array.isArray(provider.services)) {
+          services = provider.services;
+        } else if (typeof provider.services === 'string') {
+          services = [provider.services];
+        } else if (provider.service) {
+          services = Array.isArray(provider.service) ? provider.service : [provider.service];
+        }
+        
+        const transformed: Provider = {
+          ...provider,
+          id: provider._id || provider.id || `provider-${index}`,
+          _id: provider._id || provider.id,
+          services: services,
+          name: provider.name || `Provider ${index + 1}`,
+          email: provider.email || `provider${index + 1}@example.com`,
+          hourlyRate: provider.hourlyRate || provider.rate || 0,
+          city: provider.city || '',
+          state: provider.state || '',
+          country: provider.country || '',
+          experience: provider.experience || '',
+          isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
+          // Enhanced profile image handling
+          profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
+          profilePicture: provider.profilePicture,
+          avatar: provider.avatar,
+          // Calculated fields with fallbacks
+          rating: provider.averageRating || 0,
+          reviewCount: provider.reviewCount || 0,
+          priceRange: provider.priceRange || '',
+          location: provider.location || `${provider.city || ''}, ${provider.state || ''}`,
+          responseTime: provider.responseTime || 'Contact for availability',
+          completedJobs: provider.completedJobs || 0,
+          isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
+          isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
+          phoneNumber: provider.phoneNumber || provider.phone
+        };
+        
+        console.log(`✅ Transformed provider:`, transformed);
+        return transformed;
+      });
+      
+      console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
+      setProviders(transformedProviders);
+      
+    } catch (err: unknown) {
+      console.error('💥 Error in fetchProviders:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
+      
+      // Only show sample data on explicit retry or if no real attempt was made
+      if (isRetrying) {
+        console.log('🔄 Fallback: Using sample data due to API error during retry');
+        setProviders(getSampleProviders(location, searchQuery));
+      } else {
+        console.log('❌ Setting empty providers array due to API error');
+        setProviders([]);
+      }
+    } finally {
+      setLoading(false);
+      setIsRetrying(false);
+    }
+  };
+
+  const handleRetry = () => {
+    console.log('🔄 User triggered retry');
+    setIsRetrying(true);
+    setLoading(true);
+    setError(null);
+    fetchProviders();
+  };
+
+  const handleShowSampleData = () => {
+    console.log('📋 User requested sample data');
+    setError(null);
+    setProviders(getSampleProviders(location, searchQuery));
+  };
+
+  // Sort providers
+  const sortedProviders = [...providers].sort((a, b) => {
+    const ratingA = a.averageRating || a.rating || 0;
+    const ratingB = b.averageRating || b.rating || 0;
+    
+    switch (sortBy) {
+      case 'rating':
+        return ratingB - ratingA;
+      case 'price':
+        return (a.hourlyRate || 0) - (b.hourlyRate || 0);
+      case 'distance':
+        return (a.distance || 0) - (b.distance || 0);
+      default:
+        return ratingB - ratingA;
+    }
+  });
+
+  useEffect(() => {
+    console.log('🔄 useEffect triggered with:', { searchQuery, location, serviceType, authToken: !!authToken });
+    setLoading(true);
+    fetchProviders();
+  }, [searchQuery, location, serviceType, authToken]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {/* Loading Header */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-6 bg-gray-200 rounded-xl w-48 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-10 bg-gray-200 rounded-xl w-24 animate-pulse"></div>
+            <div className="h-10 bg-gray-200 rounded-xl w-20 animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Loading Cards */}
+        <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-100 p-6 animate-pulse">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-16 h-16 bg-gray-200 rounded-2xl shrink-0"></div>
+                <div className="flex-1 space-y-3">
+                  <div className="h-5 bg-gray-200 rounded-lg w-3/4"></div>
+                  <div className="h-4 bg-gray-200 rounded-lg w-1/2"></div>
+                  <div className="flex gap-2">
+                    <div className="h-6 bg-gray-200 rounded-xl w-16"></div>
+                    <div className="h-6 bg-gray-200 rounded-xl w-20"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-200 rounded-lg w-full"></div>
+                <div className="h-4 bg-gray-200 rounded-lg w-2/3"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16">
+        <div className="w-32 h-32 bg-gradient-to-br from-red-100 to-red-200 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <AlertCircle className="w-16 h-16 text-red-600" />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-3">Unable to load providers</h3>
+        <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">{error}</p>
+        <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
+          API: {API_BASE_URL}/api/providers
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={handleRetry}
+            disabled={loading}
+            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 justify-center"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            Try Again with Fallback
+          </button>
+          <button
+            onClick={handleShowSampleData}
+            className="bg-white border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-2xl font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all duration-300"
+          >
+            Show Sample Data
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (providers.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <div className="w-32 h-32 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
+          <User className="w-16 h-16 text-gray-600" />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-900 mb-3">No providers found</h3>
+        <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">
+          {searchQuery || location 
+            ? `No providers found for "${searchQuery}" in "${location}". The API returned no results.`
+            : 'No providers available at the moment. The API returned an empty list.'
+          }
+        </p>
+        <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
+          API: {API_BASE_URL}/api/providers
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={handleRetry}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl flex items-center gap-3 justify-center"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Try Again
+          </button>
+          <button
+            onClick={handleShowSampleData}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
+          >
+            View Sample Providers
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Enhanced Header */}
+      <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200/50 p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Results Info */}
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold text-gray-900">
+              {sortedProviders.length} Provider{sortedProviders.length !== 1 ? 's' : ''} Found
+            </h2>
+            <p className="text-sm text-gray-600">
+              {searchQuery && `for "${searchQuery}"`}
+              {searchQuery && location && ' '}
+              {location && `in ${location}`}
+            </p>
+            <p className="text-xs text-gray-400 font-mono">
+              API: {API_BASE_URL}/api/providers
+            </p>
+          </div>
+
+          {/* Controls */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as 'rating' | 'price' | 'distance')}
+                className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+              >
+                <option value="rating">Sort by Rating</option>
+                <option value="price">Sort by Price</option>
+                <option value="distance">Sort by Distance</option>
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+
+            {/* Filter Button */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 ${
+                showFilters 
+                  ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                  : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'grid' 
+                    ? 'bg-white shadow-sm text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Grid3X3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  viewMode === 'list' 
+                    ? 'bg-white shadow-sm text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Refresh Button */}
+            <button
+              onClick={handleRetry}
+              disabled={loading}
+              className="p-2 text-gray-500 hover:text-blue-600 transition-colors disabled:opacity-50 rounded-xl hover:bg-blue-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Expandable Filters */}
+        {showFilters && (
+          <div className="mt-6 pt-6 border-t border-gray-200/50">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Availability</label>
+                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                  <option>Any time</option>
+                  <option>Available now</option>
+                  <option>Within 1 hour</option>
+                  <option>Today</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Rating</label>
+                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                  <option>Any rating</option>
+                  <option>4.5+ stars</option>
+                  <option>4.0+ stars</option>
+                  <option>3.5+ stars</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Price Range</label>
+                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                  <option>Any price</option>
+                  <option>Under ₦2,000</option>
+                  <option>₦2,000 - ₦5,000</option>
+                  <option>₦5,000+</option>
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Experience</label>
+                <select className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm">
+                  <option>Any experience</option>
+                  <option>5+ years</option>
+                  <option>3+ years</option>
+                  <option>1+ years</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Providers Grid/List */}
+      <div className={`grid gap-6 ${
+        viewMode === 'grid' 
+          ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4' 
+          : 'grid-cols-1'
+      }`}>
+        {sortedProviders.map((provider) => (
+          <ProviderCardItem
+            key={provider._id || provider.id}
+            provider={provider}
+            serviceType={serviceType}
+            onBook={onBook}
+            onMessage={onMessage}
+            onCall={onCall}
+            onToggleFavorite={onToggleFavorite}
+            isFavorite={favorites.includes(provider._id || provider.id)}
+            viewMode={viewMode}
+          />
+        ))}
+      </div>
+
+      {/* Load More Button */}
+      {sortedProviders.length > 0 && (
+        <div className="text-center pt-8">
+          <button className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">
+            Load More Providers
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProvidersList;

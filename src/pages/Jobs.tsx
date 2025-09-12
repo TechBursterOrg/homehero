@@ -1,5 +1,5 @@
+import React, { useState , useEffect} from 'react';
 
-import React, { useState } from 'react';
 import { 
   Search, 
   MapPin, 
@@ -61,6 +61,38 @@ interface Categories {
   childcare: CategoryInfo;
 }
 
+// API Response interfaces
+interface ServiceRequest {
+  _id: string;
+  serviceType: string;
+  description: string;
+  location: string;
+  createdAt: string;
+  timeframe?: string;
+  budget?: string;
+  urgency?: string;
+  category?: string;
+  contactInfo?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+interface ApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    requests: ServiceRequest[];
+  };
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+
 const Jobs: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -77,191 +109,103 @@ const Jobs: React.FC = () => {
     experience: ''
   });
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
+  // Fix: Properly type the jobs state
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const availableJobs: Job[] = [
-    {
-      id: 4,
-      title: 'Deep House Cleaning',
-      description: 'Full house cleaning including bathrooms, kitchen, and bedrooms. Looking for experienced cleaner with attention to detail.',
-      location: '321 Maple Street, Downtown',
-      date: '2025-01-10',
-      timeframe: 'Morning (8AM-12PM)',
-      budget: '$80-100',
-      urgency: 'Normal',
-      rating: 4.8,
-      reviews: 12,
-      category: 'cleaning',
-      customerName: 'Sarah Johnson',
-      customerPhone: '+1 (555) 123-4567',
-      customerEmail: 'sarah.j@email.com',
-      requirements: [
-        'Minimum 2 years cleaning experience',
-        'Own cleaning supplies and equipment',
-        'Background check required',
-        'References from previous clients'
-      ],
-      additionalInfo: 'This is a 3-bedroom, 2-bathroom house with pets. Please be comfortable around cats. Parking available in driveway.',
-      isImmediate: false,
-      distanceFromProvider: 3.2,
-      coordinates: { lat: 40.7128, lng: -74.0060 }
-    },
-    {
-      id: 5,
-      title: 'Bathroom Renovation Help',
-      description: 'Need experienced handyman for tile installation and fixture mounting. Materials provided.',
-      location: '654 Cedar Lane, Suburbs',
-      date: '2025-01-12',
-      timeframe: 'All Day',
-      budget: '$200-250',
-      urgency: 'Urgent',
-      rating: 4.9,
-      reviews: 8,
-      category: 'handyman',
-      customerName: 'Mike Rodriguez',
-      customerPhone: '+1 (555) 987-6543',
-      customerEmail: 'mike.r@email.com',
-      requirements: [
-        'Licensed contractor preferred',
-        'Experience with tile installation',
-        'Own tools required',
-        'Insurance documentation needed'
-      ],
-      additionalInfo: 'Small bathroom renovation. All materials are purchased and ready. Looking to complete work in one day if possible.',
-      isImmediate: false,
-      distanceFromProvider: 15.7,
-      coordinates: { lat: 40.7589, lng: -73.9851 }
-    },
-    {
-      id: 6,
-      title: 'Weekly Garden Maintenance',
-      description: 'Regular garden upkeep including pruning, weeding, and lawn care. Ongoing weekly commitment.',
-      location: '987 Oak Boulevard, Westside',
-      date: '2025-01-08',
-      timeframe: 'Afternoon (1PM-5PM)',
-      budget: '$60-80',
-      urgency: 'Normal',
-      rating: 4.7,
-      reviews: 15,
-      category: 'gardening',
-      customerName: 'Emily Chen',
-      customerPhone: '+1 (555) 456-7890',
-      customerEmail: 'emily.c@email.com',
-      requirements: [
-        'Knowledge of seasonal plant care',
-        'Own gardening tools',
-        'Reliable weekly schedule',
-        'Experience with lawn maintenance'
-      ],
-      additionalInfo: 'Large backyard garden with various plants and small lawn area. Long-term position for the right candidate.',
-      isImmediate: false,
-      distanceFromProvider: 8.5,
-      coordinates: { lat: 40.7831, lng: -73.9712 }
-    },
-    {
-      id: 7,
-      title: 'Kitchen Deep Clean',
-      description: 'Post-renovation kitchen cleaning. Includes appliance cleaning and cabinet organization.',
-      location: '456 Pine Street, Central',
-      date: '2025-01-11',
-      timeframe: 'Morning (9AM-1PM)',
-      budget: '$100-120',
-      urgency: 'Normal',
-      rating: 4.6,
-      reviews: 22,
-      category: 'cleaning',
-      customerName: 'David Thompson',
-      customerPhone: '+1 (555) 234-5678',
-      customerEmail: 'david.t@email.com',
-      requirements: [
-        'Experience with post-construction cleaning',
-        'Attention to detail',
-        'Professional cleaning supplies',
-        'Flexible with timing'
-      ],
-      additionalInfo: 'Kitchen was recently renovated. Need thorough cleaning of all surfaces, appliances, and inside cabinets.',
-      isImmediate: false,
-      distanceFromProvider: 25.3,
-      coordinates: { lat: 40.6782, lng: -73.9442 }
-    },
-    {
-      id: 8,
-      title: 'Emergency Plumbing Fix',
-      description: 'Burst pipe in basement needs immediate attention. Water shutoff completed but need professional repair ASAP.',
-      location: '123 Emergency Lane, Riverside',
-      date: 'Today',
-      timeframe: 'ASAP - Any Time',
-      budget: '$150-200',
-      urgency: 'Emergency',
-      rating: 4.9,
-      reviews: 31,
-      category: 'handyman',
-      customerName: 'Lisa Martinez',
-      customerPhone: '+1 (555) 999-1234',
-      customerEmail: 'lisa.m@email.com',
-      requirements: [
-        'Licensed plumber required',
-        'Available within 2 hours',
-        'Own plumbing tools and materials',
-        'Emergency service experience'
-      ],
-      additionalInfo: 'Basement flooding contained but need immediate professional repair. Will pay premium for quick response.',
-      isImmediate: true,
-      distanceFromProvider: 5.1,
-      coordinates: { lat: 40.7505, lng: -73.9934 }
-    },
-    {
-      id: 9,
-      title: 'Immediate Pet Care - Dog Walking',
-      description: 'Need someone to walk my dog RIGHT NOW. I had a family emergency and need to leave immediately.',
-      location: '789 Pet Street, Midtown',
-      date: 'Today',
-      timeframe: 'Next 30 minutes',
-      budget: '$40-60',
-      urgency: 'Emergency',
-      rating: 4.5,
-      reviews: 8,
-      category: 'petcare',
-      customerName: 'James Wilson',
-      customerPhone: '+1 (555) 777-8888',
-      customerEmail: 'james.w@email.com',
-      requirements: [
-        'Experience with large dogs',
-        'Available immediately',
-        'Comfortable with German Shepherd',
-        'Can stay for 2-3 hours'
-      ],
-      additionalInfo: 'Max is a friendly 3-year-old German Shepherd. He needs a walk and some company. All supplies provided. Key under mat.',
-      isImmediate: true,
-      distanceFromProvider: 1.8,
-      coordinates: { lat: 40.7614, lng: -73.9776 }
-    },
-    {
-      id: 10,
-      title: 'Emergency Babysitting Tonight',
-      description: 'Need reliable babysitter for tonight. Last-minute work emergency came up.',
-      location: '555 Family Ave, Uptown',
-      date: 'Today',
-      timeframe: '6PM-11PM Tonight',
-      budget: '$80-120',
-      urgency: 'Emergency',
-      rating: 4.8,
-      reviews: 12,
-      category: 'childcare',
-      customerName: 'Maria Garcia',
-      customerPhone: '+1 (555) 333-4444',
-      customerEmail: 'maria.g@email.com',
-      requirements: [
-        'Background check required',
-        'Experience with toddlers',
-        'Available tonight (6PM start)',
-        'References required'
-      ],
-      additionalInfo: 'Two children ages 3 and 5. Both are well-behaved and will likely be asleep by 8PM. Dinner already prepared.',
-      isImmediate: true,
-      distanceFromProvider: 12.4,
-      coordinates: { lat: 40.7831, lng: -73.9712 }
+  useEffect(() => {
+    const fetchJobs = async () => {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    console.log('Token exists:', !!token);
+    console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please log in.');
     }
-  ];
+    
+    const response = await fetch('http://localhost:3001/api/service-requests', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    console.log('Response status:', response.status);
+    
+    if (response.status === 403) {
+      throw new Error('Access forbidden. Your session may have expired. Please log in again.');
+    }
+    
+    if (response.status === 401) {
+      throw new Error('Unauthorized. Please check your login credentials.');
+    }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error ${response.status}: ${errorText || 'Failed to fetch jobs'}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Transform API data to match your job structure
+      const transformedJobs: Job[] = data.data.requests.map((request: ServiceRequest) => ({
+        id: parseInt(request._id, 36),
+        title: request.serviceType,
+        description: request.description,
+        location: request.location,
+        date: new Date(request.createdAt).toISOString().split('T')[0],
+        timeframe: request.timeframe || 'Flexible',
+        budget: request.budget || 'Negotiable',
+        urgency: request.urgency || 'Standard',
+        rating: 4.5,
+        reviews: 0,
+        category: request.category || 'general',
+        customerName: request.contactInfo?.name || 'Unknown Customer',
+        customerPhone: request.contactInfo?.phone || 'Not provided',
+        customerEmail: request.contactInfo?.email || 'Not provided',
+        requirements: [],
+        additionalInfo: request.description,
+        isImmediate: request.urgency === 'urgent' || request.serviceType.toLowerCase().includes('immediate'),
+        distanceFromProvider: Math.floor(Math.random() * 25) + 1,
+        coordinates: request.coordinates || { lat: 0, lng: 0 }
+      }));
+      
+      setJobs(transformedJobs);
+    } else {
+      throw new Error(data.message || 'API returned unsuccessful response');
+    }
+  } catch (err: unknown) {
+    let errorMessage = 'An unknown error occurred';
+    
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    } else if (typeof err === 'string') {
+      errorMessage = err;
+    }
+    
+    console.error('Error fetching jobs:', err);
+    setError(errorMessage);
+    
+    if (errorMessage.includes('forbidden') || errorMessage.includes('unauthorized') || errorMessage.includes('No authentication token')) {
+      // Optional: redirect to login page
+      // window.location.href = '/login';
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+    fetchJobs();
+  }, []); // Empty dependency array to run only once on mount
+
+  const availableJobs = jobs;
 
   const filteredJobs = availableJobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -483,6 +427,42 @@ const Jobs: React.FC = () => {
       </div>
     );
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Briefcase className="w-8 h-8 text-white" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Loading Jobs...</h3>
+          <p className="text-gray-600">Finding the best opportunities for you</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Unable to Load Jobs</h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
@@ -922,20 +902,22 @@ const Jobs: React.FC = () => {
                 </div>
 
                 {/* Requirements - mobile responsive */}
-                <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm">
-                  <h4 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
-                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
-                    Requirements
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                    {selectedJob.requirements.map((req, index) => (
-                      <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg sm:rounded-xl border border-green-100">
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                        <span className="text-green-800 text-xs sm:text-sm">{req}</span>
-                      </div>
-                    ))}
+                {selectedJob.requirements.length > 0 && (
+                  <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-gray-100 shadow-sm">
+                    <h4 className="font-bold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
+                      <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                      Requirements
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2 sm:gap-3">
+                      {selectedJob.requirements.map((req, index) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg sm:rounded-xl border border-green-100">
+                          <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                          <span className="text-green-800 text-xs sm:text-sm">{req}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Additional Information */}
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-amber-100">
@@ -1009,7 +991,7 @@ const Jobs: React.FC = () => {
                     <form onSubmit={handleApplicationSubmit} className="space-y-4 sm:space-y-6">
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 sm:mb-3">
-                          Your Rate *
+                          Your Rate & Availability *
                         </label>
                         <input
                           type="text"
@@ -1017,7 +999,7 @@ const Jobs: React.FC = () => {
                           value={applicationData.proposedRate}
                           onChange={(e) => setApplicationData({...applicationData, proposedRate: e.target.value})}
                           className="w-full p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-sm sm:text-base"
-                          placeholder={selectedJob.isImmediate ? "I can be there within [X] minutes/hours" : "When can you start this job?"}
+                          placeholder={selectedJob.isImmediate ? "I can be there within [X] minutes/hours for $[rate]" : "My rate: $[amount] - Available: [when]"}
                         />
                       </div>
 
@@ -1047,7 +1029,7 @@ const Jobs: React.FC = () => {
                     <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
                       <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Application Submitted! 🎉</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4">Application Submitted!</h2>
                     <div className="max-w-md mx-auto px-4">
                       <p className="text-gray-600 text-sm sm:text-lg mb-4 sm:mb-6 leading-relaxed">
                         {selectedJob.isImmediate 
@@ -1056,7 +1038,7 @@ const Jobs: React.FC = () => {
                         }
                       </p>
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-blue-100">
-                        <p className="text-xs sm:text-sm text-blue-700 font-medium">💡 Pro tip: Check your phone and email regularly for responses!</p>
+                        <p className="text-xs sm:text-sm text-blue-700 font-medium">Pro tip: Check your phone and email regularly for responses!</p>
                       </div>
                     </div>
                   </div>

@@ -17,11 +17,10 @@ import {
   Filter,
   Search,
   Loader2,
-  AlertCircle as AlertCircleIcon,
-  PoundSterling
+  AlertCircle as AlertCircleIcon
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Define proper types
 interface EarningsData {
@@ -31,7 +30,6 @@ interface EarningsData {
   pending: number;
   growth: number;
   avgPerJob: number;
-  currency: string;
 }
 
 interface Transaction {
@@ -51,228 +49,132 @@ interface MonthlyData {
   growth: number;
 }
 
-interface CurrencyConfig {
-  symbol: string;
-  name: string;
-  icon: React.ComponentType<any>;
-}
-
-// Define currency multipliers with proper typing
-const CURRENCY_MULTIPLIERS: Record<string, number> = {
-  UK: 0.79,
-  NIGERIA: 1650,
-  CANADA: 1.35,
-  USA: 1
-} as const;
-
 const Earnings: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('month');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const [earningsData, setEarningsData] = useState<EarningsData>({
     total: 0,
     thisMonth: 0,
     lastMonth: 0,
     pending: 0,
     growth: 0,
-    avgPerJob: 0,
-    currency: 'USD'
+    avgPerJob: 0
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
-  const [currencyConfig, setCurrencyConfig] = useState<CurrencyConfig>({
-    symbol: '$',
-    name: 'USD',
-    icon: DollarSign
-  });
 
-  // Fetch user data and currency configuration
+  // Currency configuration - Only Naira
+  const currencyConfig = {
+    symbol: '₦',
+    icon: () => <span className="text-base font-bold">₦</span>,
+    name: 'NGN'
+  };
+
+  const CurrencyIcon = currencyConfig.icon;
+
+  // Initialize auth token from localStorage
   useEffect(() => {
-    const fetchUserData = async () => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    setAuthToken(token);
+  }, []);
+
+  // Fetch earnings data from backend API
+  useEffect(() => {
+    const fetchEarningsData = async () => {
       try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        setLoading(true);
+        setError(null);
         
-        if (!token) {
+        // Check if we have an auth token
+        if (!authToken) {
           throw new Error('No authentication token found. Please log in again.');
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        const response = await fetch(`${API_BASE_URL}/api/earnings`, {
+          method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json',
           },
         });
 
+        console.log('Earnings response status:', response.status);
+        
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('token');
+          setAuthToken(null);
           throw new Error('Your session has expired. Please log in again.');
         }
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
         }
 
-        const data = await response.json();
+        const result = await response.json();
         
-        if (data.success === false) {
-          throw new Error(data.message || 'Failed to fetch user data');
+        if (result.success) {
+          setEarningsData(result.data.earnings || result.data.earningsData || {});
+          setTransactions(result.data.transactions || []);
+          setMonthlyData(result.data.monthlyData || []);
+        } else {
+          throw new Error(result.message || 'Failed to fetch earnings data');
         }
-        
-        // Set currency based on user's country
-        const country = data.data.user.country || 'USA';
-        setCurrencyConfig(getCurrencyConfig(country));
-        
-        // Now fetch earnings data
-        await fetchEarningsData(token, country);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(errorMessage);
-        console.error('User data fetch error:', err);
+        console.error('Earnings fetch error:', err);
+        
+        if (errorMessage.includes('session') || errorMessage.includes('authentication')) {
+          // Use mock data if authentication fails
+          const mockData = getMockEarningsData();
+          setEarningsData(mockData.earningsData);
+          setTransactions(mockData.transactions);
+          setMonthlyData(mockData.monthlyData);
+        }
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchUserData();
-  }, []);
-
-  // Fetch earnings data from backend
-  const fetchEarningsData = async (token: string, country: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch(`${API_BASE_URL}/api/earnings`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success === false) {
-        throw new Error(data.message || 'Failed to fetch earnings data');
-      }
-      
-      // Convert amounts based on user's country
-      const convertedData = convertEarningsData(data.data, country);
-      
-      setEarningsData(convertedData.earningsData);
-      setTransactions(convertedData.transactions);
-      setMonthlyData(convertedData.monthlyData);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      console.error('Earnings fetch error:', err);
-      
-      // Use mock data for development if API fails
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for development');
-        const mockData = getMockEarningsData(country);
-        setEarningsData(mockData.earningsData);
-        setTransactions(mockData.transactions);
-        setMonthlyData(mockData.monthlyData);
-      }
-    } finally {
+    if (authToken) {
+      fetchEarningsData();
+    } else {
       setLoading(false);
     }
-  };
+  }, [authToken]);
 
-  // Currency configuration based on country - Fixed to match Dashboard pattern
-  const getCurrencyConfig = (country: string): CurrencyConfig => {
-    switch (country) {
-      case 'UK':
-        return {
-          symbol: '£',
-          name: 'GBP',
-          icon: PoundSterling
-        };
-      case 'NIGERIA':
-        return {
-          symbol: '₦',
-          name: 'NGN',
-          icon: () => <span className="text-base font-bold">₦</span>
-        };
-      case 'CANADA':
-        return {
-          symbol: 'C$',
-          name: 'CAD',
-          icon: DollarSign
-        };
-      case 'USA':
-      default:
-        return {
-          symbol: '$',
-          name: 'USD',
-          icon: DollarSign
-        };
-    }
-  };
-
-  // Convert earnings data based on country
-  const convertEarningsData = (data: any, country: string) => {
-    // Use type assertion and proper key access
-    const multiplier = (CURRENCY_MULTIPLIERS as Record<string, number>)[country] || CURRENCY_MULTIPLIERS['USA'];
-    
-    // Handle both possible API response structures
-    const earningsSource = data.earnings || data.earningsData || {};
-    const transactionsSource = data.transactions || [];
-    const monthlyDataSource = data.monthlyData || [];
-    
+  // Mock data for development with Naira amounts
+  const getMockEarningsData = () => {
     return {
       earningsData: {
-        total: Math.round((earningsSource.total || 0) * multiplier),
-        thisMonth: Math.round((earningsSource.thisMonth || 0) * multiplier),
-        lastMonth: Math.round((earningsSource.lastMonth || 0) * multiplier),
-        pending: Math.round((earningsSource.pending || 0) * multiplier),
-        growth: earningsSource.growth || 0,
-        avgPerJob: Math.round((earningsSource.avgPerJob || 0) * multiplier),
-        currency: country
-      },
-      transactions: transactionsSource.map((transaction: any) => ({
-        ...transaction,
-        amount: Math.round((transaction.amount || 0) * multiplier)
-      })),
-      monthlyData: monthlyDataSource.map((month: any) => ({
-        ...month,
-        amount: Math.round((month.amount || 0) * multiplier)
-      }))
-    };
-  };
-
-  // Mock data for development
-  const getMockEarningsData = (country: string) => {
-    const baseData = {
-      earningsData: {
-        total: 2850,
-        thisMonth: 890,
-        lastMonth: 750,
-        pending: 125,
+        total: 4702500, // ₦4,702,500
+        thisMonth: 1468500, // ₦1,468,500
+        lastMonth: 1237500, // ₦1,237,500
+        pending: 206250, // ₦206,250
         growth: 18.7,
-        avgPerJob: 60,
-        currency: country
+        avgPerJob: 99000 // ₦99,000
       },
       transactions: [
         {
           id: 1,
           client: 'Sarah Johnson',
           service: 'Deep House Cleaning',
-          amount: 75,
+          amount: 123750, // ₦123,750
           date: '2025-01-06',
           status: 'completed' as const,
-          method: 'Credit Card',
+          method: 'Bank Transfer',
           category: 'cleaning'
         },
         {
           id: 2,
           client: 'Mike Chen',
           service: 'Plumbing Repair',
-          amount: 120,
+          amount: 198000, // ₦198,000
           date: '2025-01-06',
           status: 'completed' as const,
           method: 'Cash',
@@ -282,7 +184,7 @@ const Earnings: React.FC = () => {
           id: 3,
           client: 'Emma Wilson',
           service: 'Garden Maintenance',
-          amount: 60,
+          amount: 99000, // ₦99,000
           date: '2025-01-05',
           status: 'completed' as const,
           method: 'Bank Transfer',
@@ -292,27 +194,27 @@ const Earnings: React.FC = () => {
           id: 4,
           client: 'David Brown',
           service: 'Bathroom Deep Clean',
-          amount: 80,
+          amount: 132000, // ₦132,000
           date: '2025-01-04',
           status: 'completed' as const,
-          method: 'Credit Card',
+          method: 'Bank Transfer',
           category: 'cleaning'
         },
         {
           id: 5,
           client: 'Lisa White',
           service: 'Kitchen Cleaning',
-          amount: 55,
+          amount: 90750, // ₦90,750
           date: '2025-01-03',
           status: 'pending' as const,
-          method: 'Credit Card',
+          method: 'Bank Transfer',
           category: 'cleaning'
         },
         {
           id: 6,
           client: 'Tom Garcia',
           service: 'Window Cleaning',
-          amount: 70,
+          amount: 115500, // ₦115,500
           date: '2025-01-02',
           status: 'pending' as const,
           method: 'Bank Transfer',
@@ -320,17 +222,15 @@ const Earnings: React.FC = () => {
         }
       ],
       monthlyData: [
-        { month: 'Jul', amount: 2200, growth: 5.2 },
-        { month: 'Aug', amount: 2400, growth: 9.1 },
-        { month: 'Sep', amount: 2100, growth: -12.5 },
-        { month: 'Oct', amount: 2650, growth: 26.2 },
-        { month: 'Nov', amount: 2300, growth: -13.2 },
-        { month: 'Dec', amount: 2850, growth: 23.9 },
-        { month: 'Jan', amount: 890, growth: 18.7 }
+        { month: 'Jul', amount: 3630000, growth: 5.2 },
+        { month: 'Aug', amount: 3960000, growth: 9.1 },
+        { month: 'Sep', amount: 3465000, growth: -12.5 },
+        { month: 'Oct', amount: 4372500, growth: 26.2 },
+        { month: 'Nov', amount: 3795000, growth: -13.2 },
+        { month: 'Dec', amount: 4702500, growth: 23.9 },
+        { month: 'Jan', amount: 1468500, growth: 18.7 }
       ]
     };
-    
-    return convertEarningsData(baseData, country);
   };
 
   const getStatusIcon = (status: string) => {
@@ -387,15 +287,13 @@ const Earnings: React.FC = () => {
 
   const handleExportData = async () => {
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
+      if (!authToken) {
         throw new Error('No authentication token found.');
       }
 
       const response = await fetch(`${API_BASE_URL}/api/earnings/export`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${authToken}`,
         },
       });
 
@@ -420,9 +318,19 @@ const Earnings: React.FC = () => {
     }
   };
 
-  // Get the currency icon component
-  const CurrencyIcon = currencyConfig.icon;
+  const handleRetry = async () => {
+    // Refresh the token from localStorage
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    setAuthToken(token);
+    setError(null);
+  };
 
+  const handleLogin = () => {
+    // Redirect to login page
+    window.location.href = '/login';
+  };
+
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -434,17 +342,44 @@ const Earnings: React.FC = () => {
     );
   }
 
+  // Authentication error
+  if (!authToken) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
+          <AlertCircleIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h3>
+          <p className="text-gray-600 mb-4">Please log in to view your earnings.</p>
+          <button
+            onClick={handleLogin}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Log In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state (other than auth)
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
           <AlertCircleIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Earnings</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            onClick={handleRetry}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-2"
           >
             Retry
+          </button>
+          <button
+            onClick={handleLogin}
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Log In Again
           </button>
         </div>
       </div>
@@ -461,16 +396,19 @@ const Earnings: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
-                  <CurrencyIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  <span className="text-white font-bold text-lg sm:text-2xl">₦</span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                     Earnings Overview
                   </h1>
-                  <p className="text-gray-600 text-base sm:text-lg">Track your income and financial performance</p>
-                </div>
-                <div className="flex items-center gap-1 px-3 py-1 bg-white/80 rounded-lg border">
-                  <span className="text-sm font-medium text-gray-600">{currencyConfig.name}</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-gray-600 text-base sm:text-lg">Track your income and financial performance</p>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
+                      <span className="text-sm">🇳🇬</span>
+                      <span className="text-xs font-medium text-gray-600">NGN</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -505,11 +443,7 @@ const Earnings: React.FC = () => {
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                {currencyConfig.symbol === '₦' ? (
-                  <span className="text-white font-bold text-lg sm:text-xl">₦</span>
-                ) : (
-                  <CurrencyIcon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-                )}
+                <span className="text-white font-bold text-lg sm:text-xl">₦</span>
               </div>
               <div className="text-emerald-600">
                 <ArrowUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -517,7 +451,7 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Total Earnings</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.total.toLocaleString()}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.total.toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
                 <span className="text-emerald-600 font-semibold">+{earningsData.growth}%</span>
                 <span className="text-gray-500">from last month</span>
@@ -536,9 +470,9 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">This Month</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.thisMonth}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.thisMonth.toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
-                <span className="text-blue-600 font-semibold">+{currencyConfig.symbol}{earningsData.thisMonth - earningsData.lastMonth}</span>
+                <span className="text-blue-600 font-semibold">+₦{(earningsData.thisMonth - earningsData.lastMonth).toLocaleString()}</span>
                 <span className="text-gray-500">vs last month</span>
               </div>
             </div>
@@ -555,7 +489,7 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.pending}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.pending.toLocaleString()}</p>
               <div className="text-xs sm:text-sm text-gray-500">
                 {transactions.filter(t => t.status === 'pending').length} payments processing
               </div>
@@ -573,7 +507,7 @@ const Earnings: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Avg per Job</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{currencyConfig.symbol}{earningsData.avgPerJob}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.avgPerJob.toLocaleString()}</p>
               <div className="text-xs sm:text-sm text-gray-500">
                 Based on {transactions.filter(t => t.status === 'completed').length} completed jobs
               </div>
@@ -617,7 +551,7 @@ const Earnings: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-base sm:text-lg font-bold text-gray-900">{currencyConfig.symbol}{data.amount.toLocaleString()}</span>
+                      <span className="text-base sm:text-lg font-bold text-gray-900">₦{data.amount.toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="relative">
@@ -638,36 +572,6 @@ const Earnings: React.FC = () => {
 
         {/* Mobile-Optimized Recent Transactions */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
-          <div className="p-4 sm:p-8 border-b border-gray-100">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                  <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Transactions</h3>
-                  <p className="text-sm sm:text-base text-gray-600">Your latest payment activities</p>
-                </div>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search transactions..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-sm sm:text-base"
-                  />
-                </div>
-                <button className="p-2.5 sm:p-3 bg-gray-100 hover:bg-gray-200 rounded-xl sm:rounded-2xl transition-colors">
-                  <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-                </button>
-              </div>
-            </div>
-          </div>
-          
           <div className="p-4 sm:p-8">
             <div className="space-y-3 sm:space-y-4">
               {filteredTransactions.map((transaction: Transaction) => (
@@ -695,7 +599,7 @@ const Earnings: React.FC = () => {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xl font-bold text-emerald-600 mb-1">
-                          {currencyConfig.symbol}{transaction.amount}
+                          ₦{transaction.amount.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -750,7 +654,7 @@ const Earnings: React.FC = () => {
                     
                     <div className="text-right">
                       <p className="text-2xl font-bold text-emerald-600 mb-1">
-                        {currencyConfig.symbol}{transaction.amount}
+                        ₦{transaction.amount.toLocaleString()}
                       </p>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="w-4 h-4" />

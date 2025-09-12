@@ -170,7 +170,7 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
                   required
                   value={jobData.budget}
                   onChange={(e) => setJobData(prev => ({ ...prev, budget: e.target.value }))}
-                  placeholder={jobData.budgetType === 'hourly' ? '25-35/hr' : '100-500'}
+                  placeholder={jobData.budgetType === 'hourly' ? '2000-3000/hr' : '5000-10000'}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>

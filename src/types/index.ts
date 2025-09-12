@@ -7,25 +7,36 @@ export interface Service {
   providers: number;
 }
 
+
+// In your types.ts file
 export interface Provider {
+  _id?: string;
   id: string;
   name: string;
-  rating: number;
-  reviewCount: number;
+  email: string;
   services: string[];
-  location: string;
-  priceRange: string;
-  responseTime: string;
-  isVerified: boolean;
-  isTopRated: boolean;
-  avatar: string | null; // Standardize on null instead of undefined
-  completedJobs: number;
-  isAvailableNow?: boolean;
-  coordinates: [number, number]; // [latitude, longitude]
-  distance?: number; // distance from user in miles
-  
+  hourlyRate: number;
+  averageRating?: number;
+  city: string;
+  state: string;
+  country: string;
+  profileImage?: string;
+  isAvailableNow: boolean;
+  experience: string;
+  distance?: number;
+  phoneNumber?: string;
+  address?: string;
+  rating?: number;
+  reviewCount?: number;
+  location?: string;
+  priceRange?: string;
+  coordinates?: [number, number];
+  responseTime?: string;
+  isVerified?: boolean;
+  isTopRated?: boolean;
+  completedJobs?: number;
+  avatar?: string;
 }
-
 export interface Booking {
   id: string;
   provider: string;
@@ -53,7 +64,7 @@ export interface UserProfile {
   phone: string;
   address: string;
   bio: string;
-  avatar: string | null; // Standardize on null instead of undefined
+  avatar: string | null;
   role?: string;
 }
 
