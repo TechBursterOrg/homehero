@@ -321,7 +321,7 @@ const ProfileSection: React.FC<ProfileSectionProps> = ({
                 </div>
                 <div className="flex items-center justify-center space-x-3 p-3 bg-gray-50 rounded-2xl">
                   <MapPin className="w-5 h-5 text-purple-500" />
-                  <span className="font-medium">Lagos, Nigeria</span>
+                  {/* <span className="font-medium">Lagos, Nigeria</span> */}
                 </div>
               </div>
             </div>

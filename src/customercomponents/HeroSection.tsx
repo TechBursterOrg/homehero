@@ -108,33 +108,28 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
   // Enhanced search handler
   const handleSearch = useCallback(() => {
-  setShowServiceSuggestions(false);
-  
-  // If both inputs are empty, clear both states
-  if (!searchQuery.trim() && !currentLocationAddress.trim()) {
-    setActiveSearchQuery('');
-    setActiveLocationQuery('');
-  } else {
-    // Only update with non-empty values
-    setActiveSearchQuery(searchQuery.trim());
-    setActiveLocationQuery(currentLocationAddress.trim());
-  }
-  
-  // Call the onSearch callback with all necessary parameters
-  onSearch(searchQuery.trim(), currentLocationAddress.trim(), serviceType);
-  
-  // Scroll to providers section
-  setTimeout(() => {
-    const providersSection = document.getElementById('providers-section');
-    if (providersSection) {
-      providersSection.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
+    setShowServiceSuggestions(false);
+    
+    // If both inputs are empty, show all providers
+    if (!searchQuery.trim() && !currentLocation.trim()) {
+      setSearchQuery('');
+      setCurrentLocationAddress('');
     }
-  }, 100);
-}, [onSearch, searchQuery, currentLocationAddress, serviceType]);
-
+    
+    // Call the onSearch callback with all necessary parameters
+    onSearch(searchQuery, currentLocation, serviceType);
+    
+    // Scroll to providers section
+    setTimeout(() => {
+      const providersSection = document.getElementById('providers-section');
+      if (providersSection) {
+        providersSection.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
+  }, [onSearch, searchQuery, currentLocation, serviceType]);
 
   // Handle service suggestion click
   const handleSuggestionClick = (suggestion: string) => {

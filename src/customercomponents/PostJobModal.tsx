@@ -194,7 +194,7 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
                 required
                 value={jobData.location}
                 onChange={(e) => setJobData(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="Enter your location (e.g., Lagos, Nigeria)"
+                placeholder="Enter your location "
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
