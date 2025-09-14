@@ -1,3 +1,4 @@
+// HeroSection.tsx (updated)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
@@ -40,7 +41,7 @@ interface HeroSectionProps {
   setSearchQuery: (query: string) => void;
   onLocationChange: (location: LocationData) => void;
   currentLocation: string;
-  onSearch: () => void;
+  onSearch: (query: string, location: string, serviceType: 'immediate' | 'long-term') => void;
   viewMode: 'list' | 'map';
   onViewModeChange: (mode: 'list' | 'map') => void;
   searchRadius: number;
@@ -70,7 +71,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   const [showServiceSuggestions, setShowServiceSuggestions] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const [currentLocationAddress, setCurrentLocationAddress] = useState(currentLocation);
+  const [currentLocationAddress, setCurrentLocationAddress] = useState("");
 
   // Fetch service suggestions when search query changes
   useEffect(() => {
@@ -107,27 +108,33 @@ const HeroSection: React.FC<HeroSectionProps> = ({
 
   // Enhanced search handler
   const handleSearch = useCallback(() => {
-    setShowServiceSuggestions(false);
-    
-    // If both inputs are empty, show all providers
-    if (!searchQuery.trim() && !currentLocation.trim()) {
-      setSearchQuery('');
-      setCurrentLocationAddress('');
+  setShowServiceSuggestions(false);
+  
+  // If both inputs are empty, clear both states
+  if (!searchQuery.trim() && !currentLocationAddress.trim()) {
+    setActiveSearchQuery('');
+    setActiveLocationQuery('');
+  } else {
+    // Only update with non-empty values
+    setActiveSearchQuery(searchQuery.trim());
+    setActiveLocationQuery(currentLocationAddress.trim());
+  }
+  
+  // Call the onSearch callback with all necessary parameters
+  onSearch(searchQuery.trim(), currentLocationAddress.trim(), serviceType);
+  
+  // Scroll to providers section
+  setTimeout(() => {
+    const providersSection = document.getElementById('providers-section');
+    if (providersSection) {
+      providersSection.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
     }
-    
-    // Scroll to providers section
-    setTimeout(() => {
-      const providersSection = document.getElementById('providers-section');
-      if (providersSection) {
-        providersSection.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }
-    }, 100);
-    
-    onSearch();
-  }, [onSearch, searchQuery, currentLocation]);
+  }, 100);
+}, [onSearch, searchQuery, currentLocationAddress, serviceType]);
+
 
   // Handle service suggestion click
   const handleSuggestionClick = (suggestion: string) => {

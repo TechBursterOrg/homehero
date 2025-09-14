@@ -11,20 +11,26 @@ import {
 interface PostJobModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (jobData: any) => void;
+  onSubmit: (jobData: {
+    serviceType: string;
+    description: string;
+    location: string;
+    urgency: string;
+    timeframe: string;
+    budget: string;
+    category: string;
+  }) => void;
 }
 
 const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }) => {
   const [jobData, setJobData] = useState({
-    title: '',
+    serviceType: '',
     description: '',
     category: '',
     budget: '',
-    budgetType: 'fixed', // fixed, hourly, negotiable
-    duration: '',
+    timeframe: '',
     location: '',
-    skills: [] as string[],
-    attachments: [] as File[]
+    urgency: 'normal'
   });
 
   const categories = [
@@ -40,38 +46,35 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
     'Other'
   ];
 
+  const timeframes = [
+    'ASAP',
+    'Within 1 week',
+    'Within 2 weeks',
+    'Within 1 month',
+    'Flexible'
+  ];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!jobData.serviceType || !jobData.description || !jobData.location) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     onSubmit(jobData);
     onClose();
     // Reset form
     setJobData({
-      title: '',
+      serviceType: '',
       description: '',
       category: '',
       budget: '',
-      budgetType: 'fixed',
-      duration: '',
+      timeframe: '',
       location: '',
-      skills: [],
-      attachments: []
+      urgency: 'normal'
     });
-  };
-
-  const handleSkillAdd = (skill: string) => {
-    if (skill && !jobData.skills.includes(skill)) {
-      setJobData(prev => ({
-        ...prev,
-        skills: [...prev.skills, skill]
-      }));
-    }
-  };
-
-  const handleSkillRemove = (skillToRemove: string) => {
-    setJobData(prev => ({
-      ...prev,
-      skills: prev.skills.filter(skill => skill !== skillToRemove)
-    }));
   };
 
   if (!isOpen) return null;
@@ -81,7 +84,7 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900">Post a Long-term Job</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Post a Job</h2>
             <button
               onClick={onClose}
               className="text-gray-600 hover:text-gray-900 p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -90,22 +93,22 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
             </button>
           </div>
           <p className="text-gray-600 mt-2">
-            Describe your project and get proposals from qualified service providers
+            Describe your job and get responses from qualified service providers
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Job Title */}
+          {/* Service Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Job Title *
+              Service Type *
             </label>
             <input
               type="text"
               required
-              value={jobData.title}
-              onChange={(e) => setJobData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder="e.g., Weekly House Cleaning Service"
+              value={jobData.serviceType}
+              onChange={(e) => setJobData(prev => ({ ...prev, serviceType: e.target.value }))}
+              placeholder="e.g., House Cleaning, Plumbing, Electrical Work"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
@@ -138,30 +141,16 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
               rows={4}
               value={jobData.description}
               onChange={(e) => setJobData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder="Describe your project in detail. Include specific requirements, expectations, and any relevant information..."
+              placeholder="Describe your job in detail. Include specific requirements, expectations, and any relevant information..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
-          {/* Budget */}
+          {/* Budget and Timeframe */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Budget Type *
-              </label>
-              <select
-                value={jobData.budgetType}
-                onChange={(e) => setJobData(prev => ({ ...prev, budgetType: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="fixed">Fixed Price</option>
-                <option value="hourly">Hourly Rate</option>
-                <option value="negotiable">Negotiable</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Budget Amount *
+                Budget *
               </label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
@@ -170,124 +159,76 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
                   required
                   value={jobData.budget}
                   onChange={(e) => setJobData(prev => ({ ...prev, budget: e.target.value }))}
-                  placeholder={jobData.budgetType === 'hourly' ? '2000-3000/hr' : '5000-10000'}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Duration and Location */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Duration *
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  value={jobData.duration}
-                  onChange={(e) => setJobData(prev => ({ ...prev, duration: e.target.value }))}
-                  placeholder="e.g., 6 months, 1 year"
+                  placeholder="e.g., ₦5000-₦10000 or Negotiable"
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location *
+                Timeframe *
               </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  value={jobData.location}
-                  onChange={(e) => setJobData(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="City, State"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Skills/Requirements */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Required Skills
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {jobData.skills.map((skill, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center space-x-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                >
-                  <span>{skill}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleSkillRemove(skill)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <input
-              type="text"
-              placeholder="Add skills (press Enter)"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSkillAdd(e.currentTarget.value);
-                  e.currentTarget.value = '';
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          {/* File Attachments */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Attachments (Optional)
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-              <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600 mb-2">
-                Upload images, documents, or plans related to your project
-              </p>
-              <input
-                type="file"
-                multiple
-                accept="image/*,.pdf,.doc,.docx"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files || []);
-                  setJobData(prev => ({ ...prev, attachments: files }));
-                }}
-                className="hidden"
-                id="file-upload"
-              />
-              <label
-                htmlFor="file-upload"
-                className="inline-flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+              <select
+                required
+                value={jobData.timeframe}
+                onChange={(e) => setJobData(prev => ({ ...prev, timeframe: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <FileText className="w-4 h-4" />
-                <span>Choose Files</span>
+                <option value="">Select timeframe</option>
+                {timeframes.map(timeframe => (
+                  <option key={timeframe} value={timeframe}>{timeframe}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Location *
+            </label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                required
+                value={jobData.location}
+                onChange={(e) => setJobData(prev => ({ ...prev, location: e.target.value }))}
+                placeholder="Enter your location (e.g., Lagos, Nigeria)"
+                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Urgency */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Urgency
+            </label>
+            <div className="flex space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="urgency"
+                  value="normal"
+                  checked={jobData.urgency === 'normal'}
+                  onChange={(e) => setJobData(prev => ({ ...prev, urgency: e.target.value }))}
+                  className="mr-2"
+                />
+                <span>Normal</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="urgency"
+                  value="urgent"
+                  checked={jobData.urgency === 'urgent'}
+                  onChange={(e) => setJobData(prev => ({ ...prev, urgency: e.target.value }))}
+                  className="mr-2"
+                />
+                <span>Urgent</span>
               </label>
             </div>
-            {jobData.attachments.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {jobData.attachments.map((file, index) => (
-                  <div key={index} className="flex items-center space-x-2 text-sm text-gray-600">
-                    <FileText className="w-4 h-4" />
-                    <span>{file.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Form Actions */}

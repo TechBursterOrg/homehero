@@ -19,8 +19,17 @@ import {
   SortAsc,
   Grid3X3,
   List,
-  Zap
+  Zap,
+  ArrowRight,
+  Sparkles, 
+  MoreVertical,
+  Search,
+  FileText,
+  Map,
+  X,
+  Navigation
 } from 'lucide-react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 
 // Unified Provider interface
 export interface Provider {
@@ -35,8 +44,8 @@ export interface Provider {
   state: string;
   country: string;
   profileImage?: string;
-  profilePicture?: string; // Alternative field name
-  avatar?: string; // Another alternative field name
+  profilePicture?: string;
+  avatar?: string;
   isAvailableNow: boolean;
   experience: string;
   distance?: number;
@@ -738,211 +747,222 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
-  const fetchProviders = async () => {
-    try {
-      setError(null);
-      console.log('🚀 Starting provider fetch...');
-      console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
-      
-      // Build query parameters more carefully
-      const params = new URLSearchParams();
-      
-      // Only add non-empty search parameters
-      if (searchQuery?.trim()) {
-        params.append('service', searchQuery.trim());
-        console.log('🔍 Added service filter:', searchQuery.trim());
-      }
-      
-      if (location?.trim()) {
-        params.append('location', location.trim());
-        console.log('📍 Added location filter:', location.trim());
-      }
-      
-      // Always add these defaults
-      params.append('limit', '50'); // Increased limit to get more providers
-      
-      if (serviceType === 'immediate') {
-        params.append('availableNow', 'true');
-        console.log('⚡ Added immediate availability filter');
-      }
-      
-      const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
-      console.log('📡 Final API URL:', apiUrl);
-      
-      // Create fetch options
-      const fetchOptions: RequestInit = {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-      };
-
-      // Only add auth header if token exists
-      if (authToken?.trim()) {
-        fetchOptions.headers = {
-          ...fetchOptions.headers,
-          'Authorization': `Bearer ${authToken.trim()}`
-        };
-        console.log('🔐 Added auth token to request');
-      }
-
-      console.log('📤 Making fetch request with options:', fetchOptions);
-      
-      // Add timeout to the fetch
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-      
-      const response = await fetch(apiUrl, {
-        ...fetchOptions,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log('📥 Response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        url: response.url
-      });
-      
-      // Get raw response text first for debugging
-      const responseText = await response.text();
-      console.log('📄 Raw response text:', responseText);
-      
-      if (!response.ok) {
-        console.error('❌ API Error Response:', responseText);
-        throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
-      }
-      
-      // Parse JSON
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        console.log('📦 Parsed response data:', data);
-      } catch (parseError) {
-        console.error('❌ JSON Parse Error:', parseError);
-        console.error('📄 Problematic text:', responseText);
-        const errorMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON response';
-        throw new Error(`JSON Parse Error: ${errorMessage}`);
-      }
-      
-      // More robust data validation
-      if (!data) {
-        throw new Error('No data received from API');
-      }
-
-      if (data.success === false) {
-        throw new Error(data.message || 'API returned success: false');
-      }
-
-      // Handle different possible response structures
-      let providersArray = [];
-      
-      if (data.data?.providers) {
-        providersArray = data.data.providers;
-        console.log('✅ Found providers in data.data.providers');
-      } else if (data.providers) {
-        providersArray = data.providers;
-        console.log('✅ Found providers in data.providers');
-      } else if (Array.isArray(data)) {
-        providersArray = data;
-        console.log('✅ Data itself is providers array');
-      } else if (Array.isArray(data.data)) {
-        providersArray = data.data;
-        console.log('✅ Found providers in data.data array');
-      } else {
-        console.log('❓ Unexpected response structure:', Object.keys(data));
-        console.log('📊 Full data object:', data);
-        // If we can't find providers in the expected structure, try to extract them
-        // from any array property in the response
-        for (const key in data) {
-          if (Array.isArray(data[key])) {
-            providersArray = data[key];
-            console.log(`✅ Found providers in data.${key}`);
-            break;
-          }
-        }
-      }
-
-      console.log('🔍 Extracted providers array length:', providersArray.length);
-      
-      if (!Array.isArray(providersArray)) {
-        console.error('❌ Providers data is not an array:', typeof providersArray, providersArray);
-        throw new Error('Invalid providers data format received');
-      }
-
-      console.log(`✅ Found ${providersArray.length} providers in API response`);
-      
-      // Transform providers to ensure consistent format
-      const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
-        console.log(`🔄 Transforming provider ${index + 1}:`, provider);
-        
-        // Ensure services is always an array
-        let services: string[] = [];
-        if (Array.isArray(provider.services)) {
-          services = provider.services;
-        } else if (typeof provider.services === 'string') {
-          services = [provider.services];
-        } else if (provider.service) {
-          services = Array.isArray(provider.service) ? provider.service : [provider.service];
-        }
-        
-        const transformed: Provider = {
-          ...provider,
-          id: provider._id || provider.id || `provider-${index}`,
-          _id: provider._id || provider.id,
-          services: services,
-          name: provider.name || `Provider ${index + 1}`,
-          email: provider.email || `provider${index + 1}@example.com`,
-          hourlyRate: provider.hourlyRate || provider.rate || 0,
-          city: provider.city || '',
-          state: provider.state || '',
-          country: provider.country || '',
-          experience: provider.experience || '',
-          isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
-          // Enhanced profile image handling
-          profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
-          profilePicture: provider.profilePicture,
-          avatar: provider.avatar,
-          // Calculated fields with fallbacks
-          rating: provider.averageRating || 0,
-          reviewCount: provider.reviewCount || 0,
-          priceRange: provider.priceRange || '',
-          location: provider.location || `${provider.city || ''}, ${provider.state || ''}`,
-          responseTime: provider.responseTime || 'Contact for availability',
-          completedJobs: provider.completedJobs || 0,
-          isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
-          isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
-          phoneNumber: provider.phoneNumber || provider.phone
-        };
-        
-        console.log(`✅ Transformed provider:`, transformed);
-        return transformed;
-      });
-      
-      console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
-      setProviders(transformedProviders);
-      
-    } catch (err: unknown) {
-      console.error('💥 Error in fetchProviders:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
-      
-      // Only show sample data on explicit retry or if no real attempt was made
-      if (isRetrying) {
-        console.log('🔄 Fallback: Using sample data due to API error during retry');
-        setProviders(getSampleProviders(location, searchQuery));
-      } else {
-        console.log('❌ Setting empty providers array due to API error');
-        setProviders([]);
-      }
-    } finally {
-      setLoading(false);
-      setIsRetrying(false);
+  // Updated ProvidersList.tsx - Fix the fetchProviders function
+const fetchProviders = async () => {
+  try {
+    setError(null);
+    console.log('🚀 Starting provider fetch...');
+    console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
+    
+    // Build query parameters more carefully
+    const params = new URLSearchParams();
+    
+    // Only add non-empty search parameters
+    if (searchQuery?.trim()) {
+      params.append('service', searchQuery.trim());
+      console.log('🔍 Added service filter:', searchQuery.trim());
     }
-  };
+    
+    if (location?.trim()) {
+      params.append('location', location.trim());
+      console.log('📍 Added location filter:', location.trim());
+    }
+    
+    // Always add these defaults
+    params.append('limit', '50'); // Increased limit to get more providers
+    
+    if (serviceType === 'immediate') {
+      params.append('availableNow', 'true');
+      console.log('⚡ Added immediate availability filter');
+    }
+    
+    const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
+    console.log('📡 Final API URL:', apiUrl);
+    
+    // Create fetch options
+    const fetchOptions: RequestInit = {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    // Only add auth header if token exists
+    if (authToken?.trim()) {
+      fetchOptions.headers = {
+        ...fetchOptions.headers,
+        'Authorization': `Bearer ${authToken.trim()}`
+      };
+      console.log('🔐 Added auth token to request');
+    }
+
+    console.log('📤 Making fetch request with options:', fetchOptions);
+    
+    // Add timeout to the fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+    
+    const response = await fetch(apiUrl, {
+      ...fetchOptions,
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    console.log('📥 Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      url: response.url
+    });
+    
+    // Get raw response text first for debugging
+    const responseText = await response.text();
+    console.log('📄 Raw response text:', responseText);
+    
+    if (!response.ok) {
+      console.error('❌ API Error Response:', responseText);
+      throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
+    }
+    
+    // Parse JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+      console.log('📦 Parsed response data:', data);
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      console.error('📄 Problematic text:', responseText);
+      const errorMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON response';
+      throw new Error(`JSON Parse Error: ${errorMessage}`);
+    }
+    
+    // More robust data validation
+    if (!data) {
+      throw new Error('No data received from API');
+    }
+
+    if (data.success === false) {
+      throw new Error(data.message || 'API returned success: false');
+    }
+
+    // Handle different possible response structures
+    let providersArray = [];
+    
+    if (data.data?.providers) {
+      providersArray = data.data.providers;
+      console.log('✅ Found providers in data.data.providers');
+    } else if (data.providers) {
+      providersArray = data.providers;
+      console.log('✅ Found providers in data.providers');
+    } else if (Array.isArray(data)) {
+      providersArray = data;
+      console.log('✅ Data itself is providers array');
+    } else if (Array.isArray(data.data)) {
+      providersArray = data.data;
+      console.log('✅ Found providers in data.data array');
+    } else {
+      console.log('❓ Unexpected response structure:', Object.keys(data));
+      console.log('📊 Full data object:', data);
+      // If we can't find providers in the expected structure, try to extract them
+      // from any array property in the response
+      for (const key in data) {
+        if (Array.isArray(data[key])) {
+          providersArray = data[key];
+          console.log(`✅ Found providers in data.${key}`);
+          break;
+        }
+      }
+    }
+
+    console.log('🔍 Extracted providers array length:', providersArray.length);
+    
+    if (!Array.isArray(providersArray)) {
+      console.error('❌ Providers data is not an array:', typeof providersArray, providersArray);
+      throw new Error('Invalid providers data format received');
+    }
+
+    console.log(`✅ Found ${providersArray.length} providers in API response`);
+    
+    // Transform providers to ensure consistent format
+    const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
+      console.log(`🔄 Transforming provider ${index + 1}:`, provider);
+      
+      // Ensure services is always an array
+      let services: string[] = [];
+      if (Array.isArray(provider.services)) {
+        services = provider.services;
+      } else if (typeof provider.services === 'string') {
+        services = [provider.services];
+      } else if (provider.service) {
+        services = Array.isArray(provider.service) ? provider.service : [provider.service];
+      }
+      
+      // Get location information from various possible fields
+      const city = provider.city || provider.locationData?.city || '';
+      const state = provider.state || provider.locationData?.state || '';
+      const country = provider.country || provider.locationData?.country || '';
+      
+      // Create location string for display
+      const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
+      const locationText = locationParts.join(', ') || 'Location not specified';
+      
+      const transformed: Provider = {
+        ...provider,
+        id: provider._id || provider.id || `provider-${index}`,
+        _id: provider._id || provider.id,
+        services: services,
+        name: provider.name || `Provider ${index + 1}`,
+        email: provider.email || `provider${index + 1}@example.com`,
+        hourlyRate: provider.hourlyRate || provider.rate || 0,
+        city: city,
+        state: state,
+        country: country,
+        location: locationText, // Add the formatted location
+        experience: provider.experience || '',
+        isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
+        // Enhanced profile image handling
+        profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
+        profilePicture: provider.profilePicture,
+        avatar: provider.avatar,
+        // Calculated fields with fallbacks
+        rating: provider.averageRating || provider.rating || 4.0,
+        reviewCount: provider.reviewCount || 0,
+        priceRange: provider.priceRange || '',
+        responseTime: provider.responseTime || 'Contact for availability',
+        completedJobs: provider.completedJobs || 0,
+        isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
+        isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
+        phoneNumber: provider.phoneNumber || provider.phone
+      };
+      
+      console.log(`✅ Transformed provider:`, transformed);
+      return transformed;
+    });
+    
+    console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
+    setProviders(transformedProviders);
+    
+  } catch (err: unknown) {
+    console.error('💥 Error in fetchProviders:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+    setError(errorMessage);
+    
+    // Only show sample data on explicit retry or if no real attempt was made
+    if (isRetrying) {
+      console.log('🔄 Fallback: Using sample data due to API error during retry');
+      setProviders(getSampleProviders(location, searchQuery));
+    } else {
+      console.log('❌ Setting empty providers array due to API error');
+      setProviders([]);
+    }
+  } finally {
+    setLoading(false);
+    setIsRetrying(false);
+  }
+};
+
 
   const handleRetry = () => {
     console.log('🔄 User triggered retry');
@@ -1252,5 +1272,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     </div>
   );
 };
+
+
 
 export default ProvidersList;

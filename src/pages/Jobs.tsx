@@ -1,5 +1,4 @@
-import React, { useState , useEffect} from 'react';
-
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   MapPin, 
@@ -17,12 +16,12 @@ import {
   Zap,
   Navigation,
   SlidersHorizontal,
-  TrendingUp,
-  Shield
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 
 interface Job {
-  id: number;
+  id: string;
   title: string;
   description: string;
   location: string;
@@ -81,14 +80,7 @@ interface ServiceRequest {
     lat: number;
     lng: number;
   };
-}
-
-interface ApiResponse {
-  success: boolean;
-  message?: string;
-  data: {
-    requests: ServiceRequest[];
-  };
+  status?: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
@@ -109,25 +101,27 @@ const Jobs: React.FC = () => {
     experience: ''
   });
   const [applicationSubmitted, setApplicationSubmitted] = useState(false);
-  // Fix: Properly type the jobs state
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'available' | 'applied'>('available');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  useEffect(() => {
-    const fetchJobs = async () => {
+  // Enhanced fetchJobs function with detailed debugging
+  const fetchJobs = async () => {
   try {
     setLoading(true);
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     
-    console.log('Token exists:', !!token);
-    console.log('Token preview:', token ? token.substring(0, 20) + '...' : 'No token');
+    console.log('🔑 Token exists:', !!token);
+    console.log('🔄 Fetching jobs from:', `${API_BASE_URL}/api/service-requests`);
     
     if (!token) {
       throw new Error('No authentication token found. Please log in.');
     }
     
-    const response = await fetch('http://localhost:3001/api/service-requests', {
+    const response = await fetch(`${API_BASE_URL}/api/service-requests`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -136,7 +130,7 @@ const Jobs: React.FC = () => {
       }
     });
     
-    console.log('Response status:', response.status);
+    console.log('📋 Response status:', response.status, response.statusText);
     
     if (response.status === 403) {
       throw new Error('Access forbidden. Your session may have expired. Please log in again.');
@@ -148,19 +142,55 @@ const Jobs: React.FC = () => {
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('❌ API Error response:', errorText);
       throw new Error(`API Error ${response.status}: ${errorText || 'Failed to fetch jobs'}`);
     }
     
     const data = await response.json();
     
-    if (data.success) {
+    console.log('📦 Full API Response:', data);
+    console.log('✅ Response success:', data.success);
+    console.log('📊 Data structure:', data.data ? 'exists' : 'missing');
+    
+    // Handle different response formats
+    let requests = [];
+    
+    // Format 1: { data: [...] } (direct array in data property)
+    if (Array.isArray(data.data)) {
+      requests = data.data;
+      console.log('🔢 Number of requests found (data array format):', requests.length);
+    } 
+    // Format 2: { success: true, data: { requests: [...] } }
+    else if (data.data && Array.isArray(data.data.requests)) {
+      requests = data.data.requests;
+      console.log('🔢 Number of requests found (requests array format):', requests.length);
+    }
+    // Format 3: { success: true, requests: [...] }
+    else if (Array.isArray(data.requests)) {
+      requests = data.requests;
+      console.log('🔢 Number of requests found (direct requests format):', requests.length);
+    }
+    // Format 4: Direct array response
+    else if (Array.isArray(data)) {
+      requests = data;
+      console.log('🔢 Number of requests found (direct array format):', requests.length);
+    }
+    // Format 5: Empty response but with success property
+    else if (data.success && (!data.data || Object.keys(data.data).length === 0)) {
+      requests = [];
+      console.log('🔢 No requests found (empty success response)');
+    }
+    
+    if (requests.length > 0) {
+      console.log('📝 Requests sample:', requests.slice(0, 2));
+      
       // Transform API data to match your job structure
-      const transformedJobs: Job[] = data.data.requests.map((request: ServiceRequest) => ({
-        id: parseInt(request._id, 36),
-        title: request.serviceType,
-        description: request.description,
-        location: request.location,
-        date: new Date(request.createdAt).toISOString().split('T')[0],
+      const transformedJobs: Job[] = requests.map((request: ServiceRequest, index: number) => ({
+        id: request._id || `job-${index}`,
+        title: request.serviceType || 'Untitled Service',
+        description: request.description || 'No description provided',
+        location: request.location || 'Location not specified',
+        date: new Date(request.createdAt || new Date()).toISOString().split('T')[0],
         timeframe: request.timeframe || 'Flexible',
         budget: request.budget || 'Negotiable',
         urgency: request.urgency || 'Standard',
@@ -171,15 +201,19 @@ const Jobs: React.FC = () => {
         customerPhone: request.contactInfo?.phone || 'Not provided',
         customerEmail: request.contactInfo?.email || 'Not provided',
         requirements: [],
-        additionalInfo: request.description,
-        isImmediate: request.urgency === 'urgent' || request.serviceType.toLowerCase().includes('immediate'),
+        additionalInfo: request.description || '',
+        isImmediate: request.urgency === 'urgent',
         distanceFromProvider: Math.floor(Math.random() * 25) + 1,
         coordinates: request.coordinates || { lat: 0, lng: 0 }
       }));
       
+      console.log('🔄 Transformed jobs:', transformedJobs.length);
       setJobs(transformedJobs);
     } else {
-      throw new Error(data.message || 'API returned unsuccessful response');
+      // If no data found, set empty array instead of throwing error
+      console.log('⚠️ No jobs found in response');
+      console.log('📋 Response structure:', Object.keys(data));
+      setJobs([]);
     }
   } catch (err: unknown) {
     let errorMessage = 'An unknown error occurred';
@@ -190,49 +224,88 @@ const Jobs: React.FC = () => {
       errorMessage = err;
     }
     
-    console.error('Error fetching jobs:', err);
+    console.error('❌ Error fetching jobs:', err);
     setError(errorMessage);
-    
-    if (errorMessage.includes('forbidden') || errorMessage.includes('unauthorized') || errorMessage.includes('No authentication token')) {
-      // Optional: redirect to login page
-      // window.location.href = '/login';
-    }
   } finally {
     setLoading(false);
+    setLastRefresh(new Date());
   }
 };
 
+  useEffect(() => {
     fetchJobs();
-  }, []); // Empty dependency array to run only once on mount
+  }, []);
+
+  useEffect(() => {
+    const fetchAppliedJobs = async () => {
+      try {
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await fetch(`${API_BASE_URL}/api/jobs/applied`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setAppliedJobs(data.data?.appliedJobIds || []);
+        }
+      } catch (error) {
+        console.error('Error fetching applied jobs:', error);
+      }
+    };
+    
+    fetchAppliedJobs();
+  }, []);
+
+  // Add polling for automatic updates every 30 seconds
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('⏰ Auto-refreshing jobs...');
+      fetchJobs();
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Add manual refresh function
+  const handleRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
+    fetchJobs();
+  };
 
   const availableJobs = jobs;
 
-  const filteredJobs = availableJobs.filter(job => {
-    const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         job.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || job.category === selectedFilter;
-    const matchesDistance = job.distanceFromProvider <= maxDistance;
-    const matchesImmediate = !showImmediateOnly || job.isImmediate;
-    
-    // Add stat filter logic
-    let matchesStatFilter = true;
-    if (selectedStatFilter) {
-      switch (selectedStatFilter) {
-        case 'urgent':
-          matchesStatFilter = job.isImmediate;
-          break;
-        case 'nearby':
-          matchesStatFilter = job.distanceFromProvider <= 5;
-          break;
-        case 'all':
-        default:
-          matchesStatFilter = true;
-          break;
-      }
-    }
-    
-    return matchesSearch && matchesFilter && matchesDistance && matchesImmediate && matchesStatFilter;
-  });
+  const filteredJobs = activeTab === 'applied' 
+    ? availableJobs.filter(job => appliedJobs.includes(job.id))
+    : availableJobs.filter(job => {
+        const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             job.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesFilter = selectedFilter === 'all' || job.category === selectedFilter;
+        const matchesDistance = job.distanceFromProvider <= maxDistance;
+        const matchesImmediate = !showImmediateOnly || job.isImmediate;
+        
+        // Add stat filter logic
+        let matchesStatFilter = true;
+        if (selectedStatFilter) {
+          switch (selectedStatFilter) {
+            case 'urgent':
+              matchesStatFilter = job.isImmediate;
+              break;
+            case 'nearby':
+              matchesStatFilter = job.distanceFromProvider <= 5;
+              break;
+            case 'all':
+            default:
+              matchesStatFilter = true;
+              break;
+          }
+        }
+        
+        return matchesSearch && matchesFilter && matchesDistance && matchesImmediate && matchesStatFilter;
+      });
 
   const immediateJobs = filteredJobs.filter(job => job.isImmediate);
   const regularJobs = filteredJobs.filter(job => !job.isImmediate);
@@ -247,24 +320,56 @@ const Jobs: React.FC = () => {
     setApplicationSubmitted(false);
   };
 
-  const handleApplicationSubmit = (e: React.FormEvent) => {
+  const handleApplicationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Application submitted:', {
-      jobId: selectedJob?.id,
-      ...applicationData
-    });
     
-    setApplicationSubmitted(true);
-    setTimeout(() => {
-      setShowApplicationModal(false);
-      setSelectedJob(null);
-      setApplicationData({
-        coverLetter: '',
-        proposedRate: '',
-        availability: '',
-        experience: ''
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in to apply for jobs');
+        return;
+      }
+      
+      // Send application to server
+      const response = await fetch(`${API_BASE_URL}/api/jobs/apply`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          jobId: selectedJob?.id,
+          coverLetter: applicationData.coverLetter,
+          proposedRate: applicationData.proposedRate,
+          availability: applicationData.availability,
+          experience: applicationData.experience
+        })
       });
-    }, 2000);
+      
+      if (response.ok) {
+        // Add to applied jobs list - Fixed type error
+        if (selectedJob?.id) {
+          setAppliedJobs(prev => [...prev, selectedJob.id]);
+        }
+        setApplicationSubmitted(true);
+        
+        setTimeout(() => {
+          setShowApplicationModal(false);
+          setSelectedJob(null);
+          setApplicationData({
+            coverLetter: '',
+            proposedRate: '',
+            availability: '',
+            experience: ''
+          });
+        }, 2000);
+      } else {
+        alert('Failed to submit application');
+      }
+    } catch (error) {
+      console.error('Application submission error:', error);
+      alert('Error submitting application. Please try again.');
+    }
   };
 
   const closeModals = () => {
@@ -453,12 +558,20 @@ const Jobs: React.FC = () => {
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Unable to Load Jobs</h3>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="flex gap-4 justify-center">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+            <button 
+              onClick={() => setError(null)} 
+              className="border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -470,7 +583,7 @@ const Jobs: React.FC = () => {
         {/* Modern Header - mobile optimized */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col gap-4 sm:gap-6">
-            <div className="space-y-2">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
                   <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -482,6 +595,17 @@ const Jobs: React.FC = () => {
                   <p className="text-gray-600 text-sm sm:text-lg">Discover opportunities that match your skills</p>
                 </div>
               </div>
+              
+              {/* Refresh button */}
+              <button
+                onClick={handleRefresh}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              
             </div>
             
             {/* Search and Filter Bar - mobile optimized */}
@@ -516,7 +640,7 @@ const Jobs: React.FC = () => {
                   <select 
                     value={selectedFilter}
                     onChange={(e) => setSelectedFilter(e.target.value)}
-                    className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm sm:text-base"
+                    className="w-full p-2.5 sm:p-3 border border-gray-200 rounded-lg sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm sm:text-base"
                   >
                     <option value="all">All Categories</option>
                     <option value="cleaning">🧽 Cleaning</option>
@@ -558,6 +682,22 @@ const Jobs: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Tabs for Available vs Applied Jobs */}
+        <div className="flex border-b border-gray-200 mb-6">
+          <button
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'available' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('available')}
+          >
+            Available Jobs
+          </button>
+          <button
+            className={`px-4 py-2 font-medium text-sm ${activeTab === 'applied' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('applied')}
+          >
+            Applied Jobs ({appliedJobs.length})
+          </button>
         </div>
 
         {/* Modern Stats Cards - responsive grid */}
@@ -621,17 +761,41 @@ const Jobs: React.FC = () => {
             </div>
           </button>
           
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-gray-100 shadow-sm">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg sm:rounded-2xl flex items-center justify-center">
-                <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <div>
-                <p className="text-lg sm:text-2xl font-bold text-gray-900">12</p>
-                <p className="text-xs sm:text-sm text-gray-600">Applied Today</p>
-              </div>
-            </div>
-          </div>
+          <div
+  onClick={() => setActiveTab('applied')}
+  className={`cursor-pointer bg-white/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-6 border shadow-sm transition ${
+    activeTab === 'applied' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-100 hover:border-gray-300'
+  }`}
+>
+  <div className="flex items-center gap-2 sm:gap-3">
+    {/* Icon box */}
+    <div
+      className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-2xl flex items-center justify-center ${
+        activeTab === 'applied'
+          ? 'bg-gradient-to-br from-blue-500 to-blue-600'
+          : 'bg-gradient-to-br from-gray-400 to-gray-500'
+      }`}
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-4 h-4 sm:w-6 sm:h-6 text-white"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M13 5v6h6" />
+      </svg>
+    </div>
+
+    {/* Text content */}
+    <div>
+      <p className="text-lg sm:text-2xl font-bold text-gray-900">Applied Jobs</p>
+      <p className="text-xs sm:text-sm text-gray-600">Tap to view</p>
+    </div>
+  </div>
+</div>
+
         </div>
 
         {/* Urgent Jobs Section */}

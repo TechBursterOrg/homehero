@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  DollarSign, 
   CheckCircle, 
   Star, 
   Users, 
@@ -17,7 +16,10 @@ import {
   ChevronRight,
   Sparkles,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  Eye,
+  MessageCircle
 } from 'lucide-react';
 
 interface BusinessHours {
@@ -30,6 +32,18 @@ interface BusinessHours {
   notes: string;
 }
 
+interface Booking {
+  id: number;
+  clientName: string;
+  service: string;
+  date: string;
+  time: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  price: number;
+  location: string;
+  notes?: string;
+}
+
 interface DashboardData {
   user: {
     name: string;
@@ -40,6 +54,7 @@ interface DashboardData {
   businessHours: BusinessHours[];
   recentJobs: any[];
   upcomingTasks: any[];
+  bookings: Booking[];
   stats: {
     totalEarnings: number;
     jobsCompleted: number;
@@ -57,6 +72,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>('Monday');
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Days of the week
   const daysOfWeek = [
@@ -231,6 +248,39 @@ const Dashboard: React.FC = () => {
         priority: 'high'
       }
     ],
+    bookings: [
+      {
+        id: 1,
+        clientName: 'Sarah Johnson',
+        service: 'House Cleaning',
+        date: 'Sep 15, 2023',
+        time: '2:00 PM',
+        status: 'confirmed' as const,
+        price: 15000,
+        location: 'Victoria Island',
+        notes: 'Focus on kitchen and bathrooms'
+      },
+      {
+        id: 2,
+        clientName: 'Mike Wilson',
+        service: 'Garden Maintenance',
+        date: 'Sep 17, 2023',
+        time: '10:00 AM',
+        status: 'pending' as const,
+        price: 25000,
+        location: 'Lekki Phase 1'
+      },
+      {
+        id: 3,
+        clientName: 'David Adebayo',
+        service: 'Plumbing Repair',
+        date: 'Sep 20, 2023',
+        time: '11:30 AM',
+        status: 'pending' as const,
+        price: 18000,
+        location: 'Ikoyi'
+      }
+    ],
     stats: {
       totalEarnings: 350000,
       jobsCompleted: 45,
@@ -302,6 +352,9 @@ const Dashboard: React.FC = () => {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'upcoming': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'in-progress': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'confirmed': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
   };
@@ -340,6 +393,40 @@ const Dashboard: React.FC = () => {
       ...currentHours,
       serviceTypes: updatedServiceTypes
     });
+  };
+
+  const handleViewBooking = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowBookingModal(true);
+  };
+
+  const handleUpdateBookingStatus = async (bookingId: number, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update booking status');
+      }
+
+      // Update the booking in the local state
+      if (dashboardData) {
+        const updatedBookings = dashboardData.bookings.map(booking => 
+          booking.id === bookingId ? { ...booking, status } : booking
+        );
+        setDashboardData({ ...dashboardData, bookings: updatedBookings });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
+      setError(errorMessage);
+    }
   };
 
   if (loading) {
@@ -509,113 +596,188 @@ const Dashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Recent Jobs */}
-          <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
-            <div className="p-4 sm:p-8 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
-                    <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
+              <div className="p-4 sm:p-8 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Jobs</h3>
+                      <p className="text-gray-600 text-sm sm:text-base hidden sm:block">Your latest service activities</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Jobs</h3>
-                    <p className="text-gray-600 text-sm sm:text-base hidden sm:block">Your latest service activities</p>
-                  </div>
+                  <button className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors text-sm sm:text-base">
+                    <span className="hidden sm:inline">View All</span>
+                    <span className="sm:hidden">All</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
-                <button className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors text-sm sm:text-base">
-                  <span className="hidden sm:inline">View All</span>
-                  <span className="sm:hidden">All</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
-            </div>
-            <div className="p-4 sm:p-8">
-              <div className="space-y-3 sm:space-y-4">
-                {dashboardData.recentJobs.map((job) => (
-                  <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
-                    {/* Mobile Layout */}
-                    <div className="flex flex-col sm:hidden space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-xs">
+              <div className="p-4 sm:p-8">
+                <div className="space-y-3 sm:space-y-4">
+                  {dashboardData.recentJobs.map((job) => (
+                    <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                      {/* Mobile Layout */}
+                      <div className="flex flex-col sm:hidden space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                              <span className="text-white font-bold text-xs">
+                                {getClientInitials(job.client)}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-base">{getCategoryIcon(job.category)}</span>
+                                <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
+                                  {job.title}
+                                </h4>
+                              </div>
+                              <p className="text-sm text-gray-600 font-medium">{job.client}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-green-600">{formatNaira(job.payment)}</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                              {job.status}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span className="truncate max-w-[120px]">{job.location}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>{job.time}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop Layout */}
+                      <div className="hidden sm:flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-sm">
                               {getClientInitials(job.client)}
                             </span>
                           </div>
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-base">{getCategoryIcon(job.category)}</span>
-                              <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
+                            <div className="flex items-center gap-3 mb-1">
+                              <span className="text-lg">{getCategoryIcon(job.category)}</span>
+                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                                 {job.title}
                               </h4>
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                                {job.status}
+                              </span>
                             </div>
-                            <p className="text-sm text-gray-600 font-medium">{job.client}</p>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="font-medium">{job.client}</span>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-4 h-4" />
+                                <span>{job.location}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-green-600">{formatNaira(job.payment)}</p>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                            {job.status}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-xs text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          <span className="truncate max-w-[120px]">{job.location}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
+                          <p className="text-2xl font-bold text-green-600 mb-1">{formatNaira(job.payment)}</p>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Calendar className="w-4 h-4" />
                             <span>{job.date}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                            <Clock className="w-4 h-4" />
                             <span>{job.time}</span>
                           </div>
                         </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-                    {/* Desktop Layout */}
-                    <div className="hidden sm:flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-sm">
-                            {getClientInitials(job.client)}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <span className="text-lg">{getCategoryIcon(job.category)}</span>
-                            <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                              {job.title}
-                            </h4>
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                              {job.status}
+            {/* Bookings Section */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
+              <div className="p-4 sm:p-8 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Bookings</h3>
+                      <p className="text-gray-600 text-sm sm:text-base hidden sm:block">Your upcoming appointments</p>
+                    </div>
+                  </div>
+                  <button className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 transition-colors text-sm sm:text-base">
+                    <span className="hidden sm:inline">View All</span>
+                    <span className="sm:hidden">All</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 sm:p-8">
+                <div className="space-y-4">
+                  {dashboardData.bookings && dashboardData.bookings.map((booking) => (
+                    <div key={booking.id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-xs sm:text-sm">
+                              {getClientInitials(booking.clientName)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-gray-600">
-                            <span className="font-medium">{job.client}</span>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              <span>{job.location}</span>
+                          <div>
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.service}</h4>
+                            <p className="text-gray-600 text-xs sm:text-sm">{booking.clientName}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                              <span className="text-xs sm:text-sm text-gray-600">{booking.date} at {booking.time}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                              <span className="text-xs sm:text-sm text-gray-600">{booking.location}</span>
                             </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-green-600 mb-1">{formatNaira(job.payment)}</p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <Calendar className="w-4 h-4" />
-                          <span>{job.date}</span>
-                          <Clock className="w-4 h-4" />
-                          <span>{job.time}</span>
+                        <div className="text-right">
+                          <p className="text-lg sm:text-xl font-bold text-green-600">{formatNaira(booking.price)}</p>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
+                            {booking.status}
+                          </span>
+                          <div className="mt-2 flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleViewBooking(booking)}
+                              className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <button className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                              title="Send Message">
+                              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                  {(!dashboardData.bookings || dashboardData.bookings.length === 0) && (
+                    <div className="text-center py-8 text-gray-500">
+                      <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="font-medium">No bookings yet</p>
+                      <p className="text-sm">Your upcoming appointments will appear here</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -752,22 +914,19 @@ const Dashboard: React.FC = () => {
                     Select Day <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-4 gap-2">
-                    {daysOfWeek.map((day) => {
-                      const hours = getHoursForDay(day);
-                      return (
-                        <button
-                          key={day}
-                          onClick={() => setSelectedDay(day)}
-                          className={`p-2 text-xs font-medium rounded-lg transition-all ${
-                            selectedDay === day
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                          }`}
-                        >
-                          {day.slice(0, 3)}
-                        </button>
-                      );
-                    })}
+                    {daysOfWeek.map((day) => (
+                      <button
+                        key={day}
+                        onClick={() => setSelectedDay(day)}
+                        className={`p-2 text-xs font-medium rounded-lg transition-all ${
+                          selectedDay === day
+                            ? 'bg-blue-600 text-white shadow-md'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {day.slice(0, 3)}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
@@ -880,6 +1039,132 @@ const Dashboard: React.FC = () => {
                 >
                   <Save className="w-5 h-5" />
                   <span>Save All Hours</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Booking Details Modal */}
+        {showBookingModal && selectedBooking && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 sm:p-8 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Booking Details</h2>
+                      <p className="text-gray-600 text-sm sm:text-base">Appointment information</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowBookingModal(false)}
+                    className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl sm:rounded-2xl flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 sm:p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Client Name
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.clientName}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Service
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.service}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Date
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.date}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Time
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.time}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Location
+                  </label>
+                  <p className="text-gray-900">{selectedBooking.location}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Price
+                  </label>
+                  <p className="text-2xl font-bold text-green-600">{formatNaira(selectedBooking.price)}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Status
+                  </label>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(selectedBooking.status)}`}>
+                    {selectedBooking.status}
+                  </span>
+                </div>
+
+                {selectedBooking.notes && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Notes
+                    </label>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedBooking.notes}</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Update Status
+                  </label>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'confirmed')}
+                      className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                    >
+                      Confirm
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'completed')}
+                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                    >
+                      Complete
+                    </button>
+                    <button 
+                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'cancelled')}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8 border-t border-gray-100">
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 font-semibold"
+                >
+                  Close
                 </button>
               </div>
             </div>
