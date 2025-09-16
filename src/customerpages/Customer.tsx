@@ -44,11 +44,11 @@ interface ExtendedUserProfile extends UserProfile {
 const CustomerContent: React.FC = () => {
   // State for search parameters
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentLocationAddress, setCurrentLocationAddress] = useState('');
+  const [currentLocationAddress, setCurrentLocationAddress] = useState('Lagos, Nigeria');
   
   // Active search parameters that trigger provider list updates
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
-  const [activeLocationQuery, setActiveLocationQuery] = useState('');
+  const [activeLocationQuery, setActiveLocationQuery] = useState('Lagos, Nigeria');
   const [searchTrigger, setSearchTrigger] = useState(0); // Force re-fetch trigger
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -105,7 +105,7 @@ const CustomerContent: React.FC = () => {
 
     // Trigger initial search on component mount
     setActiveSearchQuery('');
-    setActiveLocationQuery('');
+    setActiveLocationQuery('Lagos, Nigeria');
     setSearchTrigger(prev => prev + 1);
   }, []);
 
@@ -206,7 +206,7 @@ const CustomerContent: React.FC = () => {
 
     // Update active search parameters to trigger ProvidersList re-fetch
     setActiveSearchQuery(query || ''); // Ensure empty string instead of undefined
-    setActiveLocationQuery(location || ''); // Default location
+    setActiveLocationQuery(location || 'Lagos, Nigeria'); // Default location
     setServiceType(serviceType);
     
     // Force re-fetch
