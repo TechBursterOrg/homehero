@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: mode === 'development' ? {
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'https://backendhomeheroes.onrender.com',
           changeOrigin: true,
           secure: false,
         }

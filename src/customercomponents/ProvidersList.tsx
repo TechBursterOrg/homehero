@@ -1114,7 +1114,7 @@ const fetchProviders = async () => {
       <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200/50 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Results Info */}
-          <div className="space-y-1">
+          {/* <div className="space-y-1">
             <h2 className="text-xl font-bold text-gray-900">
               {sortedProviders.length} Provider{sortedProviders.length !== 1 ? 's' : ''} Found
             </h2>
@@ -1126,7 +1126,7 @@ const fetchProviders = async () => {
             <p className="text-xs text-gray-400 font-mono">
               API: {API_BASE_URL}/api/providers
             </p>
-          </div>
+          </div> */}
 
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
