@@ -1,3 +1,4 @@
+// JobPostCard.tsx
 import React, { useState } from 'react';
 import {
   Calendar,
@@ -7,17 +8,27 @@ import {
   Edit3,
   Eye,
   Clock,
-  Briefcase,
-  Star,
-  Heart,
-  MessageCircle,
-  CheckCircle2,
-  AlertCircle,
-  Pause,
-  XCircle
+  XCircle,
+  MessageCircle
 } from 'lucide-react';
-import { JobPost } from '../types';
-import { getStatusColor } from '../utils/helpers';
+
+export interface JobPost {
+  _id: string;
+  id: string;
+  title: string;
+  description: string;
+  budget: string;
+  category: string;
+  location: string;
+  status: string;
+  createdAt: string;
+  datePosted: string;
+  duration: string;
+  proposals: number;
+  serviceType?: string;
+  urgency?: string;
+  timeframe?: string;
+}
 
 interface JobPostCardProps {
   jobPost: JobPost;
@@ -41,17 +52,17 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'open':
-        return <CheckCircle2 className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-green-500 rounded-full" />;
       case 'in-progress':
-        return <Clock className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-blue-500 rounded-full" />;
       case 'completed':
-        return <CheckCircle2 className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-purple-500 rounded-full" />;
       case 'paused':
-        return <Pause className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-yellow-500 rounded-full" />;
       case 'cancelled':
-        return <XCircle className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-red-500 rounded-full" />;
       default:
-        return <AlertCircle className="w-3 h-3" />;
+        return <div className="w-2 h-2 bg-gray-500 rounded-full" />;
     }
   };
 
@@ -60,15 +71,15 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
     
     switch (status) {
       case 'open':
-        return `${baseClasses} bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-sm`;
+        return `${baseClasses} bg-green-100 text-green-800`;
       case 'in-progress':
-        return `${baseClasses} bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm`;
+        return `${baseClasses} bg-blue-100 text-blue-800`;
       case 'completed':
-        return `${baseClasses} bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-sm`;
+        return `${baseClasses} bg-purple-100 text-purple-800`;
       case 'paused':
-        return `${baseClasses} bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-sm`;
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
       case 'cancelled':
-        return `${baseClasses} bg-gradient-to-r from-red-500 to-red-600 text-white shadow-sm`;
+        return `${baseClasses} bg-red-100 text-red-800`;
       default:
         return `${baseClasses} bg-gray-100 text-gray-600`;
     }
@@ -80,26 +91,26 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
 
   const getPriorityColor = (budget: string) => {
     const budgetNum = parseInt(budget.replace(/\D/g, ''));
-    if (budgetNum >= 5000) return 'from-purple-600 to-pink-600';
-    if (budgetNum >= 2000) return 'from-blue-600 to-purple-600';
-    return 'from-green-600 to-blue-600';
+    if (budgetNum >= 5000) return 'bg-gradient-to-br from-purple-600 to-pink-600';
+    if (budgetNum >= 2000) return 'bg-gradient-to-br from-blue-600 to-purple-600';
+    return 'bg-gradient-to-br from-green-600 to-blue-600';
   };
 
   return (
     <>
-      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden">
+      <div className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 p-4">
         {/* Mobile Layout */}
-        <div className="flex flex-col sm:hidden space-y-4">
+        <div className="flex flex-col sm:hidden space-y-3">
           {/* Header Row */}
           <div className="flex items-start gap-3">
-            <div className={`w-14 h-14 bg-gradient-to-br ${getPriorityColor(jobPost.budget)} rounded-2xl flex items-center justify-center text-white font-bold text-sm shadow-lg shrink-0`}>
+            <div className={`w-12 h-12 ${getPriorityColor(jobPost.budget)} rounded-xl flex items-center justify-center text-white font-bold text-sm`}>
               {getInitials(jobPost.title)}
             </div>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors mb-1 line-clamp-2">
+                  <h3 className="text-base font-semibold text-gray-900 mb-1 line-clamp-2">
                     {jobPost.title}
                   </h3>
                   
@@ -110,17 +121,6 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-1">
-                  {onToggleFavorite && (
-                    <button
-                      onClick={() => onToggleFavorite(jobPost.id)}
-                      className={`p-1 rounded-full transition-colors duration-200 ${
-                        isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                    </button>
-                  )}
-                  
                   <div className="relative">
                     <button 
                       onClick={() => setShowMoreOptions(!showMoreOptions)}
@@ -128,41 +128,6 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
-                    
-                    {showMoreOptions && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1 z-50 min-w-40">
-                        <button
-                          onClick={() => {
-                            onViewProposals(jobPost.id);
-                            setShowMoreOptions(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
-                        >
-                          <Eye className="w-4 h-4 text-blue-600" />
-                          <span>View Proposals</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            onEdit(jobPost.id);
-                            setShowMoreOptions(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
-                        >
-                          <Edit3 className="w-4 h-4 text-green-600" />
-                          <span>Edit Job</span>
-                        </button>
-                        <button
-                          onClick={() => {
-                            onDelete(jobPost.id);
-                            setShowMoreOptions(false);
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -170,12 +135,12 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
           </div>
 
           {/* Description */}
-          <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
+          <p className="text-sm text-gray-600 line-clamp-2">
             {jobPost.description}
           </p>
 
           {/* Stats Row */}
-          <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+          <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
             <div className="flex items-center gap-1">
               <DollarSign className="w-3 h-3" />
               <span className="font-semibold text-emerald-600">{jobPost.budget}</span>
@@ -199,28 +164,25 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => onViewProposals(jobPost.id)}
-                className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-xl transition-all duration-200 hover:scale-105"
+                className="flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded-lg hover:bg-blue-100"
               >
-                <MessageCircle className="w-4 h-4" />
+                <Eye className="w-3 h-3" />
+                <span>View</span>
               </button>
-              
-              <span className="text-xs text-gray-500 font-medium">
-                {jobPost.proposals} proposals
-              </span>
             </div>
             
             <button
               onClick={() => onEdit(jobPost.id)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg text-sm"
+              className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
             >
-              Edit Job
+              Edit
             </button>
           </div>
         </div>
 
         {/* Desktop Layout */}
         <div className="hidden sm:flex items-start gap-4">
-          <div className={`w-16 h-16 bg-gradient-to-br ${getPriorityColor(jobPost.budget)} rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0 group-hover:scale-110 transition-transform duration-300`}>
+          <div className={`w-14 h-14 ${getPriorityColor(jobPost.budget)} rounded-xl flex items-center justify-center text-white font-bold text-lg`}>
             {getInitials(jobPost.title)}
           </div>
           
@@ -228,7 +190,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900">
                     {jobPost.title}
                   </h3>
                   
@@ -238,131 +200,113 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                   </div>
                 </div>
                 
-                <p className="text-gray-600 text-sm mb-3 leading-relaxed line-clamp-2">
+                <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                   {jobPost.description}
                 </p>
               </div>
               
               <div className="flex items-center gap-2">
-                {onToggleFavorite && (
-                  <button
-                    onClick={() => onToggleFavorite(jobPost.id)}
-                    className={`p-2 rounded-full transition-all duration-200 ${
-                      isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                    }`}
-                  >
-                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-                  </button>
-                )}
-                
                 <div className="relative">
                   <button 
                     onClick={() => setShowMoreOptions(!showMoreOptions)}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors"
+                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                   >
-                    <MoreVertical className="w-5 h-5" />
+                    <MoreVertical className="w-4 h-4" />
                   </button>
-                  
-                  {showMoreOptions && (
-                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48">
-                      <button
-                        onClick={() => {
-                          onViewProposals(jobPost.id);
-                          setShowMoreOptions(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
-                      >
-                        <Eye className="w-4 h-4 text-blue-600" />
-                        <span>View Proposals</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onEdit(jobPost.id);
-                          setShowMoreOptions(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
-                      >
-                        <Edit3 className="w-4 h-4 text-green-600" />
-                        <span>Edit Job</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onDelete(jobPost.id);
-                          setShowMoreOptions(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
-                      >
-                        <XCircle className="w-4 h-4" />
-                        <span>Delete Job</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <DollarSign className="w-3 h-3 text-emerald-600" />
-                    </div>
-                    <span className="font-semibold text-emerald-600">{jobPost.budget}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Clock className="w-3 h-3 text-blue-600" />
-                    </div>
-                    <span>{jobPost.duration}</span>
-                  </div>
+            <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1">
+                  <DollarSign className="w-4 h-4 text-emerald-600" />
+                  <span className="font-semibold text-emerald-600">{jobPost.budget}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 bg-gray-100 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-3 h-3" />
-                  </div>
-                  <span>Posted {jobPost.datePosted}</span>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                  <span>{jobPost.duration}</span>
                 </div>
+                <div className="flex items-center gap-1">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  <span>{jobPost.proposals} proposals</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span>Posted {jobPost.datePosted}</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{jobPost.proposals} Proposals</p>
-                  <p className="text-xs text-gray-500">Received so far</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
                 <button 
                   onClick={() => onViewProposals(jobPost.id)}
-                  className="p-3 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-xl transition-all duration-200 hover:scale-105"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"
                 >
-                  <MessageCircle className="w-5 h-5" />
+                  <Eye className="w-4 h-4" />
+                  <span className="text-sm">View Proposals</span>
                 </button>
-                
+              </div>
+              
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => onEdit(jobPost.id)}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
                 >
                   Edit Job
+                </button>
+                <button
+                  onClick={() => onDelete(jobPost.id)}
+                  className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm"
+                >
+                  Delete
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Hover Effect Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
+        {/* Dropdown Menu */}
+        {showMoreOptions && (
+          <div className="absolute right-4 top-12 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 min-w-32">
+            <button
+              onClick={() => {
+                onViewProposals(jobPost.id);
+                setShowMoreOptions(false);
+              }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md flex items-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              <span>View Proposals</span>
+            </button>
+            <button
+              onClick={() => {
+                onEdit(jobPost.id);
+                setShowMoreOptions(false);
+              }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md flex items-center gap-2"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Job</span>
+            </button>
+            <button
+              onClick={() => {
+                onDelete(jobPost.id);
+                setShowMoreOptions(false);
+              }}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-md flex items-center gap-2 text-red-600"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {showMoreOptions && (
         <div 
-          className="fixed inset-0 z-40" 
+          className="fixed inset-0 z-0" 
           onClick={() => setShowMoreOptions(false)}
         />
       )}

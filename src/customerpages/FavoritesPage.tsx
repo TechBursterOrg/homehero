@@ -1,7 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight, Heart, Star, MapPin } from 'lucide-react';
 import ProviderCard from '../customercomponents/ProviderCard';
-import { providers } from '../data/mockData';
+
+interface Provider {
+  id: string;
+  name: string;
+  email: string;
+  services: string[];
+  hourlyRate: number;
+  averageRating: number;
+  city: string;
+  state: string;
+  country: string;
+  profileImage: string;
+  isAvailableNow: boolean;
+  experience: string;
+  phoneNumber: string;
+  address: string;
+  reviewCount: number;
+  completedJobs: number;
+  isVerified: boolean;
+  isTopRated: boolean;
+  responseTime: string;
+  rating: number;
+}
 
 interface FavoritesPageProps {
   favorites: string[];
@@ -12,13 +34,86 @@ interface FavoritesPageProps {
 }
 
 const FavoritesPage: React.FC<FavoritesPageProps> = ({ 
-  favorites, 
+  favorites,
   onToggleFavorite,
   onBook,
   onMessage,
   onCall
 }) => {
-  const favoriteProviders = providers.filter(p => favorites.includes(p.id));
+  const [favoriteProviders, setFavoriteProviders] = useState<Provider[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchFavorites();
+  }, []);
+
+  const fetchFavorites = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/favorites', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFavoriteProviders(data.data.favorites || []);
+      } else {
+        console.error('Failed to fetch favorites');
+      }
+    } catch (error) {
+      console.error('Error fetching favorites:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleFavorite = async (providerId: string) => {
+    try {
+      if (favorites.includes(providerId)) {
+        // Remove from favorites
+        const response = await fetch(`/api/favorites/${providerId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          setFavoriteProviders(favoriteProviders.filter(p => p.id !== providerId));
+          alert('Removed from favorites');
+        } else {
+          alert('Failed to remove from favorites');
+        }
+      } else {
+        // Add to favorites
+        const response = await fetch(`/api/favorites/${providerId}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        
+        if (response.ok) {
+          alert('Added to favorites');
+        } else {
+          alert('Failed to add to favorites');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      alert('Error updating favorites');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -63,51 +158,11 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
 
       {favoriteProviders.length > 0 ? (
         <>
-          {/* Stats Section */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="bg-gradient-to-br from-rose-50 to-pink-50 rounded-2xl p-6 border border-rose-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-pink-600 rounded-xl flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-white fill-current" />
-                </div>
-                <span className="text-2xl font-bold text-rose-600">{favoriteProviders.length}</span>
-              </div>
-              <h3 className="font-semibold text-gray-900">Total Favorites</h3>
-              <p className="text-sm text-gray-600">Saved providers</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-6 border border-amber-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-xl flex items-center justify-center">
-                  <Star className="w-5 h-5 text-white fill-current" />
-                </div>
-                <span className="text-2xl font-bold text-amber-600">
-                  {(favoriteProviders.reduce((acc, p) => acc + p.rating, 0) / favoriteProviders.length).toFixed(1)}
-                </span>
-              </div>
-              <h3 className="font-semibold text-gray-900">Avg Rating</h3>
-              <p className="text-sm text-gray-600">Of favorites</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl p-6 border border-emerald-100">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-2xl font-bold text-emerald-600">
-                  {favoriteProviders.filter(p => p.isAvailableNow).length}
-                </span>
-              </div>
-              <h3 className="font-semibold text-gray-900">Available Now</h3>
-              <p className="text-sm text-gray-600">Ready to serve</p>
-            </div>
-          </div> */}
-
           {/* Providers Grid */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">
-                Your Favorite Providers
+                Your Favorite Providers ({favoriteProviders.length})
               </h2>
               <div className="flex items-center gap-3">
                 <select className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rose-500">
@@ -129,7 +184,7 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
                 >
                   <ProviderCard
                     provider={provider}
-                    serviceType="immediate" // Fixed: using valid ServiceType
+                    serviceType="immediate"
                     onBook={onBook}
                     onToggleFavorite={onToggleFavorite}
                     onMessage={onMessage}
@@ -158,7 +213,10 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
           </p>
           
           <div className="space-y-4">
-            <button className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-8 py-4 rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center mx-auto space-x-3 text-lg font-semibold">
+            <button 
+              className="bg-gradient-to-r from-rose-500 to-pink-600 text-white px-8 py-4 rounded-2xl hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center justify-center mx-auto space-x-3 text-lg font-semibold"
+              onClick={() => window.location.href = '/search'}
+            >
               <ArrowRight className="w-5 h-5" />
               <span>Browse Services</span>
             </button>
