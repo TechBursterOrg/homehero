@@ -35,6 +35,12 @@ interface ApiBooking {
   };
 }
 
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
+
+
 // Function to convert API booking to the format expected by BookingCard
 const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
   try {
@@ -137,7 +143,7 @@ const BookingsPage: React.FC = () => {
       
       // FIXED: Use the correct API endpoint - check your server routes
       // The endpoint might be different based on your server setup
-      const response = await fetch('http://localhost:3001/api/bookings/customer', {
+      const response = await fetch(`${API_BASE_URL}/api/bookings/customer`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
