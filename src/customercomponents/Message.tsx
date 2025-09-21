@@ -24,6 +24,7 @@ import {
   Copy,
   ExternalLink
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 // Mock types for this example - replace with your actual types
 interface ChatState {
@@ -67,6 +68,10 @@ interface CallingModalProps {
   callType: 'audio' | 'video';
 }
 
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? "https://backendhomeheroes.onrender.com" 
+  : "http://localhost:3001";
+
 const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, callType }) => {
   const [callState, setCallState] = useState<'connecting' | 'connected' | 'ended'>('connecting');
   const [isMuted, setIsMuted] = useState(false);
@@ -77,7 +82,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
   const [error, setError] = useState<string>('');
   
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement>(null); // Fixed: Changed from HTMLVideoRef to HTMLVideoElement
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup function
@@ -381,7 +386,7 @@ const CallingModal: React.FC<CallingModalProps> = ({ isOpen, provider, onClose, 
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
             }`}
             title={isMuted ? 'Unmute' : 'Mute'}
-          >
+            >
             {isMuted ? <MicOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Mic className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
           
@@ -432,6 +437,7 @@ const Messages: React.FC<MessagesProps> = ({
   const videoCallButtonRef = useRef<HTMLButtonElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
   const videoCallOptionsRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   // Phone numbers mapping (similar to ProviderCard)
   const phoneNumbers: { [key: string]: string } = {
@@ -449,7 +455,42 @@ const Messages: React.FC<MessagesProps> = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [chatState.messages, chatState.activeConversation]);
+    
+    // Check if we have a provider from navigation state to start a conversation
+    if (location.state?.provider) {
+      const { provider } = location.state;
+      handleStartConversationWithProvider(provider);
+    }
+  }, [chatState.messages, chatState.activeConversation, location.state]);
+
+  const handleStartConversationWithProvider = async (provider: any) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          participantId: provider._id || provider.id
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        onSetActiveConversation(result.data.conversation._id);
+        setShowMobileConversation(true);
+      } else {
+        console.error('Failed to create conversation:', result.message);
+        alert('Failed to start conversation. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Error starting conversation. Please try again.');
+    }
+  };
 
   // Close call options when clicking outside
   useEffect(() => {
@@ -548,7 +589,6 @@ const Messages: React.FC<MessagesProps> = ({
       await navigator.clipboard.writeText(providerPhone);
       alert('Phone number copied to clipboard!');
     } catch {
-      // Removed the userInput variable that was declared but never used
       prompt('Copy this phone number:', providerPhone);
     }
     setShowCallOptions(false);
@@ -734,7 +774,7 @@ const Messages: React.FC<MessagesProps> = ({
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1 lg:mb-2">
-                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm lg:text-base truncate">
+                 <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm lg:text-base truncate">
                                 {conversation.providerName}
                               </h4>
                               <span className="text-xs text-gray-500 font-medium flex-shrink-0">{formatTime(conversation.lastMessage.timestamp)}</span>
@@ -825,6 +865,89 @@ const Messages: React.FC<MessagesProps> = ({
                                   e.preventDefault();
                                   e.stopPropagation();
                                   handleWebCall('audio');
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <PhoneCall className="w-4 h-4 text-green-600" />
+                                <span>Web Audio Call</span>
+                              </button>
+                              
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handlePhoneCall();
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <ExternalLink className="w-4 h-4 text-blue-600" />
+                                <span>Phone App</span>
+                              </button>
+                              
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCopyNumber();
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <Copy className="w-4 h-4 text-gray-600" />
+                                <span>Copy Number</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Enhanced Video Call Button with Dropdown */}
+                        <div className="relative">
+                          <button 
+                            ref={videoCallButtonRef}
+                            onClick={handleVideoClick}
+                            className="w-8 h-8 lg:w-12 lg:h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl lg:rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110"
+                          >
+                            <Video className="w-3.5 h-3.5 lg:w-5 lg:h-5" />
+                          </button>
+                          
+                          {showVideoCallOptions && (
+                            <div 
+                              ref={videoCallOptionsRef}
+                              className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-[200] min-w-48 pointer-events-auto"
+                            >
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleWebCall('video');
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <Video className="w-4 h-4 text-blue-600" />
+                                <span>Web Video Call</span>
+                              </button>
+                              
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handlePhoneCall();
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <ExternalLink className="w-4 h-4 text-blue-600" />
+                                <span>Phone App</span>
+                              </button>
+                              
+                              <button
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCopyNumber();
                                 }}
                                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                               >

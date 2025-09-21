@@ -19,7 +19,10 @@ import {
   AlertCircle,
   BookOpen,
   Eye,
-  MessageCircle
+  MessageCircle,
+  Mail,
+  Phone,
+  User
 } from 'lucide-react';
 
 interface BusinessHours {
@@ -33,15 +36,26 @@ interface BusinessHours {
 }
 
 interface Booking {
-  id: number;
-  clientName: string;
-  service: string;
-  date: string;
-  time: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  price: number;
+  _id: string;
+  providerId: string;
+  providerName: string;
+  providerEmail: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  serviceType: string;
+  description: string;
   location: string;
-  notes?: string;
+  timeframe: string;
+  budget: string;
+  specialRequests: string;
+  bookingType: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  requestedAt: string;
+  acceptedAt?: string;
+  completedAt?: string;
+  updatedAt: string;
 }
 
 interface DashboardData {
@@ -74,6 +88,7 @@ const Dashboard: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<string>('Monday');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Days of the week
   const daysOfWeek = [
@@ -113,69 +128,77 @@ const Dashboard: React.FC = () => {
   };
 
   // Fetch dashboard data from backend
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('No authentication token found. Please log in again.');
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        console.log('Response status:', response.status, response.statusText);
-        
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
-          throw new Error('Your session has expired. Please log in again.');
-        }
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data.success === false && data.message.includes('token')) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
-          throw new Error('Authentication failed. Please log in again.');
-        }
-        
-        setDashboardData(data);
-        setBusinessHours(data.businessHours || []);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(errorMessage);
-        console.error('Dashboard fetch error:', err);
-        
-        if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-        }
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.warn('Using mock data for development');
-          setDashboardData(getMockData());
-        }
-      } finally {
-        setLoading(false);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
       }
-    };
 
+      const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Response status:', response.status, response.statusText);
+      
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        throw new Error('Your session has expired. Please log in again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Dashboard API response:', data); // Add this line
+      if (data.success === false && data.message.includes('token')) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        throw new Error('Authentication failed. Please log in again.');
+      }
+      
+      setDashboardData(data);
+      setBusinessHours(data.businessHours || []);
+      if (data.bookings) {
+      console.log('Bookings received:', data.bookings.length);
+    } else {
+      console.log('No bookings in response');
+    }
+
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      console.error('Dashboard fetch error:', err);
+      
+      if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Using mock data for development');
+        setDashboardData(getMockData());
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchDashboardData();
   }, []);
 
@@ -250,35 +273,45 @@ const Dashboard: React.FC = () => {
     ],
     bookings: [
       {
-        id: 1,
-        clientName: 'Sarah Johnson',
-        service: 'House Cleaning',
-        date: 'Sep 15, 2023',
-        time: '2:00 PM',
-        status: 'confirmed' as const,
-        price: 15000,
-        location: 'Victoria Island',
-        notes: 'Focus on kitchen and bathrooms'
+        _id: '1',
+        providerId: 'provider1',
+        providerName: 'John Doe',
+        providerEmail: 'john@example.com',
+        customerId: 'customer1',
+        customerName: 'Sarah Johnson',
+        customerEmail: 'sarah@example.com',
+        customerPhone: '+2341234567890',
+        serviceType: 'House Cleaning',
+        description: 'Full house cleaning service',
+        location: 'Victoria Island, Lagos',
+        timeframe: 'ASAP',
+        budget: '₦15,000',
+        specialRequests: 'Focus on kitchen and bathrooms',
+        bookingType: 'immediate',
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       },
       {
-        id: 2,
-        clientName: 'Mike Wilson',
-        service: 'Garden Maintenance',
-        date: 'Sep 17, 2023',
-        time: '10:00 AM',
-        status: 'pending' as const,
-        price: 25000,
-        location: 'Lekki Phase 1'
-      },
-      {
-        id: 3,
-        clientName: 'David Adebayo',
-        service: 'Plumbing Repair',
-        date: 'Sep 20, 2023',
-        time: '11:30 AM',
-        status: 'pending' as const,
-        price: 18000,
-        location: 'Ikoyi'
+        _id: '2',
+        providerId: 'provider1',
+        providerName: 'John Doe',
+        providerEmail: 'john@example.com',
+        customerId: 'customer2',
+        customerName: 'Mike Wilson',
+        customerEmail: 'mike@example.com',
+        customerPhone: '+2340987654321',
+        serviceType: 'Garden Maintenance',
+        description: 'Lawn mowing and garden cleanup',
+        location: 'Lekki Phase 1, Lagos',
+        timeframe: 'Next week',
+        budget: '₦25,000',
+        specialRequests: '',
+        bookingType: 'long-term',
+        status: 'confirmed',
+        requestedAt: new Date().toISOString(),
+        acceptedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       }
     ],
     stats: {
@@ -347,6 +380,15 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -400,10 +442,10 @@ const Dashboard: React.FC = () => {
     setShowBookingModal(true);
   };
 
-  const handleUpdateBookingStatus = async (bookingId: number, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -416,16 +458,28 @@ const Dashboard: React.FC = () => {
         throw new Error('Failed to update booking status');
       }
 
-      // Update the booking in the local state
-      if (dashboardData) {
-        const updatedBookings = dashboardData.bookings.map(booking => 
-          booking.id === bookingId ? { ...booking, status } : booking
-        );
-        setDashboardData({ ...dashboardData, bookings: updatedBookings });
-      }
+      // Refresh the dashboard data
+      setRefreshing(true);
+      await fetchDashboardData();
+      
+      // Close the modal if status was updated
+      setShowBookingModal(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
       setError(errorMessage);
+    }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboardData();
+  };
+
+  const handleContactCustomer = (booking: Booking, method: 'email' | 'phone') => {
+    if (method === 'email') {
+      window.location.href = `mailto:${booking.customerEmail}`;
+    } else if (method === 'phone') {
+      window.location.href = `tel:${booking.customerPhone}`;
     }
   };
 
@@ -500,15 +554,24 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            <button 
-              onClick={handleAddAvailability}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 w-full sm:w-auto"
-            >
-              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
-              </div>
-              <span>Set Business Hours</span>
-            </button>
+            <div className="flex gap-3">
+              <button 
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="p-3 bg-white/80 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
+              >
+                <Loader2 className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button 
+                onClick={handleAddAvailability}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 w-full sm:w-auto"
+              >
+                <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                </div>
+                <span>Set Business Hours</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -727,20 +790,20 @@ const Dashboard: React.FC = () => {
               <div className="p-4 sm:p-8">
                 <div className="space-y-4">
                   {dashboardData.bookings && dashboardData.bookings.map((booking) => (
-                    <div key={booking.id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                    <div key={booking._id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
                             <span className="text-white font-bold text-xs sm:text-sm">
-                              {getClientInitials(booking.clientName)}
+                              {getClientInitials(booking.customerName)}
                             </span>
                           </div>
                           <div>
-                            <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.service}</h4>
-                            <p className="text-gray-600 text-xs sm:text-sm">{booking.clientName}</p>
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.serviceType}</h4>
+                            <p className="text-gray-600 text-xs sm:text-sm">{booking.customerName}</p>
                             <div className="flex items-center gap-2 mt-1">
                               <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
-                              <span className="text-xs sm:text-sm text-gray-600">{booking.date} at {booking.time}</span>
+                              <span className="text-xs sm:text-sm text-gray-600">{formatDate(booking.requestedAt)}</span>
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
@@ -749,7 +812,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg sm:text-xl font-bold text-green-600">{formatNaira(booking.price)}</p>
+                          <p className="text-lg sm:text-xl font-bold text-green-600">{booking.budget}</p>
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
                             {booking.status}
                           </span>
@@ -761,9 +824,19 @@ const Dashboard: React.FC = () => {
                             >
                               <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
-                            <button className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Send Message">
-                              <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <button 
+                              onClick={() => handleContactCustomer(booking, 'email')}
+                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                              title="Send Email"
+                            >
+                              <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleContactCustomer(booking, 'phone')}
+                              className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                              title="Call Customer"
+                            >
+                              <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                           </div>
                         </div>
@@ -1075,28 +1148,28 @@ const Dashboard: React.FC = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Client Name
                     </label>
-                    <p className="text-gray-900">{selectedBooking.clientName}</p>
+                    <p className="text-gray-900">{selectedBooking.customerName}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Service
                     </label>
-                    <p className="text-gray-900">{selectedBooking.service}</p>
+                    <p className="text-gray-900">{selectedBooking.serviceType}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Date
+                      Date Requested
                     </label>
-                    <p className="text-gray-900">{selectedBooking.date}</p>
+                    <p className="text-gray-900">{formatDate(selectedBooking.requestedAt)}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Time
+                      Timeframe
                     </label>
-                    <p className="text-gray-900">{selectedBooking.time}</p>
+                    <p className="text-gray-900">{selectedBooking.timeframe}</p>
                   </div>
                 </div>
 
@@ -1109,9 +1182,9 @@ const Dashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Price
+                    Budget
                   </label>
-                  <p className="text-2xl font-bold text-green-600">{formatNaira(selectedBooking.price)}</p>
+                  <p className="text-2xl font-bold text-green-600">{selectedBooking.budget}</p>
                 </div>
 
                 <div>
@@ -1123,37 +1196,83 @@ const Dashboard: React.FC = () => {
                   </span>
                 </div>
 
-                {selectedBooking.notes && (
+                {selectedBooking.description && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Notes
+                      Description
                     </label>
-                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedBooking.notes}</p>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedBooking.description}</p>
                   </div>
                 )}
+
+                {selectedBooking.specialRequests && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Special Requests
+                    </label>
+                    <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedBooking.specialRequests}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Contact Email
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.customerEmail}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Contact Phone
+                    </label>
+                    <p className="text-gray-900">{selectedBooking.customerPhone}</p>
+                  </div>
+                </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Update Status
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'confirmed')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
                       className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
                     >
                       Confirm
                     </button>
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'completed')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
                       className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
                     >
                       Complete
                     </button>
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking.id, 'cancelled')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
                       className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
                     >
                       Cancel
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Contact Customer
+                  </label>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleContactCustomer(selectedBooking, 'email')}
+                      className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium flex items-center gap-2"
+                    >
+                      <Mail className="w-4 h-4" />
+                      Email
+                    </button>
+                    <button 
+                      onClick={() => handleContactCustomer(selectedBooking, 'phone')}
+                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium flex items-center gap-2"
+                    >
+                      <Phone className="w-4 h-4" />
+                      Call
                     </button>
                   </div>
                 </div>

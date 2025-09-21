@@ -895,7 +895,7 @@ const Profile: React.FC = () => {
                           </p>
                           {profileData.hourlyRate > 0 && (
                             <p className="font-semibold text-blue-600">
-                              Hourly rate: ${profileData.hourlyRate}/hr
+                              Rate: ₦{profileData.hourlyRate}
                             </p>
                           )}
                           {profileData.experience && (

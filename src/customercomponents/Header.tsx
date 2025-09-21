@@ -6,7 +6,9 @@ import {
   Menu,
   X,
   MessageCircle,
-  Home
+  Home,
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 import { UserProfile } from '../types';
 
@@ -41,11 +43,25 @@ const Header: React.FC<HeaderProps> = ({
   });
   const [loading, setLoading] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const fetchingRef = useRef(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch profile data only once on mount
   useEffect(() => {
@@ -126,6 +142,7 @@ const Header: React.FC<HeaderProps> = ({
   const handleNavigation = (path: string) => {
     navigate(path);
     setIsMenuOpen(false);
+    setIsDropdownOpen(false);
   };
 
   const isActivePath = (path: string) => {
@@ -139,6 +156,7 @@ const Header: React.FC<HeaderProps> = ({
     try {
       await onLogout();
       setIsMenuOpen(false);
+      setIsDropdownOpen(false);
       navigate('/login');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -226,9 +244,10 @@ const Header: React.FC<HeaderProps> = ({
               )}
             </button>
             
-            <div className="hidden md:flex items-center space-x-3">
+            {/* Desktop Profile Dropdown */}
+            <div className="hidden md:flex items-center space-x-3 relative" ref={dropdownRef}>
               <button
-                onClick={() => navigate('/customer/profile')}
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                 className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
               >
                 {profileData.avatar ? (
@@ -246,7 +265,29 @@ const Header: React.FC<HeaderProps> = ({
                   <p className="text-sm font-medium text-gray-900">{profileData.name || 'User'}</p>
                   <p className="text-xs text-gray-600 capitalize">{profileData.role || 'customer'}</p>
                 </div>
+                <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              {/* Dropdown Menu */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
+                  <button
+                    onClick={() => handleNavigation('/customer/profile')}
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <User className="w-4 h-4 mr-3" />
+                    Profile Settings
+                  </button>
+                  <hr className="my-2 border-gray-200" />
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4 mr-3" />
+                    Sign Out
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}

@@ -86,6 +86,10 @@ interface ProviderCardItemProps {
   viewMode: 'grid' | 'list';
 }
 
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+    ? "https://backendhomeheroes.onrender.com" 
+    : "http://localhost:3001";
+
 // Sample providers function for fallback
 const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
   const sampleProviders: Provider[] = [
@@ -178,6 +182,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
   const [imageError, setImageError] = useState(false);
   const callButtonRef = useRef<HTMLButtonElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Mock phone numbers
   const phoneNumbers: { [key: string]: string } = {
@@ -213,6 +218,41 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
         }`}
       />
     ));
+  };
+
+  const handleMessageClick = async () => {
+    try {
+      // First, get or create a conversation with this provider
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          participantId: provider._id || provider.id
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Navigate to messages page with the conversation
+        navigate('/customer/messages', { 
+          state: { 
+            activeConversation: result.data.conversation._id,
+            provider: provider
+          } 
+        });
+      } else {
+        console.error('Failed to create conversation:', result.message);
+        alert('Failed to start conversation. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Error starting conversation. Please try again.');
+    }
   };
 
   const handleCallClick = (e: React.MouseEvent) => {
@@ -260,7 +300,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
     if (!hourlyRate || hourlyRate === 0) return 'Contact for pricing';
     if (hourlyRate < 1000) return `₦${hourlyRate}`;
     if (hourlyRate < 5000) return `₦${(hourlyRate/1000).toFixed(1)}k`;
-    return `₦${Math.round(hourlyRate/1000)}k/hr`;
+    return `₦${Math.round(hourlyRate/1000)}`;
   };
 
   // Calculate derived values with proper fallbacks
@@ -442,7 +482,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
               <div className="flex items-center gap-2">
                 {onMessage && (
                   <button 
-                    onClick={() => onMessage && onMessage(provider)}
+                    onClick={handleMessageClick}
                     className="p-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105 group"
                   >
                     <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
@@ -642,7 +682,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
         <div className="flex items-center gap-2">
           {onMessage && (
             <button 
-              onClick={() => onMessage && onMessage(provider)}
+              onClick={handleMessageClick}
               className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105"
             >
               <MessageCircle className="w-4 h-4" />
@@ -1114,7 +1154,7 @@ const fetchProviders = async () => {
       <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200/50 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Results Info */}
-          {/* <div className="space-y-1">
+          <div className="space-y-1">
             <h2 className="text-xl font-bold text-gray-900">
               {sortedProviders.length} Provider{sortedProviders.length !== 1 ? 's' : ''} Found
             </h2>
@@ -1126,7 +1166,7 @@ const fetchProviders = async () => {
             <p className="text-xs text-gray-400 font-mono">
               API: {API_BASE_URL}/api/providers
             </p>
-          </div> */}
+          </div>
 
           {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
@@ -1272,7 +1312,5 @@ const fetchProviders = async () => {
     </div>
   );
 };
-
-
 
 export default ProvidersList;

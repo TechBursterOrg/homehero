@@ -1,4 +1,4 @@
-// Customer.tsx
+// Customer.tsx - Updated with BookingModal integration
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight,
@@ -13,6 +13,7 @@ import Header from '../customercomponents/Header';
 import HeroSection from '../customercomponents/HeroSection';
 import ServiceCard from '../customercomponents/ServiceCard';
 import PostJobModal from '../customercomponents/PostJobModal';
+import BookingModal from '../customercomponents/BookingModal'; // Import BookingModal
 import MapView from '../customercomponents/MapView';
 import ProvidersList from '../customercomponents/ProvidersList';
 
@@ -54,6 +55,11 @@ const CustomerContent: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [serviceType, setServiceType] = useState<ServiceType>('immediate');
   const [showPostJob, setShowPostJob] = useState(false);
+  
+  // BookingModal state
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedProviderForBooking, setSelectedProviderForBooking] = useState<ProviderType | null>(null);
+  
   const [favorites, setFavorites] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchRadius, setSearchRadius] = useState(10);
@@ -240,47 +246,60 @@ const CustomerContent: React.FC = () => {
     setSearchTrigger(prev => prev + 1); // Force refresh of providers
   };
 
-  const handleProviderBook = async (provider: ProviderType) => {
-    try {
-      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        alert('Please log in to book a service');
-        return;
-      }
-
-      const bookingData = {
-        providerId: provider._id || provider.id,
-        serviceType: provider.services[0] || 'General Service',
-        description: `Booking for ${provider.services[0]}`,
-        location: currentLocationAddress,
-        timeframe: 'ASAP',
-        budget: provider.priceRange,
-        contactInfo: {
-          phone: profileData.phone,
-          email: profileData.email
-        }
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(bookingData)
-      });
-
-      if (response.ok) {
-        alert('Booking request sent successfully!');
-      } else {
-        alert('Failed to book service. Please try again.');
-      }
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert('Error booking service. Please try again.');
+  // NEW: Updated handleProviderBook to open BookingModal instead of direct booking
+  const handleProviderBook = (provider: ProviderType) => {
+    const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please log in to book a service');
+      return;
     }
+
+    // Open the booking modal with the selected provider
+    setSelectedProviderForBooking(provider);
+    setShowBookingModal(true);
   };
+
+  // NEW: Handle booking confirmation from BookingModal
+  // NEW: Handle booking confirmation from BookingModal
+const handleBookingConfirm = async (bookingData: any) => {
+  try {
+    const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      alert('Please log in to book a service');
+      return;
+    }
+
+    console.log('Submitting booking data:', bookingData);
+
+    const response = await fetch(`${API_BASE_URL}/api/bookings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(bookingData)
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      alert('Booking request sent successfully!');
+      setShowBookingModal(false);
+      setSelectedProviderForBooking(null);
+      
+      // You might want to refresh the bookings list or show a notification
+    } else {
+      throw new Error(result.message || 'Failed to book service');
+    }
+  } catch (error) {
+    console.error('Booking error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    alert(`Failed to book service: ${errorMessage}`);
+    throw error; // Re-throw so BookingModal can handle the error state
+  }
+};
 
   const handleToggleFavorite = async (providerId: string) => {
     try {
@@ -307,62 +326,60 @@ const CustomerContent: React.FC = () => {
     }
   };
 
- 
-const handlePostJob = async (jobData: {
-  serviceType: string;
-  description: string;
-  location: string;
-  urgency: string;
-  timeframe: string;
-  budget: string;
-  category: string;
-}) => {
-  try {
-    const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      alert('Please log in to post a job');
-      return;
-    }
-
-    const serviceRequestData = {
-      serviceType: jobData.serviceType,
-      description: jobData.description,
-      location: jobData.location,
-      urgency: jobData.urgency,
-      timeframe: jobData.timeframe,
-      budget: jobData.budget,
-      category: jobData.category,
-      status: 'pending' // Ensure this is included
-    };
-
-    const response = await fetch(`${API_BASE_URL}/api/service-requests`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(serviceRequestData)
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      alert('Job posted successfully! Providers can now see your job.');
-      setSearchQuery('');
-      setShowPostJob(false);
+  const handlePostJob = async (jobData: {
+    serviceType: string;
+    description: string;
+    location: string;
+    urgency: string;
+    timeframe: string;
+    budget: string;
+    category: string;
+  }) => {
+    try {
+      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      // Refresh the providers list to show the new job
-      setSearchTrigger(prev => prev + 1);
-    } else {
-      alert('Failed to post job: ' + data.message);
-    }
-  } catch (error) {
-    console.error('Error posting job:', error);
-    alert('Error posting job. Please try again.');
-  }
-};
+      if (!token) {
+        alert('Please log in to post a job');
+        return;
+      }
 
+      const serviceRequestData = {
+        serviceType: jobData.serviceType,
+        description: jobData.description,
+        location: jobData.location,
+        urgency: jobData.urgency,
+        timeframe: jobData.timeframe,
+        budget: jobData.budget,
+        category: jobData.category,
+        status: 'pending'
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/service-requests`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(serviceRequestData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('Job posted successfully! Providers can now see your job.');
+        setSearchQuery('');
+        setShowPostJob(false);
+        
+        // Refresh the providers list to show the new job
+        setSearchTrigger(prev => prev + 1);
+      } else {
+        alert('Failed to post job: ' + data.message);
+      }
+    } catch (error) {
+      console.error('Error posting job:', error);
+      alert('Error posting job. Please try again.');
+    }
+  };
 
   const handleProviderSelect = (provider: ProviderType) => {
     setSelectedProvider(provider);
@@ -442,92 +459,6 @@ const handlePostJob = async (jobData: {
         onSearchRadiusChange={handleSearchRadiusChange}
         onPostJob={() => setShowPostJob(true)}
       />
-      
-      {/* Enhanced Debug section */}
-      {/* <div className="bg-yellow-100 p-4 rounded-lg mb-4">
-        <div className="text-sm mb-2">
-          <strong>Debug Info:</strong><br/>
-          Search Query: "{activeSearchQuery}" (Display: "{searchQuery}")<br/>
-          Location: "{activeLocationQuery}" (Display: "{currentLocationAddress}")<br/>
-          Service Type: {serviceType}<br/>
-          Search Trigger: {searchTrigger}<br/>
-          Search Radius: {searchRadius} miles<br/>
-          User Coordinates: {userLocation ? `[${userLocation[0]}, ${userLocation[1]}]` : 'null'}
-        </div>
-        
-        <div className="space-y-2">
-          <button 
-            onClick={async () => {
-              try {
-                const queryParams = new URLSearchParams();
-                if (activeSearchQuery) queryParams.append('service', activeSearchQuery);
-                if (activeLocationQuery) queryParams.append('location', activeLocationQuery);
-                queryParams.append('radius', searchRadius.toString());
-                queryParams.append('serviceType', serviceType);
-                
-                const url = `${API_BASE_URL}/api/providers/search?${queryParams.toString()}`;
-                console.log('Testing search URL:', url);
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                console.log('Search API response:', data);
-                alert(`Search found ${data.data?.providers?.length || 0} providers`);
-              } catch (error) {
-                console.error('Search test failed:', error);
-                alert('Search test failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-              }
-            }}
-            className="bg-blue-500 text-white px-4 py-2 rounded text-sm mr-2"
-          >
-            Test Search API
-          </button>
-
-          <button 
-            onClick={async () => {
-              try {
-                const response = await fetch(`${API_BASE_URL}/api/debug/providers`);
-                const data = await response.json();
-                console.log('Debug API response:', data);
-                alert(`Found ${data.count} providers in database`);
-              } catch (error) {
-                console.error('Debug failed:', error);
-                alert('Debug failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-              }
-            }}
-            className="bg-purple-500 text-white px-4 py-2 rounded text-sm mr-2"
-          >
-            Debug Providers API
-          </button>
-
-          <button 
-            onClick={async () => {
-              try {
-                console.log('Creating test providers...');
-                const response = await fetch(`${API_BASE_URL}/api/debug/create-test-providers`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                });
-                const data = await response.json();
-                console.log('Create test providers response:', data);
-                alert(`Create Test Providers: ${data.success ? 'SUCCESS' : 'FAILED'}\nMessage: ${data.message}`);
-                
-                // Refresh providers list after creating test data
-                if (data.success) {
-                  setSearchTrigger(prev => prev + 1);
-                }
-              } catch (error) {
-                console.error('Create test providers failed:', error);
-                alert('Create test providers failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
-              }
-            }}
-            className="bg-green-500 text-white px-4 py-2 rounded text-sm"
-          >
-            Create Test Providers
-          </button>
-        </div>
-      </div> */}
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -640,11 +571,28 @@ const handlePostJob = async (jobData: {
           } />
         </Routes>
 
+        {/* Modals */}
         <PostJobModal
           isOpen={showPostJob}
           onClose={() => setShowPostJob(false)}
           onSubmit={handlePostJob}
         />
+
+        {/* NEW: BookingModal */}
+        {selectedProviderForBooking && (
+  <BookingModal
+    isOpen={showBookingModal}
+    provider={selectedProviderForBooking}
+    currentUser={profileData}
+    onClose={() => {
+      setShowBookingModal(false);
+      setSelectedProviderForBooking(null);
+    }}
+    onConfirm={handleBookingConfirm}
+    serviceType={serviceType}
+    authToken={authToken || undefined}
+  />
+)}
       </main>
     </div>
   );
