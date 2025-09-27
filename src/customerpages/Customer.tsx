@@ -1,8 +1,6 @@
-// Customer.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowRight,
-  Sparkles, 
   MoreVertical
 } from 'lucide-react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
@@ -30,7 +28,8 @@ import {
   Service, 
   Provider as ProviderType, 
   LocationData,
-  ChatState
+  ChatState,
+  Message
 } from '../types';
 import { services } from '../data/mockData';
 
@@ -80,7 +79,7 @@ const CustomerContent: React.FC = () => {
     avatar: null
   });
 
-  const [chatState] = useState<ChatState>({
+  const [chatState, setChatState] = useState<ChatState>({
     conversations: [],
     activeConversation: null,
     messages: {}
@@ -91,103 +90,287 @@ const CustomerContent: React.FC = () => {
     0
   );
 
+  // Fetch conversations
+  const fetchConversations = async () => {
+    try {
+      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const transformedConversations = data.data.conversations.map((conv: any) => {
+            const otherParticipant = conv.participants.find((p: any) => p._id !== profileData.id);
+            return {
+              id: conv._id,
+              providerId: otherParticipant?._id,
+              providerName: otherParticipant?.name || 'Unknown Provider',
+              providerService: otherParticipant?.services?.[0] || 'Service Provider',
+              providerAvatar: otherParticipant?.profileImage || '',
+              isOnline: true,
+              unreadCount: 0,
+              lastMessage: conv.lastMessage ? {
+                id: conv.lastMessage._id,
+                senderId: conv.lastMessage.senderId._id,
+                content: conv.lastMessage.content,
+                timestamp: new Date(conv.lastMessage.timestamp),
+                status: conv.lastMessage.status
+              } : {
+                id: 'temp',
+                senderId: 'system',
+                content: 'No messages yet',
+                timestamp: new Date(),
+                status: 'sent'
+              }
+            };
+          });
+
+          setChatState(prev => ({
+            ...prev,
+            conversations: transformedConversations
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    }
+  };
+
+  // Fetch messages for a conversation
+  const fetchMessages = async (conversationId: string) => {
+    try {
+      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversation/${conversationId}?limit=100`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const transformedMessages = data.data.messages.map((msg: any) => ({
+            id: msg._id,
+            senderId: msg.senderId._id,
+            content: msg.content,
+            timestamp: new Date(msg.timestamp),
+            status: msg.status,
+            isMe: msg.senderId._id === profileData.id // Add isMe flag for alignment
+          }));
+
+          setChatState(prev => ({
+            ...prev,
+            messages: {
+              ...prev.messages,
+              [conversationId]: transformedMessages
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  // Send message function
+  const handleSendMessage = async (conversationId: string, content: string) => {
+    try {
+      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in to send messages');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          conversationId,
+          content,
+          messageType: 'text'
+        })
+      });
+
+      if (response.ok) {
+        await fetchMessages(conversationId);
+        await fetchConversations();
+      } else {
+        alert('Failed to send message');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('Error sending message');
+    }
+  };
+
+  // Start conversation function
+  const handleStartConversation = async (providerId: string) => {
+    try {
+      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in to message providers');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversation`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          participantId: providerId
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        await fetchConversations();
+        return result.data.conversation._id;
+      } else {
+        alert('Failed to start conversation: ' + result.message);
+        return null;
+      }
+    } catch (error) {
+      console.error('Error starting conversation:', error);
+      alert('Error starting conversation');
+      return null;
+    }
+  };
+
+  // Set active conversation and fetch its messages
+  const handleSetActiveConversation = async (conversationId: string) => {
+    setChatState(prev => ({
+      ...prev,
+      activeConversation: conversationId
+    }));
+    await fetchMessages(conversationId);
+  };
+
+  // Poll for new messages (simple real-time updates)
+  useEffect(() => {
+    if (chatState.activeConversation) {
+      const interval = setInterval(() => {
+        fetchMessages(chatState.activeConversation!);
+        fetchConversations();
+      }, 5000);
+
+      return () => clearInterval(interval);
+    }
+  }, [chatState.activeConversation]);
+
+  // Load conversations when user is authenticated
+  useEffect(() => {
+    if (authToken) {
+      fetchConversations();
+    }
+  }, [authToken]);
+
   const checkTokenValidity = async (token: string) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        return false;
+      }
+
+      return response.ok;
+    } catch (error) {
+      console.error('Token validation error:', error);
+      return false;
+    }
+  };
+
+  const handleAPICall = async (url: string, options: RequestInit = {}) => {
+    const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      navigate('/login');
+      throw new Error('Authentication required');
+    }
+
+    const response = await fetch(url, {
+      ...options,
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        ...options.headers,
       },
     });
 
     if (response.status === 401) {
-      return false;
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      setAuthToken(null);
+      navigate('/login');
+      throw new Error('Session expired');
     }
 
-    return response.ok;
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return false;
-  }
-};
-
-
-const handleAPICall = async (url: string, options: RequestInit = {}) => {
-  const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
-  
-  if (!token) {
-    navigate('/login');
-    throw new Error('Authentication required');
-  }
-
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (response.status === 401) {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('token');
-    setAuthToken(null);
-    navigate('/login');
-    throw new Error('Session expired');
-  }
-
-  return response;
-};
-
+    return response;
+  };
 
   useEffect(() => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  
-  const initializeApp = async () => {
-    if (token) {
-      const isValid = await checkTokenValidity(token);
-      if (isValid) {
-        setAuthToken(token);
-        await loadUserProfile(token);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    const initializeApp = async () => {
+      if (token) {
+        const isValid = await checkTokenValidity(token);
+        if (isValid) {
+          setAuthToken(token);
+          await loadUserProfile(token);
+          await fetchConversations();
+        } else {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
+        }
       } else {
-        // Redirect to login if token is invalid
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
         navigate('/login');
         return;
       }
-    } else {
-      // No token found, redirect to login
-      navigate('/login');
-      return;
-    }
 
-    const savedFavorites = localStorage.getItem('favorites');
-    if (savedFavorites) {
-      try {
-        setFavorites(JSON.parse(savedFavorites));
-      } catch (error) {
-        console.error('Error parsing favorites:', error);
+      const savedFavorites = localStorage.getItem('favorites');
+      if (savedFavorites) {
+        try {
+          setFavorites(JSON.parse(savedFavorites));
+        } catch (error) {
+          console.error('Error parsing favorites:', error);
+        }
       }
-    }
 
-    setActiveSearchQuery('');
-    setActiveLocationQuery('');
-    setSearchTrigger(prev => prev + 1);
-  };
+      setActiveSearchQuery('');
+      setActiveLocationQuery('');
+      setSearchTrigger(prev => prev + 1);
+    };
 
-  initializeApp();
-}, [navigate]);
-
+    initializeApp();
+  }, [navigate]);
 
   const loadUserProfile = async (token: string) => {
     try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -335,26 +518,25 @@ const handleAPICall = async (url: string, options: RequestInit = {}) => {
   };
 
   const handleToggleFavorite = async (providerId: string) => {
-  try {
-    const method = favorites.includes(providerId) ? 'DELETE' : 'POST';
-    const response = await handleAPICall(`${API_BASE_URL}/api/favorites/${providerId}`, {
-      method,
-    });
+    try {
+      const method = favorites.includes(providerId) ? 'DELETE' : 'POST';
+      const response = await handleAPICall(`${API_BASE_URL}/api/favorites/${providerId}`, {
+        method,
+      });
 
-    if (response.ok) {
-      const newFavorites = favorites.includes(providerId)
-        ? favorites.filter(id => id !== providerId)
-        : [...favorites, providerId];
-      
-      setFavorites(newFavorites);
-      localStorage.setItem('favorites', JSON.stringify(newFavorites));
+      if (response.ok) {
+        const newFavorites = favorites.includes(providerId)
+          ? favorites.filter(id => id !== providerId)
+          : [...favorites, providerId];
+        
+        setFavorites(newFavorites);
+        localStorage.setItem('favorites', JSON.stringify(newFavorites));
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert('Failed to update favorites. Please try again.');
     }
-  } catch (err) {
-    console.error('Error toggling favorite:', err);
-    alert('Failed to update favorites. Please try again.');
-  }
-};
-
+  };
 
   const handlePostJob = async (jobData: {
     serviceType: string;
@@ -437,28 +619,20 @@ const handleAPICall = async (url: string, options: RequestInit = {}) => {
 
   const handleProviderMessage = async (provider: ProviderType) => {
     try {
-      const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
+      const conversationId = await handleStartConversation(provider._id || provider.id);
       
-      if (!token) {
-        alert('Please log in to message providers');
-        return;
-      }
+      if (conversationId) {
+        setChatState(prev => ({
+          ...prev,
+          activeConversation: conversationId
+        }));
 
-      const response = await fetch(`${API_BASE_URL}/api/messages/conversation`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          participantIds: [profileData.id, provider._id || provider.id]
-        })
-      });
-
-      if (response.ok) {
-        navigate('/customer/messages');
-      } else {
-        alert('Failed to start conversation');
+        navigate('/customer/messages', { 
+          state: { 
+            activeConversation: conversationId,
+            provider: provider
+          } 
+        });
       }
     } catch (error) {
       console.error('Error starting conversation:', error);
@@ -602,9 +776,9 @@ const handleAPICall = async (url: string, options: RequestInit = {}) => {
             element={
               <MessagesPage
                 chatState={chatState}
-                onSendMessage={() => {}}
-                onStartConversation={() => {}}
-                onSetActiveConversation={() => {}}
+                onSendMessage={handleSendMessage}
+                onStartConversation={handleStartConversation}
+                onSetActiveConversation={handleSetActiveConversation}
               />
             } 
           />

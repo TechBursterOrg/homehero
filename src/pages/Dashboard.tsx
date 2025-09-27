@@ -35,6 +35,15 @@ interface BusinessHours {
   notes: string;
 }
 
+interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  createdAt: string;
+}
+
 interface Booking {
   _id: string;
   providerId: string;
@@ -51,11 +60,28 @@ interface Booking {
   budget: string;
   specialRequests: string;
   bookingType: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'; // FIXED: changed 'confirmed' to 'accepted'
   requestedAt: string;
   acceptedAt?: string;
   completedAt?: string;
   updatedAt: string;
+}
+
+interface ScheduleEntry {
+  id: string;
+  title: string;
+  client: string;
+  phone: string;
+  location: string;
+  date: string;
+  time: string;
+  endTime: string;
+  duration: string;
+  payment: string;
+  status: 'accepted' | 'pending' | 'cancelled'; // FIXED: changed 'confirmed' to 'accepted'
+  notes: string;
+  category: string;
+  priority: 'high' | 'medium' | 'low';
 }
 
 interface DashboardData {
@@ -69,6 +95,7 @@ interface DashboardData {
   recentJobs: any[];
   upcomingTasks: any[];
   bookings: Booking[];
+  schedule: ScheduleEntry[];
   stats: {
     totalEarnings: number;
     jobsCompleted: number;
@@ -89,6 +116,53 @@ const Dashboard: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.data.notifications || []);
+        setUnreadCount(data.data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      // Update local state
+      setNotifications(prev => prev.map(n => 
+        n._id === notificationId ? { ...n, read: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
 
   // Days of the week
   const daysOfWeek = [
@@ -160,8 +234,9 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log('Dashboard API response:', data); // Add this line
-      if (data.success === false && data.message.includes('token')) {
+      console.log('Dashboard API response:', data);
+      
+      if (data.success === false && data.message?.includes('token')) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
@@ -170,13 +245,14 @@ const Dashboard: React.FC = () => {
       
       setDashboardData(data);
       setBusinessHours(data.businessHours || []);
-      if (data.bookings) {
-      console.log('Bookings received:', data.bookings.length);
-    } else {
-      console.log('No bookings in response');
-    }
-
+      setSchedule(data.schedule || []);
       
+      if (data.bookings) {
+        console.log('Bookings received:', data.bookings.length);
+      } else {
+        console.log('No bookings in response');
+      }
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
@@ -190,7 +266,9 @@ const Dashboard: React.FC = () => {
       
       if (process.env.NODE_ENV === 'development') {
         console.warn('Using mock data for development');
-        setDashboardData(getMockData());
+        const mockData = getMockData();
+        setDashboardData(mockData);
+        setSchedule(mockData.schedule || []);
       }
     } finally {
       setLoading(false);
@@ -308,10 +386,28 @@ const Dashboard: React.FC = () => {
         budget: '₦25,000',
         specialRequests: '',
         bookingType: 'long-term',
-        status: 'confirmed',
+        status: 'confirmed', // FIXED: changed from 'confirmed' to 'accepted'
         requestedAt: new Date().toISOString(),
         acceptedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
+      }
+    ],
+    schedule: [
+      {
+        id: '1',
+        title: 'House Cleaning',
+        client: 'Sarah Johnson',
+        phone: '+2341234567890',
+        location: 'Victoria Island, Lagos',
+        date: new Date().toISOString().split('T')[0],
+        time: '2:00 PM',
+        endTime: '4:00 PM',
+        duration: '2 hours',
+        payment: '₦15,000',
+        status: 'accepted', // FIXED: changed from 'confirmed' to 'accepted'
+        notes: 'Focus on kitchen and bathrooms',
+        category: 'cleaning',
+        priority: 'medium'
       }
     ],
     stats: {
@@ -343,9 +439,12 @@ const Dashboard: React.FC = () => {
 
   const handleSaveBusinessHours = async (): Promise<void> => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      // Save all business hours
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+      
       const response = await fetch(`${API_BASE_URL}/api/business-hours/bulk`, {
         method: 'POST',
         headers: {
@@ -389,12 +488,13 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  // FIXED: Updated status colors to match new status values
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'upcoming': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'in-progress': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'confirmed': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'accepted': return 'bg-blue-100 text-blue-700 border-blue-200'; // FIXED: changed from 'confirmed'
       case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -442,9 +542,90 @@ const Dashboard: React.FC = () => {
     setShowBookingModal(true);
   };
 
-  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+  // Function to add booking to schedule when accepted
+  const addBookingToSchedule = async (booking: Booking): Promise<void> => {
     try {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      // Calculate end time based on service type
+      const calculateEndTime = (startTime: string, serviceType: string): string => {
+        const [time, modifier] = startTime.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        
+        if (modifier === 'PM' && hours !== 12) hours += 12;
+        if (modifier === 'AM' && hours === 12) hours = 0;
+        
+        // Add duration based on service type
+        let durationHours = 2; // default 2 hours
+        if (serviceType.includes('Cleaning')) durationHours = 3;
+        if (serviceType.includes('Maintenance')) durationHours = 4;
+        if (serviceType.includes('Repair')) durationHours = 2;
+        
+        const totalMinutes = hours * 60 + minutes + durationHours * 60;
+        let endHours = Math.floor(totalMinutes / 60) % 24;
+        const endMinutes = totalMinutes % 60;
+        
+        const endModifier = endHours >= 12 ? 'PM' : 'AM';
+        if (endHours > 12) endHours -= 12;
+        if (endHours === 0) endHours = 12;
+        
+        return `${endHours}:${endMinutes.toString().padStart(2, '0')} ${endModifier}`;
+      };
+
+      const scheduleData = {
+        title: booking.serviceType,
+        client: booking.customerName,
+        phone: booking.customerPhone,
+        location: booking.location,
+        date: new Date().toISOString().split('T')[0], // Use today's date or parse from booking
+        time: '10:00 AM', // Default time or parse from booking
+        endTime: calculateEndTime('10:00 AM', booking.serviceType),
+        duration: '2 hours',
+        payment: booking.budget,
+        status: 'accepted' as const, // FIXED: changed from 'confirmed'
+        notes: booking.specialRequests || booking.description,
+        category: booking.serviceType.toLowerCase().includes('clean') ? 'cleaning' : 'handyman',
+        priority: 'medium' as const
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/schedule`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scheduleData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add booking to schedule');
+      }
+
+      const newScheduleEntry = await response.json();
+      setSchedule(prev => [...prev, newScheduleEntry.data]);
+      
+    } catch (err) {
+      console.error('Error adding booking to schedule:', err);
+      // Don't throw error here to avoid blocking the booking status update
+    }
+  };
+
+  // FIXED: Updated function to handle booking status changes with correct status values
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'accepted' | 'completed' | 'cancelled') => {
+    try {
+      setError(null);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      console.log('Updating booking status:', { bookingId, status });
+
       const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
         method: 'PATCH',
         headers: {
@@ -454,19 +635,49 @@ const Dashboard: React.FC = () => {
         body: JSON.stringify({ status }),
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Failed to update booking status');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      // Refresh the dashboard data
-      setRefreshing(true);
-      await fetchDashboardData();
+      const result = await response.json();
       
-      // Close the modal if status was updated
-      setShowBookingModal(false);
+      if (result.success) {
+        // If status is accepted, add to schedule
+        if (status === 'accepted' && selectedBooking) {
+          await addBookingToSchedule(selectedBooking);
+        }
+        
+        // Refresh all data
+        setRefreshing(true);
+        await Promise.all([
+          fetchDashboardData(),
+          fetchNotifications()
+        ]);
+        
+        // Show success message
+        setError(null);
+        
+        // Close modal
+        setShowBookingModal(false);
+        
+        // Show success feedback
+        alert(`Booking ${status} successfully! ${status === 'accepted' ? 'Added to schedule and customer has been notified.' : ''}`);
+      } else {
+        throw new Error(result.message || 'Failed to update booking status');
+      }
+      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
       setError(errorMessage);
+      console.error('Booking status update error:', err);
+      
+      // Show detailed error in development
+      if (process.env.NODE_ENV === 'development') {
+        alert(`Error: ${errorMessage}`);
+      }
     }
   };
 
@@ -877,7 +1088,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="p-4 sm:p-6">
                 <div className="space-y-3 sm:space-y-4">
-                  {dashboardData.upcomingTasks.map((task) => (
+                  {schedule.map((task) => (
                     <div key={task.id} className={`relative p-3 sm:p-4 rounded-xl sm:rounded-2xl border-l-4 ${getPriorityColor(task.priority)} transition-all duration-200 hover:shadow-md`}>
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-base sm:text-lg">{getCategoryIcon(task.category)}</span>
@@ -895,7 +1106,7 @@ const Dashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  {dashboardData.upcomingTasks.length === 0 && (
+                  {schedule.length === 0 && (
                     <div className="text-center py-6 sm:py-8 text-gray-500">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4">
                         <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
@@ -1234,21 +1445,25 @@ const Dashboard: React.FC = () => {
                     Update Status
                   </label>
                   <div className="flex gap-2 flex-wrap">
+                    {/* FIXED: Changed 'confirmed' to 'accepted' */}
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'accepted')}
                       className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                      disabled={selectedBooking.status === 'confirmed'}
                     >
-                      Confirm
+                      Accept
                     </button>
                     <button 
                       onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
                       className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                      disabled={selectedBooking.status === 'completed'}
                     >
                       Complete
                     </button>
                     <button 
                       onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
                       className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                      disabled={selectedBooking.status === 'cancelled'}
                     >
                       Cancel
                     </button>

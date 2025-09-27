@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Phone, 
   MessageCircle, 
@@ -29,7 +29,7 @@ import {
   X,
   Navigation
 } from 'lucide-react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 // Unified Provider interface
 export interface Provider {
@@ -90,83 +90,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
-// Sample providers function for fallback
-const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
-  const sampleProviders: Provider[] = [
-    {
-      id: '1',
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      services: ['House Cleaning', 'Deep Cleaning'],
-      hourlyRate: 2500,
-      averageRating: 4.8,
-      city: 'Lagos',
-      state: 'Lagos',
-      country: 'Nigeria',
-      isAvailableNow: true,
-      experience: '5 years',
-      reviewCount: 127,
-      completedJobs: 234,
-      isVerified: true,
-      isTopRated: true,
-      responseTime: 'within 30 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
-    },
-    {
-      id: '2', 
-      name: 'Michael Adebayo',
-      email: 'michael@example.com',
-      services: ['Plumbing', 'Electrical'],
-      hourlyRate: 3500,
-      averageRating: 4.6,
-      city: 'Abuja',
-      state: 'FCT',
-      country: 'Nigeria',
-      isAvailableNow: false,
-      experience: '8 years',
-      reviewCount: 89,
-      completedJobs: 156,
-      isVerified: true,
-      isTopRated: false,
-      responseTime: 'within 2 hours',
-      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
-    },
-    {
-      id: '3',
-      name: 'Fatima Ibrahim',
-      email: 'fatima@example.com',
-      services: ['Painting', 'Interior Design'],
-      hourlyRate: 3000,
-      averageRating: 4.9,
-      city: 'Kano',
-      state: 'Kano',
-      country: 'Nigeria',
-      isAvailableNow: true,
-      experience: '6 years',
-      reviewCount: 156,
-      completedJobs: 289,
-      isVerified: true,
-      isTopRated: true,
-      responseTime: 'within 45 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
-    }
-  ];
-
-  return sampleProviders.filter(provider => {
-    const matchesLocation = !location || 
-      provider.city.toLowerCase().includes(location.toLowerCase()) ||
-      provider.state.toLowerCase().includes(location.toLowerCase());
-    
-    const matchesService = !searchQuery ||
-      provider.services.some(service => 
-        service.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    
-    return matchesLocation && matchesService;
-  });
-};
-
-const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
+const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   provider,
   serviceType,
   onBook,
@@ -179,7 +103,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
   const [showCallOptions, setShowCallOptions] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const callButtonRef = useRef<HTMLButtonElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -196,7 +119,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
 
   const providerPhone = phoneNumbers[provider.id] || provider.phoneNumber || '+234 000 000 0000';
 
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = useCallback(async () => {
     if (isFavoriting || !onToggleFavorite) return;
     
     setIsFavoriting(true);
@@ -207,9 +130,9 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
     } finally {
       setIsFavoriting(false);
     }
-  };
+  }, [isFavoriting, onToggleFavorite, provider.id]);
 
-  const renderStars = (rating: number) => {
+  const renderStars = useCallback((rating: number) => {
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
@@ -218,49 +141,25 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
         }`}
       />
     ));
-  };
+  }, []);
 
-  const handleMessageClick = async () => {
+  const handleMessageClick = useCallback(async () => {
+    if (!onMessage) return;
+    
     try {
-      // First, get or create a conversation with this provider
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/messages/conversation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          participantId: provider._id || provider.id
-        })
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Navigate to messages page with the conversation
-        navigate('/customer/messages', { 
-          state: { 
-            activeConversation: result.data.conversation._id,
-            provider: provider
-          } 
-        });
-      } else {
-        console.error('Failed to create conversation:', result.message);
-        alert('Failed to start conversation. Please try again.');
-      }
+      // Call the parent message handler
+      onMessage(provider);
     } catch (error) {
-      console.error('Error starting conversation:', error);
-      alert('Error starting conversation. Please try again.');
+      console.error('Error handling message click:', error);
     }
-  };
+  }, [onMessage, provider]);
 
-  const handleCallClick = (e: React.MouseEvent) => {
+  const handleCallClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowCallOptions(!showCallOptions);
-  };
+  }, [showCallOptions]);
 
-  const handlePhoneCall = () => {
+  const handlePhoneCall = useCallback(() => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const cleanPhoneNumber = providerPhone.replace(/\D/g, '');
     
@@ -270,9 +169,9 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
       window.open(`tel:${cleanPhoneNumber}`);
     }
     setShowCallOptions(false);
-  };
+  }, [providerPhone]);
 
-  const handleCopyNumber = async () => {
+  const handleCopyNumber = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(providerPhone);
       alert('Phone number copied to clipboard!');
@@ -280,28 +179,19 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
       console.log('Phone number:', providerPhone);
     }
     setShowCallOptions(false);
-  };
+  }, [providerPhone]);
 
-  const getInitials = (name: string) => {
+  const getInitials = useCallback((name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
-  };
+  }, []);
 
-  // Enhanced image handling
-  const getProfileImage = () => {
-    return provider.profileImage || provider.profilePicture || provider.avatar;
-  };
-
-  const handleImageError = () => {
-    setImageError(true);
-  };
-
-  // Format price range from hourlyRate
-  const formatPriceRange = (hourlyRate: number) => {
+  // Format price range from hourlyRate - FIXED
+  const formatPriceRange = useCallback((hourlyRate: number) => {
     if (!hourlyRate || hourlyRate === 0) return 'Contact for pricing';
     if (hourlyRate < 1000) return `₦${hourlyRate}`;
-    if (hourlyRate < 5000) return `₦${(hourlyRate/1000).toFixed(1)}k`;
-    return `₦${Math.round(hourlyRate/1000)}`;
-  };
+    if (hourlyRate < 1000000) return `₦${Math.round(hourlyRate/1000)}k`;
+    return `₦${(hourlyRate/1000000).toFixed(1)}M`;
+  }, []);
 
   // Calculate derived values with proper fallbacks
   const rating = provider.averageRating || provider.rating || 4.0;
@@ -311,28 +201,59 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
   const responseTime = provider.responseTime || 'Contact for availability';
   const locationText = provider.location || `${provider.city || ''}, ${provider.state || ''}`.trim() || 'Location not specified';
 
-  // Profile Avatar Component
-  const ProfileAvatar = ({ className }: { className: string }) => {
-    const profileImageUrl = getProfileImage();
+  // Profile Avatar Component - Fixed to handle backend URLs properly
+  const ProfileAvatar = useCallback(({ className }: { className: string }) => {
+    // Get the profile image URL from various possible fields
+    const profileImageUrl = provider.profileImage || provider.profilePicture || provider.avatar;
+    
+    // Convert relative URLs to full URLs for backend images
+    const getFullImageUrl = (url: string | undefined) => {
+      if (!url) return null;
+      // If it's already a full URL (starts with http), return as-is
+      if (url.startsWith('http')) return url;
+      // If it's a relative URL (starts with /), prepend the API base URL
+      if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
+      // Otherwise return as-is
+      return url;
+    };
+    
+    const fullImageUrl = getFullImageUrl(profileImageUrl);
     
     return (
-      <div className={`bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white font-bold shadow-xl transition-transform duration-300 group-hover:scale-110 overflow-hidden ${className}`}>
-        {profileImageUrl && !imageError ? (
+      <div className={`bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden relative ${className}`}>
+        {fullImageUrl ? (
           <img 
-            src={profileImageUrl}
+            src={fullImageUrl}
             alt={provider.name}
             className="w-full h-full object-cover"
-            onError={handleImageError}
-            loading="lazy"
+            onError={(e) => {
+              console.log('Image failed to load:', fullImageUrl);
+              // Hide the image and show initials
+              e.currentTarget.style.display = 'none';
+              const parent = e.currentTarget.parentElement;
+              if (parent) {
+                const fallback = parent.querySelector('.fallback-text');
+                if (fallback) {
+                  (fallback as HTMLElement).style.display = 'block';
+                }
+              }
+            }}
+            onLoad={() => {
+              console.log('Image loaded successfully:', fullImageUrl);
+            }}
           />
-        ) : (
-          <span className="text-white font-bold text-xl">
-            {getInitials(provider.name)}
-          </span>
-        )}
+        ) : null}
+        <span 
+          className={`fallback-text absolute inset-0 flex items-center justify-center text-white font-bold ${fullImageUrl ? 'hidden' : 'block'}`}
+          style={{ 
+            fontSize: className.includes('w-20') ? '1.5rem' : className.includes('w-16') ? '1.25rem' : '1rem'
+          }}
+        >
+          {provider.name.charAt(0)}
+        </span>
       </div>
     );
-  };
+  }, [provider.profileImage, provider.profilePicture, provider.avatar, provider.name]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -761,6 +682,81 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = ({
       }`}></div>
     </div>
   );
+});
+
+const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
+  const sampleProviders: Provider[] = [
+    {
+      id: '1',
+      name: 'Sarah Johnson',
+      email: 'sarah@example.com',
+      services: ['House Cleaning', 'Deep Cleaning'],
+      hourlyRate: 2500,
+      averageRating: 4.8,
+      city: 'Lagos',
+      state: 'Lagos',
+      country: 'Nigeria',
+      isAvailableNow: true,
+      experience: '5 years',
+      reviewCount: 127,
+      completedJobs: 234,
+      isVerified: true,
+      isTopRated: true,
+      responseTime: 'within 30 minutes',
+      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
+    },
+    {
+      id: '2', 
+      name: 'Michael Adebayo',
+      email: 'michael@example.com',
+      services: ['Plumbing', 'Electrical'],
+      hourlyRate: 3500,
+      averageRating: 4.6,
+      city: 'Abuja',
+      state: 'FCT',
+      country: 'Nigeria',
+      isAvailableNow: false,
+      experience: '8 years',
+      reviewCount: 89,
+      completedJobs: 156,
+      isVerified: true,
+      isTopRated: false,
+      responseTime: 'within 2 hours',
+      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
+    },
+    {
+      id: '3',
+      name: 'Fatima Ibrahim',
+      email: 'fatima@example.com',
+      services: ['Painting', 'Interior Design'],
+      hourlyRate: 3000,
+      averageRating: 4.9,
+      city: 'Kano',
+      state: 'Kano',
+      country: 'Nigeria',
+      isAvailableNow: true,
+      experience: '6 years',
+      reviewCount: 156,
+      completedJobs: 289,
+      isVerified: true,
+      isTopRated: true,
+      responseTime: 'within 45 minutes',
+      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
+    }
+  ];
+
+  return sampleProviders.filter(provider => {
+    const matchesLocation = !location || 
+      provider.city.toLowerCase().includes(location.toLowerCase()) ||
+      provider.state.toLowerCase().includes(location.toLowerCase());
+    
+    const matchesService = !searchQuery ||
+      provider.services.some(service => 
+        service.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    
+    return matchesLocation && matchesService;
+  });
 };
 
 const ProvidersList: React.FC<ProvidersListProps> = ({
@@ -787,259 +783,260 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
-  // Updated ProvidersList.tsx - Fix the fetchProviders function
-const fetchProviders = async () => {
-  try {
-    setError(null);
-    console.log('🚀 Starting provider fetch...');
-    console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
-    
-    // Build query parameters more carefully
-    const params = new URLSearchParams();
-    
-    // Only add non-empty search parameters
-    if (searchQuery?.trim()) {
-      params.append('service', searchQuery.trim());
-      console.log('🔍 Added service filter:', searchQuery.trim());
-    }
-    
-    if (location?.trim()) {
-      params.append('location', location.trim());
-      console.log('📍 Added location filter:', location.trim());
-    }
-    
-    // Always add these defaults
-    params.append('limit', '50'); // Increased limit to get more providers
-    
-    if (serviceType === 'immediate') {
-      params.append('availableNow', 'true');
-      console.log('⚡ Added immediate availability filter');
-    }
-    
-    const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
-    console.log('📡 Final API URL:', apiUrl);
-    
-    // Create fetch options
-    const fetchOptions: RequestInit = {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-    };
-
-    // Only add auth header if token exists
-    if (authToken?.trim()) {
-      fetchOptions.headers = {
-        ...fetchOptions.headers,
-        'Authorization': `Bearer ${authToken.trim()}`
-      };
-      console.log('🔐 Added auth token to request');
-    }
-
-    console.log('📤 Making fetch request with options:', fetchOptions);
-    
-    // Add timeout to the fetch
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
-    const response = await fetch(apiUrl, {
-      ...fetchOptions,
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    console.log('📥 Response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      url: response.url
-    });
-    
-    // Get raw response text first for debugging
-    const responseText = await response.text();
-    console.log('📄 Raw response text:', responseText);
-    
-    if (!response.ok) {
-      console.error('❌ API Error Response:', responseText);
-      throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
-    }
-    
-    // Parse JSON
-    let data;
+  // FIXED: Memoized fetchProviders function to prevent unnecessary re-renders
+  const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
     try {
-      data = JSON.parse(responseText);
-      console.log('📦 Parsed response data:', data);
-    } catch (parseError) {
-      console.error('❌ JSON Parse Error:', parseError);
-      console.error('📄 Problematic text:', responseText);
-      const errorMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON response';
-      throw new Error(`JSON Parse Error: ${errorMessage}`);
-    }
-    
-    // More robust data validation
-    if (!data) {
-      throw new Error('No data received from API');
-    }
+      setError(null);
+      console.log('🚀 Starting provider fetch...');
+      console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
+      
+      // Build query parameters more carefully
+      const params = new URLSearchParams();
+      
+      // Only add non-empty search parameters
+      if (searchQuery?.trim()) {
+        params.append('service', searchQuery.trim());
+        console.log('🔍 Added service filter:', searchQuery.trim());
+      }
+      
+      if (location?.trim()) {
+        params.append('location', location.trim());
+        console.log('📍 Added location filter:', location.trim());
+      }
+      
+      // Always add these defaults
+      params.append('limit', '50'); // Increased limit to get more providers
+      
+      if (serviceType === 'immediate') {
+        params.append('availableNow', 'true');
+        console.log('⚡ Added immediate availability filter');
+      }
+      
+      const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
+      console.log('📡 Final API URL:', apiUrl);
+      
+      // Create fetch options
+      const fetchOptions: RequestInit = {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      };
 
-    if (data.success === false) {
-      throw new Error(data.message || 'API returned success: false');
-    }
+      // Only add auth header if token exists
+      if (authToken?.trim()) {
+        fetchOptions.headers = {
+          ...fetchOptions.headers,
+          'Authorization': `Bearer ${authToken.trim()}`
+        };
+        console.log('🔐 Added auth token to request');
+      }
 
-    // Handle different possible response structures
-    let providersArray = [];
-    
-    if (data.data?.providers) {
-      providersArray = data.data.providers;
-      console.log('✅ Found providers in data.data.providers');
-    } else if (data.providers) {
-      providersArray = data.providers;
-      console.log('✅ Found providers in data.providers');
-    } else if (Array.isArray(data)) {
-      providersArray = data;
-      console.log('✅ Data itself is providers array');
-    } else if (Array.isArray(data.data)) {
-      providersArray = data.data;
-      console.log('✅ Found providers in data.data array');
-    } else {
-      console.log('❓ Unexpected response structure:', Object.keys(data));
-      console.log('📊 Full data object:', data);
-      // If we can't find providers in the expected structure, try to extract them
-      // from any array property in the response
-      for (const key in data) {
-        if (Array.isArray(data[key])) {
-          providersArray = data[key];
-          console.log(`✅ Found providers in data.${key}`);
-          break;
+      console.log('📤 Making fetch request with options:', fetchOptions);
+      
+      // Add timeout to the fetch
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      
+      const response = await fetch(apiUrl, {
+        ...fetchOptions,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('📥 Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url
+      });
+      
+      // Get raw response text first for debugging
+      const responseText = await response.text();
+      console.log('📄 Raw response text:', responseText);
+      
+      if (!response.ok) {
+        console.error('❌ API Error Response:', responseText);
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
+      }
+      
+      // Parse JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('📦 Parsed response data:', data);
+      } catch (parseError) {
+        console.error('❌ JSON Parse Error:', parseError);
+        console.error('📄 Problematic text:', responseText);
+        const errorMessage = parseError instanceof Error ? parseError.message : 'Failed to parse JSON response';
+        throw new Error(`JSON Parse Error: ${errorMessage}`);
+      }
+      
+      // More robust data validation
+      if (!data) {
+        throw new Error('No data received from API');
+      }
+
+      if (data.success === false) {
+        throw new Error(data.message || 'API returned success: false');
+      }
+
+      // Handle different possible response structures
+      let providersArray = [];
+      
+      if (data.data?.providers) {
+        providersArray = data.data.providers;
+        console.log('✅ Found providers in data.data.providers');
+      } else if (data.providers) {
+        providersArray = data.providers;
+        console.log('✅ Found providers in data.providers');
+      } else if (Array.isArray(data)) {
+        providersArray = data;
+        console.log('✅ Data itself is providers array');
+      } else if (Array.isArray(data.data)) {
+        providersArray = data.data;
+        console.log('✅ Found providers in data.data array');
+      } else {
+        console.log('❓ Unexpected response structure:', Object.keys(data));
+        console.log('📊 Full data object:', data);
+        // If we can't find providers in the expected structure, try to extract them
+        // from any array property in the response
+        for (const key in data) {
+          if (Array.isArray(data[key])) {
+            providersArray = data[key];
+            console.log(`✅ Found providers in data.${key}`);
+            break;
+          }
         }
       }
-    }
 
-    console.log('🔍 Extracted providers array length:', providersArray.length);
-    
-    if (!Array.isArray(providersArray)) {
-      console.error('❌ Providers data is not an array:', typeof providersArray, providersArray);
-      throw new Error('Invalid providers data format received');
-    }
-
-    console.log(`✅ Found ${providersArray.length} providers in API response`);
-    
-    // Transform providers to ensure consistent format
-    const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
-      console.log(`🔄 Transforming provider ${index + 1}:`, provider);
+      console.log('🔍 Extracted providers array length:', providersArray.length);
       
-      // Ensure services is always an array
-      let services: string[] = [];
-      if (Array.isArray(provider.services)) {
-        services = provider.services;
-      } else if (typeof provider.services === 'string') {
-        services = [provider.services];
-      } else if (provider.service) {
-        services = Array.isArray(provider.service) ? provider.service : [provider.service];
+      if (!Array.isArray(providersArray)) {
+        console.error('❌ Providers data is not an array:', typeof providersArray, providersArray);
+        throw new Error('Invalid providers data format received');
       }
+
+      console.log(`✅ Found ${providersArray.length} providers in API response`);
       
-      // Get location information from various possible fields
-      const city = provider.city || provider.locationData?.city || '';
-      const state = provider.state || provider.locationData?.state || '';
-      const country = provider.country || provider.locationData?.country || '';
+      // Transform providers to ensure consistent format
+      const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
+        console.log(`🔄 Transforming provider ${index + 1}:`, provider);
+        
+        // Ensure services is always an array
+        let services: string[] = [];
+        if (Array.isArray(provider.services)) {
+          services = provider.services;
+        } else if (typeof provider.services === 'string') {
+          services = [provider.services];
+        } else if (provider.service) {
+          services = Array.isArray(provider.service) ? provider.service : [provider.service];
+        }
+        
+        // Get location information from various possible fields
+        const city = provider.city || provider.locationData?.city || '';
+        const state = provider.state || provider.locationData?.state || '';
+        const country = provider.country || provider.locationData?.country || '';
+        
+        // Create location string for display
+        const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
+        const locationText = locationParts.join(', ') || 'Location not specified';
+        
+        const transformed: Provider = {
+          ...provider,
+          id: provider._id || provider.id || `provider-${index}`,
+          _id: provider._id || provider.id,
+          services: services,
+          name: provider.name || `Provider ${index + 1}`,
+          email: provider.email || `provider${index + 1}@example.com`,
+          hourlyRate: provider.hourlyRate || provider.rate || 0,
+          city: city,
+          state: state,
+          country: country,
+          location: locationText, // Add the formatted location
+          experience: provider.experience || '',
+          isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
+          // Enhanced profile image handling
+          profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
+          profilePicture: provider.profilePicture,
+          avatar: provider.avatar,
+          // Calculated fields with fallbacks
+          rating: provider.averageRating || provider.rating || 4.0,
+          reviewCount: provider.reviewCount || 0,
+          priceRange: provider.priceRange || '',
+          responseTime: provider.responseTime || 'Contact for availability',
+          completedJobs: provider.completedJobs || 0,
+          isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
+          isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
+          phoneNumber: provider.phoneNumber || provider.phone
+        };
+        
+        console.log(`✅ Transformed provider:`, transformed);
+        return transformed;
+      });
       
-      // Create location string for display
-      const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
-      const locationText = locationParts.join(', ') || 'Location not specified';
+      console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
+      setProviders(transformedProviders);
       
-      const transformed: Provider = {
-        ...provider,
-        id: provider._id || provider.id || `provider-${index}`,
-        _id: provider._id || provider.id,
-        services: services,
-        name: provider.name || `Provider ${index + 1}`,
-        email: provider.email || `provider${index + 1}@example.com`,
-        hourlyRate: provider.hourlyRate || provider.rate || 0,
-        city: city,
-        state: state,
-        country: country,
-        location: locationText, // Add the formatted location
-        experience: provider.experience || '',
-        isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
-        // Enhanced profile image handling
-        profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
-        profilePicture: provider.profilePicture,
-        avatar: provider.avatar,
-        // Calculated fields with fallbacks
-        rating: provider.averageRating || provider.rating || 4.0,
-        reviewCount: provider.reviewCount || 0,
-        priceRange: provider.priceRange || '',
-        responseTime: provider.responseTime || 'Contact for availability',
-        completedJobs: provider.completedJobs || 0,
-        isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
-        isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
-        phoneNumber: provider.phoneNumber || provider.phone
-      };
+    } catch (err: unknown) {
+      console.error('💥 Error in fetchProviders:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(errorMessage);
       
-      console.log(`✅ Transformed provider:`, transformed);
-      return transformed;
-    });
-    
-    console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
-    setProviders(transformedProviders);
-    
-  } catch (err: unknown) {
-    console.error('💥 Error in fetchProviders:', err);
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-    setError(errorMessage);
-    
-    // Only show sample data on explicit retry or if no real attempt was made
-    if (isRetrying) {
-      console.log('🔄 Fallback: Using sample data due to API error during retry');
-      setProviders(getSampleProviders(location, searchQuery));
-    } else {
-      console.log('❌ Setting empty providers array due to API error');
-      setProviders([]);
+      // Only show sample data on explicit retry or if no real attempt was made
+      if (shouldUseFallback) {
+        console.log('🔄 Fallback: Using sample data due to API error during retry');
+        setProviders(getSampleProviders(location, searchQuery));
+      } else {
+        console.log('❌ Setting empty providers array due to API error');
+        setProviders([]);
+      }
+    } finally {
+      setLoading(false);
+      setIsRetrying(false);
     }
-  } finally {
-    setLoading(false);
-    setIsRetrying(false);
-  }
-};
+  }, [serviceType, searchQuery, location, authToken]); // Removed isRetrying from dependencies
 
-
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     console.log('🔄 User triggered retry');
     setIsRetrying(true);
     setLoading(true);
     setError(null);
-    fetchProviders();
-  };
+    fetchProviders(true); // Pass true to indicate fallback should be used
+  }, [fetchProviders]);
 
-  const handleShowSampleData = () => {
+  const handleShowSampleData = useCallback(() => {
     console.log('📋 User requested sample data');
     setError(null);
     setProviders(getSampleProviders(location, searchQuery));
-  };
+  }, [location, searchQuery]);
 
-  // Sort providers
-  const sortedProviders = [...providers].sort((a, b) => {
-    const ratingA = a.averageRating || a.rating || 0;
-    const ratingB = b.averageRating || b.rating || 0;
-    
-    switch (sortBy) {
-      case 'rating':
-        return ratingB - ratingA;
-      case 'price':
-        return (a.hourlyRate || 0) - (b.hourlyRate || 0);
-      case 'distance':
-        return (a.distance || 0) - (b.distance || 0);
-      default:
-        return ratingB - ratingA;
-    }
-  });
+  // Sort providers - Memoized to prevent unnecessary recalculations
+  const sortedProviders = React.useMemo(() => {
+    return [...providers].sort((a, b) => {
+      const ratingA = a.averageRating || a.rating || 0;
+      const ratingB = b.averageRating || b.rating || 0;
+      
+      switch (sortBy) {
+        case 'rating':
+          return ratingB - ratingA;
+        case 'price':
+          return (a.hourlyRate || 0) - (b.hourlyRate || 0);
+        case 'distance':
+          return (a.distance || 0) - (b.distance || 0);
+        default:
+          return ratingB - ratingA;
+      }
+    });
+  }, [providers, sortBy]);
 
   useEffect(() => {
     console.log('🔄 useEffect triggered with:', { searchQuery, location, serviceType, authToken: !!authToken });
     setLoading(true);
-    fetchProviders();
-  }, [searchQuery, location, serviceType, authToken]);
+    fetchProviders(false); // Pass false for initial load (no fallback)
+  }, [fetchProviders]); // Only depend on the memoized function
 
   if (loading) {
     return (

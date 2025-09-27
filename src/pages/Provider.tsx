@@ -32,7 +32,7 @@ const getUserData = (): UserData | null => {
 const ProviderLayout: React.FC = () => {
   const [notifications, setNotifications] = useState<number>(3);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [userCountry, setUserCountry] = useState<'UK' | 'USA' | 'CANADA' | 'NIGERIA'>('USA'); // Default country
+  const [userCountry, setUserCountry] = useState<'UK' | 'USA' | 'CANADA' | 'NIGERIA'>('USA');
   const location = useLocation();
 
   // Get user data and country on component mount
@@ -76,12 +76,7 @@ const ProviderLayout: React.FC = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/schedule" element={<Schedule />} />
-            <Route path="/messages" element={
-              <Messages 
-                notifications={notifications} 
-                setNotifications={setNotifications} 
-              />
-            } />
+            <Route path="/messages" element={<Messages />} /> {/* Fixed: Removed invalid props */}
             <Route path="/earnings" element={<Earnings />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/profile" element={<Profile />} />
