@@ -57,7 +57,8 @@ const LoginPage = () => {
 
   // Country codes and validation
   const countryData = {
-    NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{11}$/ },
+      NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{10}$/ }, // ✅ Both expect 10 digits
+
     UK: { code: "+44", length: 10, pattern: /^[0-9]{10}$/ },
     USA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
     CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
@@ -212,51 +213,52 @@ const LoginPage = () => {
   };
 
   const completeSignup = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    // Final signup with verified phone number
+    const signupData = {
+      name: formData.name.trim(),
+      email: formData.email.toLowerCase().trim(),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword, // ADD THIS LINE
+      userType: formData.userType || 'customer',
+      country: formData.country || 'NIGERIA',
+      phoneNumber: verificationData.phoneNumber
+    };
+
+    console.log('📝 Completing signup:', signupData);
+
+    const result = await makeApiCall('signup', signupData);
+
+    if (result.success) {
+      setSuccessMessage("Account created successfully! Redirecting...");
       
-      // Final signup with verified phone number
-      const signupData = {
-        name: formData.name.trim(),
-        email: formData.email.toLowerCase().trim(),
-        password: formData.password,
-        userType: formData.userType || 'customer',
-        country: formData.country || 'NIGERIA',
-        phoneNumber: verificationData.phoneNumber
-      };
-
-      console.log('📝 Completing signup:', signupData);
-
-      const result = await makeApiCall('signup', signupData);
-
-      if (result.success) {
-        setSuccessMessage("Account created successfully! Redirecting...");
-        
-        // Store user data
-        if (result.data.token) {
-          localStorage.setItem('authToken', result.data.token);
-          console.log('🔐 Token stored');
-        }
-        
-        localStorage.setItem('userData', JSON.stringify(result.data.user));
-        
-        // Navigate based on userType
-        setTimeout(() => {
-          if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
-            navigate('/provider/dashboard');
-          } else {
-            navigate('/customer');
-          }
-        }, 2000);
+      // Store user data
+      if (result.data.token) {
+        localStorage.setItem('authToken', result.data.token);
+        console.log('🔐 Token stored');
       }
-    } catch (error: any) {
-      console.error('❌ Complete signup error:', error);
-      setError(error.message || "Failed to complete signup. Please try again.");
-    } finally {
-      setIsLoading(false);
+      
+      localStorage.setItem('userData', JSON.stringify(result.data.user));
+      
+      // Navigate based on userType
+      setTimeout(() => {
+        if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
+          navigate('/provider/dashboard');
+        } else {
+          navigate('/customer');
+        }
+      }, 2000);
     }
-  };
+  } catch (error: any) {
+    console.error('❌ Complete signup error:', error);
+    setError(error.message || "Failed to complete signup. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
