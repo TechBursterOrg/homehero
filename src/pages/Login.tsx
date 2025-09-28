@@ -57,7 +57,7 @@ const LoginPage = () => {
 
   // Country codes and validation
   const countryData = {
-    NIGERIA: { code: "+234", length: 11, pattern: /^[0-9]{11}$/ },
+    NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{11}$/ },
     UK: { code: "+44", length: 10, pattern: /^[0-9]{10}$/ },
     USA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
     CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
