@@ -43,7 +43,7 @@ const LoginPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    userType: "customer",
+    userType: "provider",
     country: "NIGERIA",
     phoneNumber: "",
   });
