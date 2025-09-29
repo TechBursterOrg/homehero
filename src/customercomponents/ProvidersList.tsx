@@ -1123,9 +1123,9 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
             : 'No providers available at the moment. The API returned an empty list.'
           }
         </p>
-        <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
+        {/* <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
           API: {API_BASE_URL}/api/providers
-        </p>
+        </p> */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={handleRetry}
@@ -1160,9 +1160,9 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               {searchQuery && location && ' '}
               {location && `in ${location}`}
             </p>
-            <p className="text-xs text-gray-400 font-mono">
+            {/* <p className="text-xs text-gray-400 font-mono">
               API: {API_BASE_URL}/api/providers
-            </p>
+            </p> */}
           </div>
 
           {/* Controls */}

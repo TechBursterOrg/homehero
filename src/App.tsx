@@ -5,6 +5,7 @@ import EmailVerificationPage from './pages/VerifyEmail';
 import CustomerPage from './customerpages/Customer';
 import Waitlist from './pages/Waitlist';
 import ProviderLayout from './pages/Provider';
+import CustomerLogin from './customerpages/Login';
 
 
 // Types
@@ -127,10 +128,18 @@ function App() {
           
           
           <Route 
-            path="/login" 
+            path="/providerLogin" 
             element={
               <PublicRoute>
                 <Login />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <CustomerLogin />
               </PublicRoute>
             } 
           />

@@ -451,7 +451,7 @@ const LoginPage = () => {
           </div>
 
           <div className="flex space-x-2">
-            {/* <button
+            <button
               onClick={testConnection}
               className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
@@ -462,7 +462,7 @@ const LoginPage = () => {
               className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             >
               Test Verification
-            </button> */}
+            </button>
           </div>
         </div>
 
@@ -480,9 +480,9 @@ const LoginPage = () => {
             </div>
 
             {/* API URL Display */}
-            {/* <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600 font-mono">
+            <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600 font-mono">
               API: {API_BASE_URL}
-            </div> */}
+            </div>
 
             {/* Step Indicator */}
             {!isLogin && (
@@ -801,8 +801,8 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      {/* <option value="customer">Customer</option> */}
-                      <option value="provider">Service Provider</option>
+                      <option value="customer">Customer</option>
+                      
                     </select>
                   </div>
 
