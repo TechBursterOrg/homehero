@@ -304,40 +304,40 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
   return (
     <div className="relative">
       <div className="relative">
-        <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Enter your location in Nigeria"
-          value={searchQuery}
-          onChange={handleInputChange}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          className="w-full pl-12 pr-20 py-3 bg-white/95 backdrop-blur-sm rounded-xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-blue-300 focus:outline-none focus:bg-white transition-all duration-200 border border-gray-200"
-        />
-        
-        {searchQuery && (
-          <button
-            onClick={handleClearLocation}
-            className="absolute right-12 top-3 p-1 text-gray-400 hover:text-red-600 transition-colors"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
-        )}
-        
-        <button
-          onClick={handleCurrentLocation}
-          disabled={isDetectingLocation}
-          className="absolute right-3 top-3 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-          title="Use current location"
-        >
-          {isDetectingLocation ? (
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Navigation className="w-5 h-5" />
-          )}
-        </button>
-      </div>
+  <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+  <input
+    ref={inputRef}
+    type="text"
+    placeholder="Enter your location in ..."
+    value={searchQuery}
+    onChange={handleInputChange}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+    className="w-full pl-14 sm:pl-16 pr-14 sm:pr-16 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 placeholder:text-center focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
+  />
+
+  {searchQuery && (
+    <button
+      onClick={handleClearLocation}
+      className="absolute right-12 top-6 p-1 text-gray-400 hover:text-red-600 transition-colors"
+    >
+      <XIcon className="w-4 h-4" />
+    </button>
+  )}
+
+  <button
+    onClick={handleCurrentLocation}
+    disabled={isDetectingLocation}
+    className="absolute right-3 top-3 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+    title="Use current location"
+  >
+    {isDetectingLocation ? (
+      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    ) : (
+      <Navigation className="w-5 h-5 mt-2" />
+    )}
+  </button>
+</div>
 
       {showSuggestions && suggestions.length > 0 && (
         <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-64 overflow-y-auto z-50">

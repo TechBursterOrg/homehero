@@ -130,17 +130,17 @@ function App() {
           <Route 
             path="/providerLogin" 
             element={
-              <PublicRoute>
+              
                 <Login />
-              </PublicRoute>
+              
             } 
           />
           <Route 
             path="/login" 
             element={
-              <PublicRoute>
+              
                 <CustomerLogin />
-              </PublicRoute>
+              
             } 
           />
           
