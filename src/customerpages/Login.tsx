@@ -422,8 +422,7 @@ const LoginPage = () => {
               </span>
             </h1>
             <p className="text-xl text-gray-600 leading-relaxed">
-              Connect with trusted service providers or start your journey as a
-              professional provider today.
+              Connect with trusted service providers today
             </p>
           </div>
 
