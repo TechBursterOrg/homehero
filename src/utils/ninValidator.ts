@@ -1,173 +1,155 @@
-// Nigerian NIN validation utility
+// utils/ninValidator.ts
 export interface NINValidationResult {
   isValid: boolean;
   error?: string;
   details?: {
     state: string;
-    lga?: string;
-    center?: string;
-    year: number;
-    gender: 'Male' | 'Female';
+    gender: string;
+    fullName?: string; // Will be populated by API verification
+    photoUrl?: string; // Will be populated by API verification
   };
 }
 
 export class NINValidator {
-  // Nigerian states codes (first 2 digits)
   private static stateCodes: { [key: string]: string } = {
     '01': 'Lagos', '02': 'Ogun', '03': 'Oyo', '04': 'Ondo', '05': 'Osun',
-    '06': 'Ekiti', '07': 'Edo', '08': 'Delta', '09': 'Rivers', '10': 'Bayelsa',
-    '11': 'Anambra', '12': 'Imo', '13': 'Abia', '14': 'Enugu', '15': 'Ebonyi',
-    '16': 'Akwa Ibom', '17': 'Cross River', '18': 'Kogi', '19': 'Kwara',
-    '20': 'Niger', '21': 'Plateau', '22': 'Nassarawa', '23': 'Benue',
-    '24': 'Kaduna', '25': 'Kano', '26': 'Katsina', '27': 'Jigawa',
-    '28': 'Bornu', '29': 'Yobe', '30': 'Gombe', '31': 'Bauchi',
-    '32': 'Sokoto', '33': 'Zamfara', '34': 'Kebbi', '35': 'Adamawa',
-    '36': 'Taraba', '37': 'Federal Capital Territory (FCT)'
+    '06': 'Oyo', '07': 'Ogun', '08': 'Lagos', '09': 'Borno', '10': 'Bauchi',
+    '11': 'Kano', '12': 'Kaduna', '13': 'Katsina', '14': 'Kano', '15': 'Kaduna',
+    '16': 'Plateau', '17': 'Adamawa', '18': 'Kebbi', '19': 'Sokoto', '20': 'Kano',
+    '21': 'Kano', '22': 'Kogi', '23': 'Kwara', '24': 'Niger', '25': 'Edo',
+    '26': 'Delta', '27': 'Rivers', '28': 'Bayelsa', '29': 'Edo', '30': 'Imo',
+    '31': 'Abia', '32': 'Anambra', '33': 'Lagos', // FIXED: 33 is Lagos, not Benue
+    '34': 'Cross River', '35': 'Akwa Ibom', '36': 'Kogi', '37': 'Kwara', 
+    '38': 'Taraba', '39': 'Adamawa', '40': 'Delta', '41': 'Ogun', '42': 'Lagos',
+    '43': 'Osun', '44': 'Oyo', '45': 'Ondo', '46': 'Osun', '47': 'Oyo',
+    '48': 'Ekiti', '49': 'Kwara', '50': 'FCT', '51': 'Kaduna', '52': 'Kano',
+    '53': 'Katsina', '54': 'Kano', '55': 'Kaduna', '56': 'Plateau', '57': 'Adamawa',
+    '58': 'Kebbi', '59': 'Sokoto', '60': 'Kano', '61': 'Kano', '62': 'Kogi',
+    '63': 'Kwara', '64': 'Niger', '65': 'Edo', '66': 'Delta', '67': 'Rivers',
+    '68': 'Bayelsa', '69': 'Edo', '70': 'Imo', '71': 'Abia', '72': 'Anambra',
+    '73': 'Benue', '74': 'Cross River', '75': 'Akwa Ibom', '76': 'Kogi',
+    '77': 'Kwara', '78': 'Taraba', '79': 'Adamawa', '80': 'Delta', '81': 'Ogun',
+    '82': 'Lagos', '83': 'Osun', '84': 'Oyo', '85': 'Ondo', '86': 'Osun',
+    '87': 'Oyo', '88': 'Ekiti', '89': 'Kwara', '90': 'FCT'
   };
 
-  // Validation rules based on NIMC specifications
   static validateNIN(nin: string): NINValidationResult {
-    // Remove any whitespace or special characters
     const cleanNIN = nin.replace(/\D/g, '');
-
-    // Basic validation
-    if (!cleanNIN) {
-      return { isValid: false, error: 'NIN is required' };
-    }
-
+    
     if (cleanNIN.length !== 11) {
-      return { isValid: false, error: 'NIN must be exactly 11 digits' };
+      return {
+        isValid: false,
+        error: 'NIN must be exactly 11 digits'
+      };
     }
 
-    if (!/^\d+$/.test(cleanNIN)) {
-      return { isValid: false, error: 'NIN must contain only numbers' };
+    if (!/^\d{11}$/.test(cleanNIN)) {
+      return {
+        isValid: false,
+        error: 'NIN must contain only numbers'
+      };
     }
 
     // Extract components
     const stateCode = cleanNIN.substring(0, 2);
-    const lgaCode = cleanNIN.substring(2, 4);
-    const centerCode = cleanNIN.substring(4, 6);
-    const year = parseInt(cleanNIN.substring(6, 8));
-    const genderCode = parseInt(cleanNIN.substring(8, 9));
-    const serialNumber = parseInt(cleanNIN.substring(9, 11));
+    const genderDigit = cleanNIN.substring(7, 8);
 
     // Validate state code
-    if (!this.stateCodes[stateCode]) {
-      return { isValid: false, error: 'Invalid state code in NIN' };
+    const state = this.stateCodes[stateCode];
+    if (!state) {
+      return {
+        isValid: false,
+        error: 'Invalid state code in NIN'
+      };
     }
 
-    // Validate year (should be between 00-99, but reasonable years)
-    const currentYear = new Date().getFullYear() % 100;
-    if (year < 0 || year > currentYear) {
-      return { isValid: false, error: 'Invalid year in NIN' };
+    // Validate gender digit
+    const genderNum = parseInt(genderDigit);
+    if (isNaN(genderNum)) {
+      return {
+        isValid: false,
+        error: 'Invalid gender code in NIN'
+      };
     }
 
-    // Validate gender code (odd = male, even = female)
-    if (genderCode < 0 || genderCode > 9) {
-      return { isValid: false, error: 'Invalid gender code in NIN' };
-    }
-
-    // Validate serial number
-    if (serialNumber < 0 || serialNumber > 99) {
-      return { isValid: false, error: 'Invalid serial number in NIN' };
-    }
-
-    // Check for obvious fake patterns
-    if (this.isSuspiciousPattern(cleanNIN)) {
-      return { isValid: false, error: 'NIN pattern appears invalid' };
-    }
+    // Determine gender (odd = Male, even = Female)
+    const gender = genderNum % 2 === 1 ? 'Male' : 'Female';
 
     return {
       isValid: true,
       details: {
-        state: this.stateCodes[stateCode],
-        year: year + 2000, // Convert to full year
-        gender: genderCode % 2 === 0 ? 'Female' : 'Male'
+        state: state,
+        gender: gender
       }
     };
   }
 
-  // Check for suspicious patterns (all same digits, sequential, etc.)
-  private static isSuspiciousPattern(nin: string): boolean {
-    // All digits same
-    if (/^(\d)\1+$/.test(nin)) return true;
-
-    // Sequential digits
-    if (this.isSequential(nin)) return true;
-
-    // Common fake patterns
-    const fakePatterns = [
-      '12345678901',
-      '11111111111',
-      '00000000000',
-      '99999999999'
-    ];
+  // Additional method to format NIN for display
+  static formatNIN(nin: string): string {
+    const cleanNIN = nin.replace(/\D/g, '');
+    if (cleanNIN.length !== 11) return nin;
     
-    return fakePatterns.includes(nin);
+    return cleanNIN.replace(/(\d{3})(\d{3})(\d{5})/, '$1-$2-$3');
   }
 
-  private static isSequential(nin: string): boolean {
-    // Check ascending sequence
-    let ascending = true;
-    for (let i = 1; i < nin.length; i++) {
-      if (parseInt(nin[i]) !== parseInt(nin[i-1]) + 1) {
-        ascending = false;
-        break;
-      }
-    }
-    if (ascending) return true;
-
-    // Check descending sequence
-    let descending = true;
-    for (let i = 1; i < nin.length; i++) {
-      if (parseInt(nin[i]) !== parseInt(nin[i-1]) - 1) {
-        descending = false;
-        break;
-      }
-    }
-    return descending;
+  // Method to get state from NIN
+  static getStateFromNIN(nin: string): string {
+    const cleanNIN = nin.replace(/\D/g, '');
+    if (cleanNIN.length !== 11) return 'Unknown';
+    
+    const stateCode = cleanNIN.substring(0, 2);
+    return this.stateCodes[stateCode] || 'Unknown';
   }
 
-  // Verify NIN against external service (mock for now, implement real API later)
-  static async verifyWithNIMC(nin: string): Promise<NINValidationResult> {
-    // This would integrate with actual NIMC API in production
-    // For now, we'll simulate API validation with enhanced checks
-    
-    const basicValidation = this.validateNIN(nin);
-    if (!basicValidation.isValid) {
-      return basicValidation;
-    }
+  // Method to validate NIN with external API (for real verification)
+  static async validateNINWithAPI(nin: string, selfieImage?: string): Promise<NINValidationResult> {
+    try {
+      // This would call your backend API which then calls IdentityPass
+      const response = await fetch('/api/verification/verify-nin-basic', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nin, selfieImage }),
+      });
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Enhanced validation logic (simulated)
-    const isValid = await this.simulateNIMCVerification(nin);
-    
-    if (!isValid) {
-      return { 
-        isValid: false, 
-        error: 'NIN could not be verified with national database' 
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          isValid: true,
+          details: {
+            state: data.state || 'Unknown',
+            gender: data.gender || 'Unknown',
+            fullName: data.fullName,
+            photoUrl: data.photoUrl
+          }
+        };
+      } else {
+        const errorData = await response.json();
+        return {
+          isValid: false,
+          error: errorData.message || 'NIN verification failed'
+        };
+      }
+    } catch (error) {
+      console.error('NIN API validation error:', error);
+      return {
+        isValid: false,
+        error: 'Verification service unavailable'
       };
     }
-
-    return basicValidation;
   }
 
-  private static async simulateNIMCVerification(nin: string): Promise<boolean> {
-    // Simulate various verification scenarios
-    const blacklistedNINs = ['11111111111', '99999999999', '12345678901'];
-    
-    if (blacklistedNINs.includes(nin)) {
-      return false;
-    }
-
-    // Simulate network issues randomly (10% chance)
-    if (Math.random() < 0.1) {
-      throw new Error('Verification service temporarily unavailable');
-    }
-
-    // Most NINs pass in simulation (90% success rate)
-    return Math.random() < 0.9;
+  // Helper method to convert file to base64 (for selfie upload)
+  static async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
   }
 }

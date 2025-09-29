@@ -20,6 +20,7 @@ import BookingsPage from './BookingsPage';
 import JobsPage from './JobsPage';
 import FavoritesPage from './FavoritesPage';
 import MessagesPage from './MessagesPage';
+import ProviderProfilePage from '../customercomponents/ProviderProfilePage';
 
 // Types and Data
 import { 
@@ -733,6 +734,7 @@ const CustomerContent: React.FC = () => {
             </div>
           } />
           <Route path="bookings" element={<BookingsPage />} />
+          <Route path="provider/:providerId" element={<ProviderProfilePage />} />
           <Route 
             path="jobs" 
             element={

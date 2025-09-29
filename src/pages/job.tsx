@@ -15,8 +15,7 @@ import {
   Mail,
   Clock as ClockIcon,
   AlertTriangle,
-  User,
-  MessageCircle
+  User
 } from 'lucide-react';
 import IdentityVerificationModal from './IdentityVerificationModal';
 
@@ -70,16 +69,9 @@ const JobDetailsModal: React.FC<{
 }> = ({ job, isOpen, onClose, onApply, userVerification }) => {
   if (!isOpen || !job) return null;
 
-  const [isApplying, setIsApplying] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
 
-  const handleApplyClick = async () => {
-    setIsApplying(true);
-    try {
-      await onApply(job._id);
-    } finally {
-      setIsApplying(false);
-    }
-  };
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -92,8 +84,8 @@ const JobDetailsModal: React.FC<{
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'accepted': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'accepted': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -126,7 +118,7 @@ const JobDetailsModal: React.FC<{
             <h2 className="text-xl font-semibold text-gray-900">{job.serviceType}</h2>
             <div className="flex items-center space-x-2 mt-1">
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(job.status)}`}>
-                {job.status === 'accepted' ? 'Assigned' : job.status}
+                {job.status}
               </span>
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(job.urgency)}`}>
                 {job.urgency === 'urgent' && <Zap className="w-3 h-3 mr-1" />}
@@ -237,21 +229,6 @@ const JobDetailsModal: React.FC<{
               </div>
             </div>
           )}
-
-          {/* Already Applied Notice */}
-          {job.status === 'accepted' && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-green-800 font-medium">Job Accepted</p>
-                  <p className="text-green-700 text-sm mt-1">
-                    You have successfully accepted this job. Contact the customer to arrange the service.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer Actions */}
@@ -265,31 +242,12 @@ const JobDetailsModal: React.FC<{
             </button>
             {job.status === 'pending' && (
               <button
-                onClick={handleApplyClick}
-                disabled={isApplying || !userVerification?.isNinVerified}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                onClick={() => onApply(job._id)}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
               >
-                {isApplying ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Applying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    {userVerification?.isNinVerified ? 'Accept Job' : 'Verify & Apply'}
-                  </>
-                )}
+                <CheckCircle className="w-5 h-5 mr-2" />
+                {userVerification?.isNinVerified ? 'Apply Now' : 'Verify & Apply'}
               </button>
-            )}
-            {job.status === 'accepted' && customerPhone && (
-              <a
-                href={`tel:${customerPhone}`}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
-              >
-                <Phone className="w-5 h-5 mr-2" />
-                Call Customer
-              </a>
             )}
           </div>
         </div>
@@ -318,7 +276,6 @@ const ProviderJobBoard: React.FC = () => {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
-  const [applyingJobs, setApplyingJobs] = useState<Set<string>>(new Set());
   
   // New state for job details modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -414,6 +371,7 @@ const ProviderJobBoard: React.FC = () => {
         console.log('User needs verification, opening modal');
         setSelectedJobId(jobId);
         setShowVerificationModal(true);
+        console.log('Modal should be open now. showVerificationModal:', showVerificationModal);
         return;
       }
 
@@ -427,8 +385,6 @@ const ProviderJobBoard: React.FC = () => {
 
   const applyForJob = async (jobId: string) => {
     try {
-      setApplyingJobs(prev => new Set(prev).add(jobId));
-      
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/apply`, {
@@ -442,32 +398,17 @@ const ProviderJobBoard: React.FC = () => {
         }),
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        // Update the local state to reflect the job is now accepted
-        setJobs(prevJobs => 
-          prevJobs.map(job => 
-            job._id === jobId 
-              ? { ...job, status: 'accepted', providerId: { _id: 'current-user', name: 'You', email: '' } }
-              : job
-          )
-        );
-        
-        setShowJobDetails(false);
-        alert('Successfully applied for the job! The customer has been notified.');
+        fetchJobs();
+        setShowJobDetails(false); // Close details modal after applying
+        alert('Successfully applied for the job!');
       } else {
-        throw new Error(data.message || 'Failed to apply for the job');
+        const errorData = await response.json();
+        alert(errorData.message || 'Failed to apply for the job');
       }
     } catch (error) {
       console.error('Apply error:', error);
-      alert(error instanceof Error ? error.message : 'Error applying for job');
-    } finally {
-      setApplyingJobs(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(jobId);
-        return newSet;
-      });
+      alert('Error applying for job');
     }
   };
 
@@ -500,6 +441,7 @@ const ProviderJobBoard: React.FC = () => {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type for FormData - browser will set it with boundary
         },
         body: formData,
       });
@@ -588,8 +530,8 @@ const ProviderJobBoard: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'accepted': return 'bg-green-100 text-green-800 border-green-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'accepted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -740,7 +682,6 @@ const ProviderJobBoard: React.FC = () => {
         ) : (
           jobs.map((job) => {
             const customerInfo = getCustomerInfo(job);
-            const isApplying = applyingJobs.has(job._id);
             
             return (
               <div key={job._id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
@@ -792,26 +733,16 @@ const ProviderJobBoard: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-col space-y-2">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(job.status)}`}>
-                      {job.status === 'accepted' ? 'Assigned to You' : job.status}
+                      {job.status}
                     </span>
                     
                     {job.status === 'pending' && (
                       <button
                         onClick={() => handleApply(job._id)}
-                        disabled={isApplying || !userVerification?.isNinVerified}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
                       >
-                        {isApplying ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Applying...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-5 h-5 mr-2" />
-                            {userVerification?.isNinVerified ? 'Accept Job' : 'Verify & Apply'}
-                          </>
-                        )}
+                        <CheckCircle className="w-5 h-5 mr-2" />
+                        Apply
                       </button>
                     )}
                     
@@ -820,15 +751,9 @@ const ProviderJobBoard: React.FC = () => {
                         <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors w-full">
                           Mark Complete
                         </button>
-                        {customerInfo.phoneNumber && (
-                          <a
-                            href={`tel:${customerInfo.phoneNumber}`}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full flex items-center justify-center"
-                          >
-                            <Phone className="w-4 h-4 mr-2" />
-                            Call Customer
-                          </a>
-                        )}
+                        <button className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors w-full">
+                          Message Customer
+                        </button>
                       </div>
                     )}
                     

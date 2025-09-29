@@ -26,6 +26,7 @@ import {
   FileText,
   Map,
   X,
+  Eye,
   Navigation
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -98,7 +99,6 @@ const usePrevious = <T,>(value: T): T | undefined => {
   });
   return ref.current;
 };
-
 const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   provider,
   serviceType,
@@ -128,7 +128,26 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
 
   const providerPhone = phoneNumbers[provider.id] || provider.phoneNumber || '+234 000 000 0000';
 
-  const handleToggleFavorite = useCallback(async () => {
+  // Handle card click to navigate to provider profile
+  const handleCardClick = useCallback(() => {
+    console.log('🔄 Card clicked, navigating to provider profile:', provider._id || provider.id);
+    // Navigate to provider profile page with provider ID
+    navigate(`/customer/provider/${provider._id || provider.id}`, { 
+      state: { provider } 
+    });
+  }, [navigate, provider]);
+
+  // Handle view profile button click
+  const handleViewProfile = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click when button is clicked
+    console.log('🔄 View Profile clicked, navigating to provider profile:', provider._id || provider.id);
+    navigate(`/customer/provider/${provider._id || provider.id}`, { 
+      state: { provider } 
+    });
+  }, [navigate, provider]);
+
+  const handleToggleFavorite = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (isFavoriting || !onToggleFavorite) return;
     
     setIsFavoriting(true);
@@ -152,7 +171,8 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     ));
   }, []);
 
-  const handleMessageClick = useCallback(async () => {
+  const handleMessageClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!onMessage) return;
     
     try {
@@ -168,7 +188,8 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     setShowCallOptions(!showCallOptions);
   }, [showCallOptions]);
 
-  const handlePhoneCall = useCallback(() => {
+  const handlePhoneCall = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const cleanPhoneNumber = providerPhone.replace(/\D/g, '');
     
@@ -180,7 +201,8 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     setShowCallOptions(false);
   }, [providerPhone]);
 
-  const handleCopyNumber = useCallback(async () => {
+  const handleCopyNumber = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(providerPhone);
       alert('Phone number copied to clipboard!');
@@ -229,7 +251,14 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     const fullImageUrl = getFullImageUrl(profileImageUrl);
     
     return (
-      <div className={`bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden relative ${className}`}>
+      <div 
+        className={`bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden relative ${className}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleViewProfile(e as any);
+        }}
+        style={{ cursor: 'pointer' }}
+      >
         {fullImageUrl ? (
           <img 
             src={fullImageUrl}
@@ -262,7 +291,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </span>
       </div>
     );
-  }, [provider.profileImage, provider.profilePicture, provider.avatar, provider.name]);
+  }, [provider.profileImage, provider.profilePicture, provider.avatar, provider.name, handleViewProfile]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -285,12 +314,23 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     };
   }, [showCallOptions]);
 
+  const handleBookClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onBook && onBook(provider);
+  }, [onBook, provider]);
+
+  const handleCallOptionClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCall && onCall(provider);
+  }, [onCall, provider]);
+
   if (viewMode === 'list') {
     return (
       <div 
-        className="group bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-4 sm:p-6 overflow-hidden relative"
+        className="group bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-4 sm:p-6 overflow-hidden relative cursor-pointer"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={handleCardClick}
       >
         <div className="flex flex-col sm:flex-row items-start gap-4">
           {/* Avatar */}
@@ -308,7 +348,10 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1">
                 {/* Header */}
-                <div className="flex items-center gap-2 mb-2">
+                <div 
+                  className="flex items-center gap-2 mb-2 cursor-pointer"
+                  onClick={handleViewProfile}
+                >
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                     {provider.name}
                   </h3>
@@ -410,6 +453,15 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
               
               {/* Action Buttons */}
               <div className="flex items-center gap-2">
+                {/* View Profile Button */}
+                <button 
+                  onClick={handleViewProfile}
+                  className="p-3 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105 group flex items-center gap-2"
+                >
+                  <Eye className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-medium">Profile</span>
+                </button>
+                
                 {onMessage && (
                   <button 
                     onClick={handleMessageClick}
@@ -435,11 +487,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                         className="absolute right-0 bottom-full mb-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-2xl shadow-2xl p-2 z-[200] min-w-48"
                       >
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onCall && onCall(provider);
-                          }}
+                          onClick={handleCallOptionClick}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                         >
                           <PhoneCall className="w-4 h-4 text-green-600" />
@@ -447,11 +495,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                         </button>
                         
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handlePhoneCall();
-                          }}
+                          onClick={handlePhoneCall}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                         >
                           <ExternalLink className="w-4 h-4 text-purple-600" />
@@ -459,11 +503,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                         </button>
                         
                         <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleCopyNumber();
-                          }}
+                          onClick={handleCopyNumber}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                         >
                           <Copy className="w-4 h-4 text-gray-600" />
@@ -476,7 +516,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 
                 {onBook && (
                   <button
-                    onClick={() => onBook && onBook(provider)}
+                    onClick={handleBookClick}
                     className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
                   >
                     <span className="group-hover:scale-110 inline-block transition-transform">
@@ -500,13 +540,17 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   // Grid View (Card Mode)
   return (
     <div 
-      className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative"
+      className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={handleCardClick}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer"
+          onClick={handleViewProfile}
+        >
           <div className="relative">
             <ProfileAvatar className="w-16 h-16" />
             {provider.isAvailableNow && serviceType === 'immediate' && (
@@ -610,6 +654,15 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </div>
         
         <div className="flex items-center gap-2">
+          {/* View Profile Button for Grid View */}
+          <button 
+            onClick={handleViewProfile}
+            className="p-2 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
+            title="View Profile"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          
           {onMessage && (
             <button 
               onClick={handleMessageClick}
@@ -635,11 +688,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   className="absolute right-0 bottom-full mb-2 bg-white/95 backdrop-blur-lg border border-gray-200 rounded-2xl shadow-2xl p-2 z-[200] min-w-48"
                 >
                   <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onCall && onCall(provider);
-                    }}
+                    onClick={handleCallOptionClick}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                   >
                     <PhoneCall className="w-4 h-4 text-green-600" />
@@ -647,11 +696,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   </button>
                   
                   <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePhoneCall();
-                    }}
+                    onClick={handlePhoneCall}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                   >
                     <ExternalLink className="w-4 h-4 text-purple-600" />
@@ -659,11 +704,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   </button>
                   
                   <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleCopyNumber();
-                    }}
+                    onClick={handleCopyNumber}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-xl flex items-center gap-2 transition-colors"
                   >
                     <Copy className="w-4 h-4 text-gray-600" />
@@ -676,7 +717,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
           
           {onBook && (
             <button
-              onClick={() => onBook && onBook(provider)}
+              onClick={handleBookClick}
               className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl text-sm"
             >
               {serviceType === 'immediate' ? 'Book' : 'Quote'}
@@ -692,6 +733,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     </div>
   );
 });
+
 
 const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
   const sampleProviders: Provider[] = [
