@@ -16,7 +16,6 @@ import {
   RefreshCw,
   ChevronDown,
   Filter,
-  SortAsc,
   Grid3X3,
   List,
   Zap,
@@ -73,6 +72,7 @@ interface ProvidersListProps {
   authToken?: string;
   currentUser?: any;
   favorites?: string[];
+  searchRadius?: number;
 }
 
 interface ProviderCardItemProps {
@@ -89,6 +89,15 @@ interface ProviderCardItemProps {
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
+
+// Custom hook to prevent duplicate API calls
+const usePrevious = <T,>(value: T): T | undefined => {
+  const ref = useRef<T>();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+};
 
 const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   provider,
@@ -768,7 +777,8 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   onCall,
   onToggleFavorite,
   authToken,
-  favorites = []
+  favorites = [],
+  searchRadius
 }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -778,13 +788,29 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('rating');
   const [showFilters, setShowFilters] = useState(false);
 
-  // FIXED: Use consistent API base URL with environment detection
-  const API_BASE_URL = process.env.NODE_ENV === 'production' 
-    ? "https://backendhomeheroes.onrender.com" 
-    : "http://localhost:3001";
+  // FIXED: Use ref to track previous parameters and prevent duplicate API calls
+  const prevParamsRef = useRef<string>('');
+  const isInitialMountRef = useRef(true);
 
-  // FIXED: Memoized fetchProviders function to prevent unnecessary re-renders
+  // FIXED: Memoized fetchProviders function with duplicate prevention
   const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
+    // Create a unique key for current parameters to prevent duplicate calls
+    const currentParams = JSON.stringify({ 
+      serviceType, 
+      searchQuery, 
+      location, 
+      searchRadius,
+      timestamp: Date.now() // Add timestamp to ensure uniqueness
+    });
+    
+    // Skip if this is the exact same call as before
+    if (currentParams === prevParamsRef.current && !shouldUseFallback) {
+      console.log('🔄 Skipping duplicate API call with same parameters');
+      return;
+    }
+    
+    prevParamsRef.current = currentParams;
+    
     try {
       setError(null);
       console.log('🚀 Starting provider fetch...');
@@ -997,7 +1023,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [serviceType, searchQuery, location, authToken]); // Removed isRetrying from dependencies
+  }, [serviceType, searchQuery, location, authToken, searchRadius]);
 
   const handleRetry = useCallback(() => {
     console.log('🔄 User triggered retry');
@@ -1032,11 +1058,24 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     });
   }, [providers, sortBy]);
 
+  // FIXED: useEffect with proper dependency handling and duplicate prevention
   useEffect(() => {
+    // Skip initial mount in development due to React.StrictMode double mounting
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+    
     console.log('🔄 useEffect triggered with:', { searchQuery, location, serviceType, authToken: !!authToken });
     setLoading(true);
     fetchProviders(false); // Pass false for initial load (no fallback)
   }, [fetchProviders]); // Only depend on the memoized function
+
+  // Initial load effect
+  useEffect(() => {
+    setLoading(true);
+    fetchProviders(false);
+  }, []); // Empty dependency array for initial load only
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowRight,
   MoreVertical
@@ -42,14 +42,17 @@ interface ExtendedUserProfile extends UserProfile {
 }
 
 const CustomerContent: React.FC = () => {
-  // State for search parameters
+  // State for search parameters (typing state)
   const [searchQuery, setSearchQuery] = useState('');
   const [currentLocationAddress, setCurrentLocationAddress] = useState('');
   
-  // Active search parameters that trigger provider list updates
-  const [activeSearchQuery, setActiveSearchQuery] = useState('');
-  const [activeLocationQuery, setActiveLocationQuery] = useState('');
-  const [searchTrigger, setSearchTrigger] = useState(0);
+  // Search execution state - only updated when actual search is performed
+  const [searchParams, setSearchParams] = useState({
+    query: '',
+    location: '',
+    serviceType: 'immediate' as ServiceType,
+    searchRadius: 10
+  });
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [serviceType, setServiceType] = useState<ServiceType>('immediate');
@@ -354,10 +357,6 @@ const CustomerContent: React.FC = () => {
           console.error('Error parsing favorites:', error);
         }
       }
-
-      setActiveSearchQuery('');
-      setActiveLocationQuery('');
-      setSearchTrigger(prev => prev + 1);
     };
 
     initializeApp();
@@ -420,33 +419,28 @@ const CustomerContent: React.FC = () => {
 
   const handleServiceClick = (service: Service) => {
     setSearchQuery(service.name);
-    setActiveSearchQuery(service.name);
-    setSearchTrigger(prev => prev + 1);
-    
-    if (providersRef.current) {
-      const yOffset = -100;
-      const element = providersRef.current;
-      const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-      
-      window.scrollTo({
-        top: y,
-        behavior: 'smooth'
-      });
-    }
+    // Trigger search immediately when service is clicked
+    handleSearch(service.name, currentLocationAddress, serviceType);
   };
 
   const handleLocationChange = (location: LocationData) => {
     setCurrentLocationAddress(location.address);
-    setActiveLocationQuery(location.address);
     setUserLocation(location.coordinates);
-    setSearchTrigger(prev => prev + 1);
   };
 
-  const handleSearch = (query: string, location: string, serviceType: 'immediate' | 'long-term') => {
-    setActiveSearchQuery(query || '');
-    setActiveLocationQuery(location || '');
-    setServiceType(serviceType);
-    setSearchTrigger(prev => prev + 1);
+  // FIXED: Search function that only updates searchParams when actual search is performed
+  const handleSearch = useCallback((query: string, location: string, searchServiceType: 'immediate' | 'long-term') => {
+    console.log('🔄 Performing search with:', { query, location, searchServiceType });
+    
+    // Update search params - this will trigger ProvidersList to fetch new data
+    setSearchParams({
+      query: query || '',
+      location: location || '',
+      serviceType: searchServiceType,
+      searchRadius: searchRadius
+    });
+    
+    setServiceType(searchServiceType);
     
     if (providersRef.current) {
       const yOffset = -100;
@@ -458,17 +452,23 @@ const CustomerContent: React.FC = () => {
         behavior: 'smooth'
       });
     }
-  };
+  }, [searchRadius]);
 
-  const handleServiceTypeChange = (type: 'immediate' | 'long-term') => {
+  // FIXED: Service type change should trigger search
+  const handleServiceTypeChange = useCallback((type: 'immediate' | 'long-term') => {
+    console.log('🔄 Service type changed to:', type);
     setServiceType(type);
+    // Trigger search with current values when service type changes
     handleSearch(searchQuery, currentLocationAddress, type);
-  };
+  }, [searchQuery, currentLocationAddress, handleSearch]);
 
-  const handleSearchRadiusChange = (radius: number) => {
+  // FIXED: Search radius change should trigger search
+  const handleSearchRadiusChange = useCallback((radius: number) => {
+    console.log('🔄 Search radius changed to:', radius);
     setSearchRadius(radius);
-    setSearchTrigger(prev => prev + 1);
-  };
+    // Trigger search with current values when radius changes
+    handleSearch(searchQuery, currentLocationAddress, serviceType);
+  }, [searchQuery, currentLocationAddress, serviceType, handleSearch]);
 
   const handleProviderBook = (provider: ProviderType) => {
     const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -581,7 +581,8 @@ const CustomerContent: React.FC = () => {
         alert('Job posted successfully!');
         setSearchQuery('');
         setShowPostJob(false);
-        setSearchTrigger(prev => prev + 1);
+        // Trigger search to refresh providers
+        handleSearch('', currentLocationAddress, serviceType);
       } else {
         alert('Failed to post job: ' + data.message);
       }
@@ -640,87 +641,6 @@ const CustomerContent: React.FC = () => {
     }
   };
 
-  const HomePage = () => (
-    <div className="space-y-8">
-      <HeroSection
-        serviceType={serviceType}
-        setServiceType={handleServiceTypeChange}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        onLocationChange={handleLocationChange}
-        currentLocation={currentLocationAddress}
-        onSearch={handleSearch}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        searchRadius={searchRadius}
-        onSearchRadiusChange={handleSearchRadiusChange}
-        onPostJob={() => setShowPostJob(true)}
-      />
-
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {serviceType === 'immediate' ? 'Available Now' : 'Popular Services'}
-          </h2>
-          <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium transition-colors">
-            <span>View all</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((service) => (
-            <ServiceCard
-              key={service.id}
-              service={service}
-              serviceType={serviceType}
-              onClick={handleServiceClick}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div ref={providersRef} className="space-y-6" id="providers-section">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">
-            {serviceType === 'immediate' ? 'Available Providers' : 'Top Rated Providers'}
-          </h2>
-          <div className="flex items-center space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              <MoreVertical className="w-4 h-4" />
-              <span>Filter</span>
-            </button>
-          </div>
-        </div>
-
-        {viewMode === 'map' ? (
-          <MapView
-            providers={[]}
-            userLocation={userLocation}
-            selectedProvider={selectedProvider}
-            onProviderSelect={handleProviderSelect}
-            onBook={handleProviderBook}
-            searchRadius={searchRadius}
-          />
-        ) : (
-          <ProvidersList
-            key={`${searchTrigger}-${activeSearchQuery}-${activeLocationQuery}-${serviceType}-${searchRadius}`}
-            serviceType={serviceType}
-            searchQuery={activeSearchQuery}
-            location={activeLocationQuery}
-            onBook={handleProviderBook}
-            onMessage={handleProviderMessage}
-            onCall={handleProviderCall}
-            onToggleFavorite={handleToggleFavorite}
-            authToken={authToken || undefined}
-            currentUser={profileData}
-            favorites={favorites}
-          />
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header
@@ -732,7 +652,86 @@ const CustomerContent: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
-          <Route index element={<HomePage />} />
+          <Route index element={
+            <div className="space-y-8">
+              <HeroSection
+                serviceType={serviceType}
+                setServiceType={handleServiceTypeChange}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onLocationChange={handleLocationChange}
+                currentLocation={currentLocationAddress}
+                onSearch={handleSearch}
+                viewMode={viewMode}
+                onViewModeChange={setViewMode}
+                searchRadius={searchRadius}
+                onSearchRadiusChange={handleSearchRadiusChange}
+                onPostJob={() => setShowPostJob(true)}
+              />
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {serviceType === 'immediate' ? 'Available Now' : 'Popular Services'}
+                  </h2>
+                  <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium transition-colors">
+                    <span>View all</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {services.map((service) => (
+                    <ServiceCard
+                      key={service.id}
+                      service={service}
+                      serviceType={serviceType}
+                      onClick={handleServiceClick}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div ref={providersRef} className="space-y-6" id="providers-section">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {serviceType === 'immediate' ? 'Available Providers' : 'Top Rated Providers'}
+                  </h2>
+                  <div className="flex items-center space-x-3">
+                    <button className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                      <MoreVertical className="w-4 h-4" />
+                      <span>Filter</span>
+                    </button>
+                  </div>
+                </div>
+
+                {viewMode === 'map' ? (
+                  <MapView
+                    providers={[]}
+                    userLocation={userLocation}
+                    selectedProvider={selectedProvider}
+                    onProviderSelect={handleProviderSelect}
+                    onBook={handleProviderBook}
+                    searchRadius={searchRadius}
+                  />
+                ) : (
+                  <ProvidersList
+                    serviceType={searchParams.serviceType}
+                    searchQuery={searchParams.query}
+                    location={searchParams.location}
+                    onBook={handleProviderBook}
+                    onMessage={handleProviderMessage}
+                    onCall={handleProviderCall}
+                    onToggleFavorite={handleToggleFavorite}
+                    authToken={authToken || undefined}
+                    currentUser={profileData}
+                    favorites={favorites}
+                    searchRadius={searchParams.searchRadius}
+                  />
+                )}
+              </div>
+            </div>
+          } />
           <Route path="bookings" element={<BookingsPage />} />
           <Route 
             path="jobs" 
