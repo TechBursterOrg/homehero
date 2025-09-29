@@ -72,6 +72,25 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [currentLocationAddress, setCurrentLocationAddress] = useState("");
+  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Use refs for values that change frequently but shouldn't trigger re-renders
+  const searchQueryRef = useRef(searchQuery);
+  const currentLocationRef = useRef(currentLocation);
+  const serviceTypeRef = useRef(serviceType);
+
+  // Update refs when props change
+  useEffect(() => {
+    searchQueryRef.current = searchQuery;
+  }, [searchQuery]);
+
+  useEffect(() => {
+    currentLocationRef.current = currentLocation;
+  }, [currentLocation]);
+
+  useEffect(() => {
+    serviceTypeRef.current = serviceType;
+  }, [serviceType]);
 
   // Fetch service suggestions when search query changes
   useEffect(() => {
@@ -99,25 +118,23 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
-  // Handle search input key press (Enter key)
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Enhanced search handler
+  // FIXED: Stable search handler with no dependencies
   const handleSearch = useCallback(() => {
     setShowServiceSuggestions(false);
     
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
     // If both inputs are empty, show all providers
-    if (!searchQuery.trim() && !currentLocation.trim()) {
+    if (!searchQueryRef.current.trim() && !currentLocationRef.current.trim()) {
       setSearchQuery('');
       setCurrentLocationAddress('');
     }
     
-    // Call the onSearch callback with all necessary parameters
-    onSearch(searchQuery, currentLocation, serviceType);
+    // Call the onSearch callback with current ref values
+    onSearch(searchQueryRef.current, currentLocationRef.current, serviceTypeRef.current);
     
     // Scroll to providers section
     setTimeout(() => {
@@ -129,14 +146,36 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         });
       }
     }, 100);
-  }, [onSearch, searchQuery, currentLocation, serviceType]);
+  }, [onSearch, setSearchQuery]); // Only depend on stable functions
+
+  // FIXED: Handle search input key press (Enter key) - only triggers on Enter
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Prevent form submission behavior
+      handleSearch();
+    }
+  };
+
+  // FIXED: Handle input change without triggering search
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    // Only show suggestions, don't trigger search
+    if (value.length > 2) {
+      setShowServiceSuggestions(true);
+    } else {
+      setShowServiceSuggestions(false);
+    }
+  };
 
   // Handle service suggestion click
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = useCallback((suggestion: string) => {
     setSearchQuery(suggestion);
     setShowServiceSuggestions(false);
+    // FIXED: Only trigger search when suggestion is clicked
     handleSearch();
-  };
+  }, [handleSearch, setSearchQuery]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -149,6 +188,15 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // FIXED: Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -255,7 +303,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                     type="text"
                     placeholder={serviceType === 'immediate' ? "What do you need help with right now?" : "Describe your project..."}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={handleInputChange} // FIXED: Use the new handler
                     onKeyPress={handleKeyPress}
                     onFocus={() => searchQuery.length > 2 && setShowServiceSuggestions(true)}
                     className="w-full pl-14 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"

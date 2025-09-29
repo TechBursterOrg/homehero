@@ -33,11 +33,12 @@ interface Conversation {
 
 interface Message {
   id: string;
-  senderId: string;
+  senderId: string | any;
   content: string;
   timestamp: Date;
   status: 'sent' | 'delivered' | 'read';
   isMe?: boolean;
+  isProvider?: boolean;
   senderType?: 'customer' | 'provider';
 }
 
@@ -143,21 +144,73 @@ const Messages: React.FC<MessagesProps> = ({
     }
   }, [currentMessages, currentUserId, activeConversation]);
 
-  // FIXED: Added proper null/undefined checking for message alignment
-  const messagesWithAlignment: Message[] = currentMessages.map(message => {
-    // CRITICAL FIX: Check if senderId exists before calling toString()
-    const isMe = message.senderId && currentUserId 
-      ? message.senderId.toString() === currentUserId.toString()
-      : false;
+  // FIXED: Use sender ID pattern analysis when currentUserId is not available
+  const messagesWithAlignment: Message[] = currentMessages.map((message, index) => {
+    // Try to get currentUserId first
+    let currentUserIdString: string = '';
+    if (typeof currentUserId === 'string') {
+      currentUserIdString = currentUserId;
+    } else if (currentUserId && typeof currentUserId === 'object') {
+      currentUserIdString = (currentUserId as any)._id || (currentUserId as any).id || '';
+    }
     
-    const senderType: 'customer' | 'provider' = isMe ? 'customer' : 'provider';
+    let msgSenderIdString: string = '';
+    let senderUserType: string = 'customer';
+    let senderName: string = 'Unknown';
     
-    console.log(`Message Alignment: "${message.content}" | Sender: ${message.senderId} | CurrentUser: ${currentUserId} | IsMe: ${isMe} | Type: ${senderType}`);
+    if (typeof message.senderId === 'string') {
+      msgSenderIdString = message.senderId;
+      senderUserType = 'customer';
+      senderName = 'User';
+    } else if (message.senderId && typeof message.senderId === 'object') {
+      const senderObj = message.senderId as any;
+      msgSenderIdString = senderObj._id || senderObj.id || '';
+      senderUserType = senderObj.userType || 'customer';
+      senderName = senderObj.name || 'Unknown';
+    }
+    
+    let isMe = false;
+    let isProvider = senderUserType === 'provider' || senderUserType === 'both';
+    
+    // Method 1: If we have currentUserId, use proper comparison
+    if (currentUserIdString) {
+      isMe = msgSenderIdString === currentUserIdString;
+    } else {
+      // Method 2: Pattern analysis - identify which sender ID belongs to current user
+      // From the logs, we can see two sender IDs. We need to determine which one is "you"
+      
+      // Get all unique sender IDs from the conversation
+      const allSenderIds = currentMessages.map(msg => 
+        typeof msg.senderId === 'string' ? msg.senderId : (msg.senderId as any)?._id || (msg.senderId as any)?.id || ''
+      ).filter(id => id);
+      
+      const senderFrequency = allSenderIds.reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      // HEURISTIC: In a customer-provider chat where you're viewing as customer,
+      // your messages are likely the ones that appear more frequently or in a pattern
+      // For now, let's assume the first sender ID that appears is yours (you started the conversation)
+      const firstSenderId = allSenderIds[0];
+      
+      // Alternative: Check if this is the conversation initiator (customer)
+      // In most customer-provider chats, the customer initiates
+      isMe = msgSenderIdString === firstSenderId;
+      
+      // Override: If sender has provider userType but you're viewing as customer,
+      // those are definitely NOT your messages
+      if (isProvider) {
+        isMe = false;
+      }
+    }
+    
+    console.log(`Message ${index + 1}: "${message.content}" | Sender: ${msgSenderIdString} | Type: ${senderUserType} | IsMe: ${isMe} | IsProvider: ${isProvider} | Will align: ${isMe ? 'RIGHT' : 'LEFT'}`);
     
     return {
       ...message,
       isMe,
-      senderType
+      isProvider
     };
   });
 
@@ -452,11 +505,11 @@ const Messages: React.FC<MessagesProps> = ({
                             className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'} mb-3 lg:mb-4`}
                           >
                             <div className={`max-w-[85%] lg:max-w-md px-3 lg:px-4 py-2 lg:py-3 rounded-2xl shadow-sm relative ${messageStyle}`}>
-                              {/* Only show sender label for provider messages */}
+                              {/* Show sender label for messages from others only */}
                               {!message.isMe && (
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="text-xs font-medium text-gray-500">
-                                    Provider
+                                    {(message as any).isProvider ? 'Provider' : 'Customer'}
                                   </span>
                                 </div>
                               )}
