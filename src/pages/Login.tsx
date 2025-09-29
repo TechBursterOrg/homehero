@@ -649,7 +649,7 @@ const LoginPage = () => {
                       Phone Number
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                      
                       <div className="flex">
                         <div className="flex items-center px-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50">
                           <span className="text-gray-600 text-sm">{getCurrentCountryCode()}</span>
