@@ -60,16 +60,59 @@ const Messages: React.FC<MessagesProps> = ({
   const [messageInput, setMessageInput] = useState('');
   const [showMobileConversation, setShowMobileConversation] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'online'>('all');
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lastMessageCountRef = useRef<number>(0);
 
-  // Auto-scroll to bottom when new messages arrive
+  // FIXED: Improved auto-scroll logic
   useEffect(() => {
-    scrollToBottom();
-  }, [chatState.messages, chatState.activeConversation]);
+    const currentMessages = chatState.activeConversation 
+      ? chatState.messages[chatState.activeConversation] || []
+      : [];
+    
+    const currentMessageCount = currentMessages.length;
+    
+    // Only auto-scroll if:
+    // 1. User is not manually scrolling
+    // 2. New messages were added (not just conversation change)
+    // 3. Or it's a new conversation
+    const hasNewMessages = currentMessageCount > lastMessageCountRef.current;
+    const isNewConversation = lastMessageCountRef.current === 0 && currentMessageCount > 0;
+    
+    if (!isUserScrolling && (hasNewMessages || isNewConversation)) {
+      scrollToBottom();
+    }
+    
+    lastMessageCountRef.current = currentMessageCount;
+  }, [chatState.messages, chatState.activeConversation, isUserScrolling]);
+
+  // FIXED: Handle scroll events to detect user interaction
+  const handleScroll = () => {
+    if (!messagesContainerRef.current) return;
+    
+    const container = messagesContainerRef.current;
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    
+    if (isAtBottom) {
+      setIsUserScrolling(false);
+    } else {
+      setIsUserScrolling(true);
+    }
+  };
+
+  // FIXED: Reset user scrolling state when conversation changes
+  useEffect(() => {
+    setIsUserScrolling(false);
+  }, [chatState.activeConversation]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToBottomInstant = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   };
 
   const activeConversation = chatState.conversations.find(
@@ -100,10 +143,12 @@ const Messages: React.FC<MessagesProps> = ({
     }
   }, [currentMessages, currentUserId, activeConversation]);
 
-  // FIXED: Proper message alignment with debug logging
+  // FIXED: Added proper null/undefined checking for message alignment
   const messagesWithAlignment: Message[] = currentMessages.map(message => {
-    // CRITICAL FIX: Compare string values properly
-    const isMe = message.senderId.toString() === currentUserId.toString();
+    // CRITICAL FIX: Check if senderId exists before calling toString()
+    const isMe = message.senderId && currentUserId 
+      ? message.senderId.toString() === currentUserId.toString()
+      : false;
     
     const senderType: 'customer' | 'provider' = isMe ? 'customer' : 'provider';
     
@@ -129,6 +174,8 @@ const Messages: React.FC<MessagesProps> = ({
     if (messageInput.trim() && chatState.activeConversation) {
       onSendMessage(chatState.activeConversation, messageInput.trim());
       setMessageInput('');
+      // FIXED: Scroll to bottom immediately after sending message
+      setTimeout(scrollToBottomInstant, 100);
     }
   };
 
@@ -139,9 +186,23 @@ const Messages: React.FC<MessagesProps> = ({
     }
   };
 
+  // FIXED: Improved conversation click handler
   const handleConversationClick = (conversationId: string) => {
+    console.log('Conversation clicked:', conversationId);
     onSetActiveConversation(conversationId);
     setShowMobileConversation(true);
+    // FIXED: Reset scroll state when switching conversations
+    setIsUserScrolling(false);
+  };
+
+  const handleBackToConversations = () => {
+    setShowMobileConversation(false);
+  };
+
+  // FIXED: Scroll to bottom button handler
+  const handleScrollToBottom = () => {
+    setIsUserScrolling(false);
+    scrollToBottom();
   };
 
   const formatTime = (date: Date) => {
@@ -182,7 +243,7 @@ const Messages: React.FC<MessagesProps> = ({
     return null;
   };
 
-  // FIXED: Simplified alignment logic
+  // FIXED: Added safety checks for message alignment
   const getMessageAlignment = (message: Message) => {
     return message.isMe ? 'right' : 'left';
   };
@@ -202,13 +263,14 @@ const Messages: React.FC<MessagesProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-200px)] flex">
-          {/* Conversations List */}
+      {/* Mobile-First Container */}
+      <div className="h-screen flex flex-col lg:max-w-7xl lg:mx-auto lg:px-4 lg:py-8">
+        <div className="bg-white/80 backdrop-blur-sm lg:rounded-3xl shadow-sm border-0 lg:border lg:border-gray-100 overflow-hidden flex-1 flex">
+          {/* Conversations List - MOBILE RESPONSIVE */}
           <div className={`w-full lg:w-2/5 border-r border-gray-200 flex flex-col ${
-            showMobileConversation ? 'hidden lg:flex' : 'flex'
+            !showMobileConversation ? 'flex' : 'hidden lg:flex'
           }`}>
-            <div className="p-6 border-b border-gray-200 bg-white/50">
+            <div className="p-4 lg:p-6 border-b border-gray-200 bg-white/50">
               <div className="space-y-4">
                 <div className="relative">
                   <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -224,7 +286,7 @@ const Messages: React.FC<MessagesProps> = ({
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   <button
                     onClick={() => setFilterType('all')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    className={`px-3 lg:px-4 py-2 rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                       filterType === 'all' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -232,7 +294,7 @@ const Messages: React.FC<MessagesProps> = ({
                   </button>
                   <button
                     onClick={() => setFilterType('unread')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    className={`px-3 lg:px-4 py-2 rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                       filterType === 'unread' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -240,7 +302,7 @@ const Messages: React.FC<MessagesProps> = ({
                   </button>
                   <button
                     onClick={() => setFilterType('online')}
-                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    className={`px-3 lg:px-4 py-2 rounded-2xl text-xs lg:text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                       filterType === 'online' ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                     }`}
                   >
@@ -252,52 +314,52 @@ const Messages: React.FC<MessagesProps> = ({
 
             <div className="flex-1 overflow-y-auto">
               {filteredConversations.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 px-4">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="font-medium">No conversations found</p>
-                  <p className="text-sm">Try adjusting your search or filters</p>
+                <div className="text-center py-8 lg:py-12 text-gray-500 px-4">
+                  <MessageSquare className="w-12 lg:w-16 h-12 lg:h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="font-medium text-sm lg:text-base">No conversations found</p>
+                  <p className="text-xs lg:text-sm">Try adjusting your search or filters</p>
                 </div>
               ) : (
-                <div className="space-y-2 p-2">
+                <div className="space-y-1 lg:space-y-2 p-1 lg:p-2">
                   {filteredConversations.map((conversation) => (
                     <button
                       key={conversation.id}
                       onClick={() => handleConversationClick(conversation.id)}
-                      className={`w-full p-4 rounded-2xl text-left transition-all duration-300 group ${
+                      className={`w-full p-3 lg:p-4 rounded-2xl text-left transition-all duration-300 group ${
                         chatState.activeConversation === conversation.id 
                           ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm' 
                           : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:shadow-sm'
                       }`}
                     >
-                      <div className="flex items-start space-x-4">
+                      <div className="flex items-start space-x-3 lg:space-x-4">
                         <div className="relative flex-shrink-0">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg">
+                          <div className="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm lg:text-lg">
                             {conversation.providerName.charAt(0)}
                           </div>
                           {conversation.isOnline && (
-                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            <div className="absolute -bottom-1 -right-1 w-3 lg:w-4 h-3 lg:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                           )}
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center justify-between mb-1 lg:mb-2">
                             <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate text-sm lg:text-base">
                                 {conversation.providerName}
                               </h4>
-                              <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                              <span className="text-xs px-2 py-0.5 lg:py-1 bg-green-100 text-green-800 rounded-full hidden sm:inline">
                                 Provider
                               </span>
                             </div>
-                            <span className="text-xs text-gray-500">{formatTime(conversation.lastMessage.timestamp)}</span>
+                            <span className="text-xs text-gray-500 flex-shrink-0">{formatTime(conversation.lastMessage.timestamp)}</span>
                           </div>
                           
-                          <p className="text-sm text-gray-600 truncate">{conversation.lastMessage.content}</p>
+                          <p className="text-xs lg:text-sm text-gray-600 truncate mb-1 lg:mb-0">{conversation.lastMessage.content}</p>
                           
-                          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                            <span>{conversation.providerService}</span>
+                          <div className="flex items-center justify-between mt-1 lg:mt-2 text-xs text-gray-500">
+                            <span className="truncate">{conversation.providerService}</span>
                             {conversation.unreadCount > 0 && (
-                              <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs">
+                              <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-xs flex-shrink-0 ml-2">
                                 {conversation.unreadCount}
                               </span>
                             )}
@@ -311,104 +373,125 @@ const Messages: React.FC<MessagesProps> = ({
             </div>
           </div>
 
-          {/* Chat Area */}
+          {/* Chat Area - MOBILE RESPONSIVE */}
           <div className={`flex-1 flex flex-col ${
-            !showMobileConversation ? 'hidden lg:flex' : 'flex'
+            showMobileConversation ? 'flex' : 'hidden lg:flex'
           }`}>
             {activeConversation ? (
               <>
-                <div className="p-6 border-b border-gray-200 bg-white/50">
+                <div className="p-4 lg:p-6 border-b border-gray-200 bg-white/50">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 min-w-0 flex-1">
+                    <div className="flex items-center space-x-3 lg:space-x-4 min-w-0 flex-1">
                       <button
-                        onClick={() => setShowMobileConversation(false)}
+                        onClick={handleBackToConversations}
                         className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
                       >
                         <ArrowLeft className="w-5 h-5" />
                       </button>
                       
                       <div className="relative flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg">
+                        <div className="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm lg:text-lg">
                           {activeConversation.providerName.charAt(0)}
                         </div>
                         {activeConversation.isOnline && (
-                          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          <div className="absolute -bottom-1 -right-1 w-3 lg:w-4 h-3 lg:h-4 bg-green-500 rounded-full border-2 border-white"></div>
                         )}
                       </div>
                       
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-gray-900 text-lg truncate">{activeConversation.providerName}</h3>
-                          <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                          <h3 className="font-bold text-gray-900 text-base lg:text-lg truncate">{activeConversation.providerName}</h3>
+                          <span className="text-xs px-2 py-0.5 lg:py-1 bg-green-100 text-green-800 rounded-full hidden sm:inline">
                             Provider
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <span>{activeConversation.providerService}</span>
-                          <span>•</span>
-                          <span>{activeConversation.isOnline ? 'Online now' : `Last seen ${formatLastSeen(activeConversation.lastSeen)}`}</span>
+                        <div className="flex items-center gap-2 text-xs lg:text-sm text-gray-600">
+                          <span className="truncate">{activeConversation.providerService}</span>
+                          <span className="hidden sm:inline">•</span>
+                          <span className="hidden sm:inline">{activeConversation.isOnline ? 'Online now' : `Last seen ${formatLastSeen(activeConversation.lastSeen)}`}</span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button className="w-12 h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                        <Phone className="w-5 h-5" />
+                    <div className="flex items-center gap-1 lg:gap-2">
+                      <button className="w-10 lg:w-12 h-10 lg:h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200">
+                        <Phone className="w-4 lg:w-5 h-4 lg:h-5" />
                       </button>
-                      <button className="w-12 h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                        <Video className="w-5 h-5" />
+                      <button className="w-10 lg:w-12 h-10 lg:h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200">
+                        <Video className="w-4 lg:w-5 h-4 lg:h-5" />
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Messages Area - FIXED ALIGNMENT */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
+                {/* Messages Area - MOBILE OPTIMIZED */}
+                <div 
+                  ref={messagesContainerRef}
+                  onScroll={handleScroll}
+                  className="flex-1 overflow-y-auto p-3 lg:p-6 space-y-3 lg:space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30 relative"
+                  style={{ minHeight: 0 }} // Important for mobile scroll
+                >
                   {messagesWithAlignment.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">
-                      <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="font-medium">No messages yet</p>
-                      <p className="text-sm">Start the conversation by sending a message</p>
+                    <div className="text-center py-8 lg:py-12 text-gray-500">
+                      <MessageSquare className="w-12 lg:w-16 h-12 lg:h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="font-medium text-sm lg:text-base">No messages yet</p>
+                      <p className="text-xs lg:text-sm">Start the conversation by sending a message</p>
                     </div>
                   ) : (
-                    messagesWithAlignment.map((message) => {
-                      const alignment = getMessageAlignment(message);
-                      const messageStyle = getMessageStyle(message);
-                      
-                      return (
-                        <div
-                          key={message.id}
-                          className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'} mb-4`}
-                        >
-                          <div className={`max-w-md px-4 py-3 rounded-2xl shadow-sm relative ${messageStyle}`}>
-                            {/* Only show sender label for provider messages */}
-                            {!message.isMe && (
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium text-gray-500">
-                                  Provider
-                                </span>
+                    <>
+                      {messagesWithAlignment.map((message) => {
+                        // FIXED: Added safety check for message object
+                        if (!message) return null;
+                        
+                        const alignment = getMessageAlignment(message);
+                        const messageStyle = getMessageStyle(message);
+                        
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'} mb-3 lg:mb-4`}
+                          >
+                            <div className={`max-w-[85%] lg:max-w-md px-3 lg:px-4 py-2 lg:py-3 rounded-2xl shadow-sm relative ${messageStyle}`}>
+                              {/* Only show sender label for provider messages */}
+                              {!message.isMe && (
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xs font-medium text-gray-500">
+                                    Provider
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <p className="text-sm leading-relaxed break-words">{message.content}</p>
+                              <div className={`flex items-center justify-end mt-1 lg:mt-2 text-xs gap-1 ${
+                                alignment === 'right' ? 'text-blue-100' : 'text-gray-500'
+                              }`}>
+                                <span>{formatTime(message.timestamp)}</span>
+                                {renderMessageStatus(message)}
                               </div>
-                            )}
-                            
-                            <p className="text-sm leading-relaxed">{message.content}</p>
-                            <div className={`flex items-center justify-end mt-2 text-xs gap-1 ${
-                              alignment === 'right' ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              <span>{formatTime(message.timestamp)}</span>
-                              {renderMessageStatus(message)}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })}
+                      
+                      {/* FIXED: Mobile-optimized scroll to bottom button */}
+                      {isUserScrolling && (
+                        <button
+                          onClick={handleScrollToBottom}
+                          className="fixed bottom-20 lg:bottom-24 right-4 lg:right-8 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-2 lg:p-3 rounded-full shadow-lg hover:scale-110 transition-all duration-200 z-10"
+                        >
+                          <ArrowLeft className="w-4 lg:w-5 h-4 lg:h-5 rotate-90" />
+                        </button>
+                      )}
+                    </>
                   )}
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-6 border-t border-gray-200 bg-white/50">
-                  <div className="flex items-center space-x-4">
-                    <button className="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                      <Paperclip className="w-5 h-5" />
+                {/* Message Input - MOBILE OPTIMIZED */}
+                <div className="p-3 lg:p-6 border-t border-gray-200 bg-white/50">
+                  <div className="flex items-center space-x-2 lg:space-x-4">
+                    <button className="w-10 lg:w-12 h-10 lg:h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200 flex-shrink-0">
+                      <Paperclip className="w-4 lg:w-5 h-4 lg:h-5" />
                     </button>
                     
                     <div className="flex-1 relative">
@@ -418,33 +501,33 @@ const Messages: React.FC<MessagesProps> = ({
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                        className="w-full px-3 lg:px-4 py-2 lg:py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200 text-sm lg:text-base"
                       />
                     </div>
                     
                     <button
                       onClick={handleSendMessage}
                       disabled={!messageInput.trim()}
-                      className={`w-12 h-12 rounded-2xl transition-all duration-200 flex items-center justify-center ${
+                      className={`w-10 lg:w-12 h-10 lg:h-12 rounded-2xl transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
                         messageInput.trim()
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-110'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 lg:w-5 h-4 lg:h-5" />
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100">
+              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100 p-4">
                 <div className="text-center">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Select a Provider</h3>
-                  <p className="text-gray-600 mb-4">Choose a service provider to start messaging</p>
+                  <MessageSquare className="w-12 lg:w-16 h-12 lg:h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-2">Select a Provider</h3>
+                  <p className="text-gray-600 mb-4 text-sm lg:text-base">Choose a service provider to start messaging</p>
                   <button 
                     onClick={() => onStartConversation('new')}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-2"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-2 mx-auto"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Find Provider</span>
