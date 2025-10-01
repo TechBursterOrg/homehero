@@ -1199,10 +1199,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-3">No providers found</h3>
         <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">
-          {searchQuery || location 
-            ? `No providers found for "${searchQuery}" in "${location}". The API returned no results.`
-            : 'No providers available at the moment. The API returned an empty list.'
-          }
+          
         </p>
         {/* <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
           API: {API_BASE_URL}/api/providers
@@ -1215,12 +1212,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
             <RefreshCw className="w-5 h-5" />
             Try Again
           </button>
-          <button
-            onClick={handleShowSampleData}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl"
-          >
-            View Sample Providers
-          </button>
+          
         </div>
       </div>
     );

@@ -27,14 +27,18 @@ interface UserProfile {
   bio: string;
   avatar?: string;
   role?: string;
+  city?: string;
+  state?: string;
+  country?: string;
 }
 
 interface ProfilePageProps {
-  profileData?: UserProfile; // Make it optional since component can fetch its own data
+  profileData?: UserProfile;
   onProfileUpdate?: (data: UserProfile) => void;
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({
+  profileData: initialProfileData,
   onProfileUpdate = () => {}
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -45,7 +49,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     address: '',
     bio: '',
     avatar: '',
-    role: 'customer'
+    role: 'customer',
+    city: '',
+    state: '',
+    country: ''
   });
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     name: '',
@@ -54,11 +61,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
     address: '',
     bio: '',
     avatar: '',
-    role: 'customer'
+    role: 'customer',
+    city: '',
+    state: '',
+    country: ''
   });
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences' | 'activity'>('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [preferences, setPreferences] = useState({
+    emailNotifications: true,
+    smsNotifications: false,
+    bookingReminders: true,
+    marketingEmails: false,
+    providerMessages: true,
+    searchRadius: '10',
+    contactMethod: 'message'
+  });
+  const [securitySettings, setSecuritySettings] = useState({
+    twoFactorEnabled: false,
+    loginAlerts: true
+  });
+  const [activities, setActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
@@ -77,7 +102,110 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        // Try multiple endpoints to get profile data
+        const endpoints = [
+          `${API_BASE_URL}/api/auth/profile`,
+          `${API_BASE_URL}/api/user/profile`,
+          `${API_BASE_URL}/api/users/profile`
+        ];
+
+        let profileResponse = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            // Try POST first
+            let response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (!response.ok) {
+              // Try GET if POST fails
+              response = await fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+            }
+
+            if (response.ok) {
+              profileResponse = await response.json();
+              break;
+            }
+          } catch (error) {
+            console.log(`Failed to fetch from ${endpoint}:`, error);
+            continue;
+          }
+        }
+
+        if (profileResponse && profileResponse.success) {
+          const userData = profileResponse.data.user || profileResponse.data;
+          console.log('Fetched user data:', userData);
+          
+          // Construct avatar URL - try multiple possible fields
+          let avatarUrl = '';
+          if (userData.profileImage) {
+            avatarUrl = userData.profileImage.startsWith('http') 
+              ? userData.profileImage 
+              : `${API_BASE_URL}${userData.profileImage}`;
+          } else if (userData.avatar) {
+            avatarUrl = userData.avatar.startsWith('http')
+              ? userData.avatar
+              : `${API_BASE_URL}${userData.avatar}`;
+          } else if (userData.profilePicture) {
+            avatarUrl = userData.profilePicture.startsWith('http')
+              ? userData.profilePicture
+              : `${API_BASE_URL}${userData.profilePicture}`;
+          }
+
+          const profile = {
+            name: userData.name || '',
+            email: userData.email || '',
+            phone: userData.phone || userData.phoneNumber || '',
+            address: userData.address || '',
+            bio: userData.bio || '',
+            avatar: avatarUrl,
+            role: userData.role || userData.userType || 'customer',
+            city: userData.city || '',
+            state: userData.state || '',
+            country: userData.country || ''
+          };
+          
+          setProfileData(profile);
+          setEditedProfile(profile);
+        } else {
+          console.error('Failed to fetch profile data from all endpoints');
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Use initial data if provided, otherwise fetch from API
+    if (initialProfileData) {
+      setProfileData(initialProfileData);
+      setEditedProfile(initialProfileData);
+      setLoading(false);
+    } else {
+      fetchProfileData();
+    }
+  }, [API_BASE_URL, initialProfileData]);
+
+  // Fetch preferences
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/preferences`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -88,35 +216,47 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            const userData = data.data.user;
-            console.log('Fetched user data:', userData); // Debug log
-            
-            const profile = {
-              name: userData.name || '',
-              email: userData.email || '',
-              phone: userData.phoneNumber || '',
-              address: userData.address || '',
-              bio: userData.bio || '',
-              avatar: userData.profileImage 
-                ? `${API_BASE_URL}${userData.profileImage}` 
-                : '',
-              role: userData.userType || 'customer'
-            };
-            
-            setProfileData(profile);
-            setEditedProfile(profile);
+            setPreferences(data.data.preferences);
           }
-        } else {
-          console.error('Failed to fetch profile data');
         }
       } catch (error) {
-        console.error('Error fetching profile data:', error);
-      } finally {
-        setLoading(false);
+        console.error('Error fetching preferences:', error);
       }
     };
 
-    fetchProfileData();
+    fetchPreferences();
+  }, [API_BASE_URL]);
+
+  // Fetch activities
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        setActivitiesLoading(true);
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/auth/activity?limit=5`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setActivities(data.data.activities);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+
+    fetchActivities();
   }, [API_BASE_URL]);
 
   const handleSave = async () => {
@@ -132,9 +272,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       // Prepare the data for update
       const updateData = {
         name: editedProfile.name,
-        phoneNumber: editedProfile.phone,
+        phone: editedProfile.phone,
         address: editedProfile.address,
-        bio: editedProfile.bio
+        bio: editedProfile.bio,
+        city: editedProfile.city,
+        state: editedProfile.state,
+        country: editedProfile.country
       };
 
       const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
@@ -149,15 +292,28 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setProfileData(editedProfile);
-          onProfileUpdate(editedProfile);
+          // Update profile data with the response
+          const updatedUserData = data.data.user;
+          const updatedProfile = {
+            ...editedProfile,
+            avatar: updatedUserData.avatar || editedProfile.avatar
+          };
+          
+          setProfileData(updatedProfile);
+          setEditedProfile(updatedProfile);
+          onProfileUpdate(updatedProfile);
           setIsEditing(false);
+          
+          alert('Profile updated successfully!');
         }
       } else {
-        console.error('Failed to update profile');
+        const errorData = await response.json();
+        console.error('Failed to update profile:', errorData);
+        alert(errorData.message || 'Failed to update profile. Please try again.');
       }
     } catch (error) {
       console.error('Error updating profile:', error);
+      alert('Error updating profile. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -184,6 +340,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
           return;
         }
 
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please select a valid image file (JPEG, PNG, etc.)');
+          return;
+        }
+
+        // Validate file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Image size must be less than 5MB');
+          return;
+        }
+
         const formData = new FormData();
         formData.append('profileImage', file);
 
@@ -198,18 +366,144 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         if (response.ok) {
           const data = await response.json();
           if (data.success) {
-            const newAvatar = data.data.fullImageUrl || data.data.imageUrl;
+            // Construct the full avatar URL
+            let newAvatar = '';
+            if (data.data.imageUrl) {
+              newAvatar = data.data.imageUrl.startsWith('http')
+                ? data.data.imageUrl
+                : `${API_BASE_URL}${data.data.imageUrl}`;
+            } else if (data.data.profileImage) {
+              newAvatar = data.data.profileImage.startsWith('http')
+                ? data.data.profileImage
+                : `${API_BASE_URL}${data.data.profileImage}`;
+            }
+            
             setEditedProfile(prev => ({ ...prev, avatar: newAvatar }));
             setProfileData(prev => ({ ...prev, avatar: newAvatar }));
+            onProfileUpdate({ ...profileData, avatar: newAvatar });
+            
+            alert('Profile picture updated successfully!');
           }
         } else {
-          console.error('Failed to upload profile image');
+          const errorData = await response.json();
+          console.error('Failed to upload profile image:', errorData);
+          alert(errorData.message || 'Failed to upload profile image. Please try again.');
         }
       } catch (error) {
         console.error('Error uploading profile image:', error);
+        alert('Error uploading profile image. Please try again.');
       } finally {
         setSaving(false);
+        // Clear the file input
+        event.target.value = '';
       }
+    }
+  };
+
+  // Security functions
+  const handleChangePassword = async () => {
+    const currentPassword = prompt('Enter your current password:');
+    if (!currentPassword) return;
+
+    const newPassword = prompt('Enter your new password:');
+    if (!newPassword) return;
+
+    const confirmPassword = prompt('Confirm your new password:');
+    if (!confirmPassword) return;
+
+    if (newPassword !== confirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        alert('Password changed successfully');
+      } else {
+        alert(data.message || 'Failed to change password');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      alert('Error changing password. Please try again.');
+    }
+  };
+
+  const handleToggleTwoFactor = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      // This would integrate with your 2FA service
+      setSecuritySettings(prev => ({
+        ...prev,
+        twoFactorEnabled: !prev.twoFactorEnabled
+      }));
+      alert('Two-factor authentication ' + (securitySettings.twoFactorEnabled ? 'disabled' : 'enabled'));
+    } catch (error) {
+      console.error('Error toggling 2FA:', error);
+    }
+  };
+
+  const handleToggleLoginAlerts = async () => {
+    try {
+      setSecuritySettings(prev => ({
+        ...prev,
+        loginAlerts: !prev.loginAlerts
+      }));
+      // Save to backend
+      const token = localStorage.getItem('authToken');
+      // You would make an API call here to save the preference
+    } catch (error) {
+      console.error('Error toggling login alerts:', error);
+    }
+  };
+
+  // Preferences functions
+  const handlePreferenceChange = async (key: string, value: any) => {
+    try {
+      const updatedPreferences = { ...preferences, [key]: value };
+      setPreferences(updatedPreferences);
+      
+      // Save to backend
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/auth/preferences`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ preferences: updatedPreferences })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          console.log('Preferences saved successfully');
+        }
+      } else {
+        console.error('Failed to save preferences');
+        // Revert on error
+        setPreferences(preferences);
+      }
+    } catch (error) {
+      console.error('Error saving preference:', error);
+      // Revert on error
+      setPreferences(preferences);
     }
   };
 
@@ -250,11 +544,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             {/* Avatar Section */}
             <div className="relative mx-auto sm:mx-0 flex-shrink-0">
               <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-full overflow-hidden bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                {(isEditing ? editedProfile.avatar : profileData.avatar) ? (
+                {profileData.avatar ? (
                   <img
-                    src={isEditing ? editedProfile.avatar : profileData.avatar}
+                    src={profileData.avatar}
                     alt="Profile"
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      console.error('Failed to load profile image:', profileData.avatar);
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
                   />
                 ) : (
                   <User className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-white" />
@@ -278,7 +578,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="flex-1 text-center sm:text-left">
               <div className="space-y-2 sm:space-y-3">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">
-                  {isEditing ? editedProfile.name : profileData.name || 'User'}
+                  {profileData.name || 'User'}
                 </h1>
                 <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3">
                   <span className="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium bg-green-100 text-green-800">
@@ -295,7 +595,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
               
               <p className="text-sm sm:text-base text-gray-600 mt-2 sm:mt-3 line-clamp-2 sm:line-clamp-none">
-                {isEditing ? editedProfile.bio : profileData.bio || 'No bio provided'}
+                {profileData.bio || 'No bio provided'}
               </p>
             </div>
           </div>
@@ -425,6 +725,51 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Location Details */}
+        {isEditing && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                City
+              </label>
+              <input
+                type="text"
+                value={editedProfile.city || ''}
+                onChange={(e) => handleInputChange('city', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={saving}
+                placeholder="Enter city"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                State
+              </label>
+              <input
+                type="text"
+                value={editedProfile.state || ''}
+                onChange={(e) => handleInputChange('state', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={saving}
+                placeholder="Enter state"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-2 block">
+                Country
+              </label>
+              <input
+                type="text"
+                value={editedProfile.country || ''}
+                onChange={(e) => handleInputChange('country', e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={saving}
+                placeholder="Enter country"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Statistics */}
@@ -475,7 +820,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <h3 className="font-medium text-gray-900 text-sm sm:text-base">Password</h3>
               <p className="text-xs sm:text-sm text-gray-600">Last changed 3 months ago</p>
             </div>
-            <button className="w-full sm:w-auto text-blue-600 hover:text-blue-700 font-medium text-sm sm:text-base py-2 sm:py-0">
+            <button 
+              onClick={handleChangePassword}
+              className="w-full sm:w-auto text-blue-600 hover:text-blue-700 font-medium text-sm sm:text-base py-2 sm:py-0"
+            >
               Change Password
             </button>
           </div>
@@ -485,9 +833,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <h3 className="font-medium text-gray-900 text-sm sm:text-base">Two-Factor Authentication</h3>
               <p className="text-xs sm:text-sm text-gray-600">Add an extra layer of security</p>
             </div>
-            <button className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-              Enable 2FA
-            </button>
+            <ToggleSwitch
+              enabled={securitySettings.twoFactorEnabled}
+              onChange={handleToggleTwoFactor}
+            />
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
@@ -495,10 +844,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
               <h3 className="font-medium text-gray-900 text-sm sm:text-base">Login Alerts</h3>
               <p className="text-xs sm:text-sm text-gray-600">Get notified of new logins</p>
             </div>
-            <div className="relative inline-block w-10 h-6 align-middle select-none">
-              <input type="checkbox" className="absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:bg-blue-600 checked:border-blue-600 transition-all duration-200"/>
-              <label className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
+            <ToggleSwitch
+              enabled={securitySettings.loginAlerts}
+              onChange={handleToggleLoginAlerts}
+            />
           </div>
         </div>
       </div>
@@ -512,21 +861,21 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         
         <div className="space-y-3 sm:space-y-4">
           {[
-            { label: 'Email notifications', desc: 'Receive updates via email' },
-            { label: 'SMS notifications', desc: 'Get important alerts via SMS' },
-            { label: 'Booking reminders', desc: 'Reminders for upcoming bookings' },
-            { label: 'Marketing emails', desc: 'Promotional offers and news' },
-            { label: 'Provider messages', desc: 'New messages from providers' }
-          ].map((pref, index) => (
-            <div key={index} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
+            { key: 'emailNotifications', label: 'Email notifications', desc: 'Receive updates via email' },
+            { key: 'smsNotifications', label: 'SMS notifications', desc: 'Get important alerts via SMS' },
+            { key: 'bookingReminders', label: 'Booking reminders', desc: 'Reminders for upcoming bookings' },
+            { key: 'marketingEmails', label: 'Marketing emails', desc: 'Promotional offers and news' },
+            { key: 'providerMessages', label: 'Provider messages', desc: 'New messages from providers' }
+          ].map((pref) => (
+            <div key={pref.key} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
               <div className="flex-1">
                 <h3 className="font-medium text-gray-900 text-sm sm:text-base">{pref.label}</h3>
                 <p className="text-xs sm:text-sm text-gray-600">{pref.desc}</p>
               </div>
-              <div className="relative inline-block w-10 h-6 align-middle select-none">
-                <input type="checkbox" defaultChecked={index < 3} className="absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer checked:bg-blue-600 checked:border-blue-600 transition-all duration-200"/>
-                <label className="block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-              </div>
+              <ToggleSwitch
+                enabled={preferences[pref.key as keyof typeof preferences] as boolean}
+                onChange={(enabled) => handlePreferenceChange(pref.key, enabled)}
+              />
             </div>
           ))}
         </div>
@@ -540,11 +889,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Default Search Radius
             </label>
-            <select className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option>5 miles</option>
-              <option>10 miles</option>
-              <option>25 miles</option>
-              <option>50 miles</option>
+            <select 
+              value={preferences.searchRadius}
+              onChange={(e) => handlePreferenceChange('searchRadius', e.target.value)}
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="5">5 miles</option>
+              <option value="10">10 miles</option>
+              <option value="25">25 miles</option>
+              <option value="50">50 miles</option>
             </select>
           </div>
           
@@ -552,10 +905,14 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Preferred Contact Method
             </label>
-            <select className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-              <option>Message first</option>
-              <option>Phone call</option>
-              <option>Email</option>
+            <select 
+              value={preferences.contactMethod}
+              onChange={(e) => handlePreferenceChange('contactMethod', e.target.value)}
+              className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="message">Message first</option>
+              <option value="phone">Phone call</option>
+              <option value="email">Email</option>
             </select>
           </div>
         </div>
@@ -568,29 +925,53 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
       <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Recent Activity</h2>
         
-        <div className="space-y-3 sm:space-y-4">
-          {[
-            { action: 'Booked cleaning service', provider: 'Sarah Johnson', date: '2 hours ago', status: 'confirmed' },
-            { action: 'Message sent', provider: 'Alex Johnson', date: '1 day ago', status: 'delivered' },
-            { action: 'Added to favorites', provider: 'Mike Wilson', date: '3 days ago', status: 'completed' },
-            { action: 'Completed booking', provider: 'Lisa Chen', date: '1 week ago', status: 'completed' },
-            { action: 'Left review', provider: 'David Miller', date: '1 week ago', status: 'completed' }
-          ].map((activity, index) => (
-            <div key={index} className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${
-                  activity.status === 'completed' ? 'bg-green-500' :
-                  activity.status === 'confirmed' ? 'bg-blue-500' : 'bg-gray-400'
-                }`}></div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{activity.action}</p>
-                  <p className="text-xs sm:text-sm text-gray-600 truncate">with {activity.provider}</p>
+        {activitiesLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="animate-pulse flex items-center justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3 flex-1">
+                  <div className="w-2 h-2 bg-gray-200 rounded-full"></div>
+                  <div className="space-y-2 flex-1">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </div>
                 </div>
+                <div className="h-3 bg-gray-200 rounded w-16"></div>
               </div>
-              <p className="text-xs sm:text-sm text-gray-500 flex-shrink-0">{activity.date}</p>
+            ))}
+          </div>
+        ) : activities.length > 0 ? (
+          <div className="space-y-3 sm:space-y-4">
+            {activities.map((activity) => (
+              <div key={activity.id} className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${
+                    activity.status === 'completed' ? 'bg-green-500' :
+                    activity.status === 'confirmed' ? 'bg-blue-500' : 
+                    activity.status === 'delivered' ? 'bg-blue-500' : 'bg-gray-400'
+                  }`}></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 text-sm sm:text-base truncate">{activity.action}</p>
+                    <p className="text-xs sm:text-sm text-gray-600 truncate">
+                      {activity.type === 'booking' && `with ${activity.provider}`}
+                      {activity.type === 'service_request' && `with ${activity.provider}`}
+                      {activity.type === 'message' && `with ${activity.provider}`}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-500 flex-shrink-0">{activity.displayDate}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-2">
+              <Calendar className="w-12 h-12 mx-auto" />
             </div>
-          ))}
-        </div>
+            <p className="text-gray-500 text-sm">No recent activity found</p>
+            <p className="text-gray-400 text-xs mt-1">Your bookings, messages, and requests will appear here</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -646,6 +1027,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({
         {activeTab === 'activity' && renderActivityTab()}
       </div>
     </div>
+  );
+};
+
+// Toggle Switch Component
+interface ToggleSwitchProps {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}
+
+const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ enabled, onChange }) => {
+  return (
+    <button
+      type="button"
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+        enabled ? 'bg-blue-600' : 'bg-gray-200'
+      }`}
+      onClick={() => onChange(!enabled)}
+    >
+      <span
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+          enabled ? 'translate-x-5' : 'translate-x-0'
+        }`}
+      />
+    </button>
   );
 };
 

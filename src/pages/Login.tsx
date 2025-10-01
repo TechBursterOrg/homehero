@@ -803,6 +803,7 @@ const LoginPage = () => {
                     >
                       {/* <option value="customer">Customer</option> */}
                       <option value="provider">Service Provider</option>
+                      <option value="customer">Customer</option>
                     </select>
                   </div>
 

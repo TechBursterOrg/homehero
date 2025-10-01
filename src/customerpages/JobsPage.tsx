@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ArrowRight, Briefcase, TrendingUp, Users, Eye, Search, Filter } from 'lucide-react';
+import { Plus, ArrowRight, Briefcase, TrendingUp, Users, Eye, Search, Filter, X } from 'lucide-react';
 import JobPostCard, { JobPost } from '../customercomponents/JobPostCard';
 import PostJobModal from '../customercomponents/PostJobModal';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,6 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
-
 const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
   const [jobPosts, setJobPosts] = useState<JobPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +20,12 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showPostJob, setShowPostJob] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showProposalsModal, setShowProposalsModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobPost | null>(null);
+  const [editFormData, setEditFormData] = useState<any>(null);
+  const [proposals, setProposals] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -119,20 +124,63 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
   });
 
   const handleEditJob = (id: string) => {
-    console.log('Edit job:', id);
-    // Implement edit functionality
+    const job = jobPosts.find(j => j._id === id);
+    if (job) {
+      setSelectedJob(job);
+      setEditFormData({
+        serviceType: job.serviceType || job.title,
+        description: job.description,
+        location: job.location,
+        budget: job.budget,
+        category: job.category,
+        urgency: job.urgency || 'normal',
+        timeframe: job.timeframe || 'ASAP'
+      });
+      setShowEditModal(true);
+    }
   };
 
-  const handleViewProposals = (id: string) => {
-    console.log('View proposals for job:', id);
-    // Implement view proposals functionality
+  const handleViewProposals = async (id: string) => {
+    const job = jobPosts.find(j => j._id === id);
+    if (job) {
+      setSelectedJob(job);
+      
+      try {
+        // Fetch proposals for this job
+        const response = await fetch(`${API_BASE_URL}/api/service-requests/${id}/proposals`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setProposals(data.data?.proposals || []);
+        } else {
+          setProposals([]); // No proposals or error
+        }
+      } catch (error) {
+        console.error('Error fetching proposals:', error);
+        setProposals([]);
+      }
+      
+      setShowProposalsModal(true);
+    }
   };
 
   const handleDeleteJob = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this job post?')) return;
+    const job = jobPosts.find(j => j._id === id);
+    if (job) {
+      setSelectedJob(job);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const confirmDeleteJob = async () => {
+    if (!selectedJob || !authToken) return;
 
     try {
-      const response = await fetch(`${API_BASE_URL}:3001/api/service-requests/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/service-requests/${selectedJob._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -141,12 +189,71 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
       });
 
       if (response.ok) {
-        setJobPosts(prev => prev.filter(job => job._id !== id));
+        setJobPosts(prev => prev.filter(job => job._id !== selectedJob._id));
+        setShowDeleteModal(false);
+        setSelectedJob(null);
       } else {
         throw new Error('Failed to delete job post');
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete job post');
+    }
+  };
+
+  const handleUpdateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedJob || !authToken || !editFormData) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/service-requests/${selectedJob._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editFormData),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Update the job in the local state
+        setJobPosts(prev => prev.map(job => 
+          job._id === selectedJob._id 
+            ? { ...job, ...editFormData, title: editFormData.serviceType }
+            : job
+        ));
+        setShowEditModal(false);
+        setSelectedJob(null);
+        setEditFormData(null);
+      } else {
+        throw new Error('Failed to update job post');
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to update job post');
+    }
+  };
+
+  const handleAcceptProposal = async (proposalId: string) => {
+    if (!selectedJob || !authToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/proposals/${proposalId}/accept`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        // Refresh proposals and job status
+        handleViewProposals(selectedJob._id);
+        fetchJobPosts(); // Refresh job posts to update status
+      } else {
+        throw new Error('Failed to accept proposal');
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to accept proposal');
     }
   };
 
@@ -286,11 +393,299 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
         </div>
       </div>
 
+      {/* Post Job Modal */}
       <PostJobModal
         isOpen={showPostJob}
         onClose={() => setShowPostJob(false)}
         onSubmit={handlePostJob}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-900">Delete Job Post</h3>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedJob(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete the job post "<strong>{selectedJob.title}</strong>"? This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setSelectedJob(null);
+                  }}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteJob}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Job Modal */}
+      {showEditModal && selectedJob && editFormData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Edit Job Post</h3>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setSelectedJob(null);
+                    setEditFormData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateJob} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Service Type *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.serviceType}
+                      onChange={(e) => setEditFormData({ ...editFormData, serviceType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Category *
+                    </label>
+                    <select
+                      value={editFormData.category}
+                      onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="cleaning">Cleaning</option>
+                      <option value="repair">Repair & Maintenance</option>
+                      <option value="gardening">Gardening</option>
+                      <option value="plumbing">Plumbing</option>
+                      <option value="electrical">Electrical</option>
+                      <option value="painting">Painting</option>
+                      <option value="moving">Moving</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    required
+                    value={editFormData.description}
+                    onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.location}
+                      onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Budget *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editFormData.budget}
+                      onChange={(e) => setEditFormData({ ...editFormData, budget: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Urgency
+                    </label>
+                    <select
+                      value={editFormData.urgency}
+                      onChange={(e) => setEditFormData({ ...editFormData, urgency: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="urgent">Urgent</option>
+                      <option value="high">High Priority</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Timeframe
+                  </label>
+                  <input
+                    type="text"
+                    value={editFormData.timeframe}
+                    onChange={(e) => setEditFormData({ ...editFormData, timeframe: e.target.value })}
+                    placeholder="e.g., ASAP, Within 2 weeks, Flexible"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setSelectedJob(null);
+                      setEditFormData(null);
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                  >
+                    Update Job
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Proposals Modal */}
+      {showProposalsModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Proposals for {selectedJob.title}</h3>
+                  <p className="text-gray-600">{proposals.length} proposals received</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowProposalsModal(false);
+                    setSelectedJob(null);
+                    setProposals([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {proposals.length === 0 ? (
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">No Proposals Yet</h4>
+                  <p className="text-gray-600">No providers have submitted proposals for this job yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {proposals.map((proposal) => (
+                    <div key={proposal._id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{proposal.provider?.name || 'Unknown Provider'}</h4>
+                          <p className="text-sm text-gray-600">{proposal.provider?.email}</p>
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          proposal.status === 'accepted' 
+                            ? 'bg-green-100 text-green-800'
+                            : proposal.status === 'rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {proposal.status}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500">Proposed Budget</label>
+                          <p className="text-sm font-semibold text-emerald-600">{proposal.proposedBudget}</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500">Timeline</label>
+                          <p className="text-sm text-gray-900">{proposal.timeline}</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-500">Submitted</label>
+                          <p className="text-sm text-gray-900">
+                            {new Date(proposal.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {proposal.message && (
+                        <div className="mb-3">
+                          <label className="block text-xs font-medium text-gray-500">Message</label>
+                          <p className="text-sm text-gray-900">{proposal.message}</p>
+                        </div>
+                      )}
+
+                      {proposal.status === 'pending' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAcceptProposal(proposal._id)}
+                            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm"
+                          >
+                            Accept Proposal
+                          </button>
+                          <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                            Message Provider
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

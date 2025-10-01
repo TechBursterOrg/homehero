@@ -1,12 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Settings as SettingsIcon,
   Bell,
   Shield,
   CreditCard,
   User,
-  Moon,
-  Sun,
   Globe,
   Smartphone,
   Mail,
@@ -21,14 +19,19 @@ import {
   Edit3,
   Trash2,
   ChevronRight,
-  Sparkles,
   Zap,
   Star,
   Activity,
   LucideIcon,
   Menu,
   X,
+  Calendar,
+  DollarSign,
+  Clock,
+  CreditCard as BankIcon,
 } from "lucide-react";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Define types for our data structures
 type NotificationSettings = {
@@ -38,6 +41,8 @@ type NotificationSettings = {
   newJobs: boolean;
   messages: boolean;
   payments: boolean;
+  reminders: boolean;
+  marketing: boolean;
 };
 
 type SettingSection = {
@@ -49,26 +54,69 @@ type SettingSection = {
   description: string;
 };
 
-type NotificationMethod = {
-  key: keyof NotificationSettings;
-  label: string;
-  icon: LucideIcon;
-  color: string;
+type AccountSettings = {
+  name: string;
+  email: string;
+  phoneNumber: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  profileImage: string;
+  experience: string;
+  services: string[];
+  hourlyRate: number;
 };
 
-type NotificationType = {
-  key: keyof NotificationSettings;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  color: string;
+type GeneralSettings = {
+  language: string;
+  timeZone: string;
+  currency: string;
+  theme: string;
+};
+
+type SecurityData = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+  twoFactorEnabled: boolean;
+};
+
+type BankAccount = {
+  accountNumber: string;
+  routingNumber: string;
+  accountType: string;
+  bankName: string;
+  accountHolderName: string;
+  lastFour: string;
+};
+
+type PaymentSettings = {
+  payoutSchedule: string;
+  currency: string;
+  bankAccount: BankAccount | null;
+};
+
+type ProviderSettings = {
+  autoAcceptJobs: boolean;
+  maxJobsPerDay: number;
+  serviceRadius: number;
+  workingHours: {
+    start: string;
+    end: string;
+  };
+  vacationMode: boolean;
 };
 
 const Settings: React.FC = () => {
   const [activeSection, setActiveSection] = useState("general");
-  const [darkMode, setDarkMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  
+  // State for all settings
   const [notifications, setNotifications] = useState<NotificationSettings>({
     email: true,
     push: true,
@@ -76,6 +124,69 @@ const Settings: React.FC = () => {
     newJobs: true,
     messages: true,
     payments: true,
+    reminders: true,
+    marketing: false,
+  });
+
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettings>({
+    language: "en-US",
+    timeZone: "America/New_York",
+    currency: "USD",
+    theme: "light"
+  });
+
+  const [accountSettings, setAccountSettings] = useState<AccountSettings>({
+    name: "",
+    email: "",
+    phoneNumber: "",
+    address: "",
+    city: "",
+    state: "",
+    country: "",
+    profileImage: "",
+    experience: "",
+    services: [],
+    hourlyRate: 0
+  });
+
+  const [securityData, setSecurityData] = useState<SecurityData>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+    twoFactorEnabled: false
+  });
+
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
+    payoutSchedule: "weekly",
+    currency: "USD",
+    bankAccount: null
+  });
+
+  const [providerSettings, setProviderSettings] = useState<ProviderSettings>({
+    autoAcceptJobs: false,
+    maxJobsPerDay: 5,
+    serviceRadius: 25,
+    workingHours: {
+      start: "09:00",
+      end: "17:00"
+    },
+    vacationMode: false
+  });
+
+  const [accountStats, setAccountStats] = useState({
+    jobsCompleted: 0,
+    averageRating: 0,
+    totalEarnings: 0,
+    activeClients: 0
+  });
+
+  const [newService, setNewService] = useState("");
+  const [newBankAccount, setNewBankAccount] = useState({
+    accountNumber: "",
+    routingNumber: "",
+    accountType: "checking",
+    bankName: "",
+    accountHolderName: ""
   });
 
   const settingSections: SettingSection[] = [
@@ -112,20 +223,499 @@ const Settings: React.FC = () => {
       description: "Billing & payouts",
     },
     {
-      id: "account",
-      label: "Account",
+      id: "provider",
+      label: "Provider",
       icon: User,
       color: "from-rose-500 to-pink-600",
       bgColor: "from-rose-50 to-pink-50",
+      description: "Service preferences",
+    },
+    {
+      id: "account",
+      label: "Account",
+      icon: User,
+      color: "from-purple-500 to-blue-600",
+      bgColor: "from-purple-50 to-blue-50",
       description: "Personal information",
     },
   ];
 
-  const handleNotificationChange = (key: keyof NotificationSettings) => {
-    setNotifications((prev) => ({
+  // Fetch settings on component mount
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('No authentication token found');
+        setErrorMessage('Please log in to access settings');
+        return;
+      }
+
+      // Fetch all settings
+      const settingsResponse = await fetch(`${API_BASE_URL}/api/settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Fetch user profile
+      const profileResponse = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Fetch dashboard stats
+      const dashboardResponse = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (settingsResponse.ok) {
+        const result = await settingsResponse.json();
+        if (result.success) {
+          const settings = result.data;
+          
+          // Update all settings from API
+          if (settings.notifications) {
+            setNotifications(prev => ({
+              ...prev,
+              ...settings.notifications
+            }));
+          }
+          
+          if (settings.general) {
+            setGeneralSettings(prev => ({
+              ...prev,
+              ...settings.general
+            }));
+          }
+
+          if (settings.security) {
+            setSecurityData(prev => ({
+              ...prev,
+              twoFactorEnabled: settings.security.twoFactorEnabled || false
+            }));
+          }
+
+          if (settings.payment) {
+            setPaymentSettings(prev => ({
+              ...prev,
+              ...settings.payment
+            }));
+          }
+
+          if (settings.provider) {
+            setProviderSettings(prev => ({
+              ...prev,
+              ...settings.provider
+            }));
+          }
+        }
+      } else {
+        console.error('Failed to fetch settings:', settingsResponse.status);
+        if (settingsResponse.status === 401) {
+          setErrorMessage('Authentication failed. Please log in again.');
+        }
+      }
+
+      if (profileResponse.ok) {
+        const result = await profileResponse.json();
+        if (result.success && result.data.user) {
+          const user = result.data.user;
+          setAccountSettings(prev => ({
+            ...prev,
+            name: user.name || "",
+            email: user.email || "",
+            phoneNumber: user.phoneNumber || "",
+            address: user.address || "",
+            city: user.city || "",
+            state: user.state || "",
+            country: user.country || "",
+            profileImage: user.profileImage || user.profilePicture || "",
+            experience: user.experience || "",
+            services: user.services || [],
+            hourlyRate: user.hourlyRate || 0
+          }));
+        }
+      } else {
+        console.error('Failed to fetch profile:', profileResponse.status);
+      }
+
+      if (dashboardResponse.ok) {
+        const result = await dashboardResponse.json();
+        if (result.success) {
+          setAccountStats({
+            jobsCompleted: result.stats?.jobsCompleted || result.stats?.completedJobs || 0,
+            averageRating: result.stats?.averageRating || 0,
+            totalEarnings: result.stats?.totalEarnings || 0,
+            activeClients: result.stats?.activeClients || 0
+          });
+        }
+      } else {
+        console.error('Failed to fetch dashboard:', dashboardResponse.status);
+      }
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+      setErrorMessage('Failed to load settings. Please refresh the page.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Notification handlers
+  const handleNotificationChange = async (key: keyof NotificationSettings) => {
+    const newValue = !notifications[key];
+    const newNotifications = {
+      ...notifications,
+      [key]: newValue
+    };
+    
+    setNotifications(newNotifications);
+    
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/settings/notifications`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ [key]: newValue })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save notification setting');
+      }
+    } catch (error) {
+      console.error('Error saving notification setting:', error);
+      // Revert on error
+      setNotifications(notifications);
+      setErrorMessage(`Failed to update notification: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Save handlers for each section
+  const saveGeneralSettings = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/settings/general`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(generalSettings)
+      });
+
+      if (response.ok) {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save general settings');
+      }
+    } catch (error) {
+      console.error('Error saving general settings:', error);
+      setSaveStatus('error');
+      setErrorMessage(`Failed to save general settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const saveSecuritySettings = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      
+      if (securityData.newPassword && securityData.newPassword !== securityData.confirmPassword) {
+        setErrorMessage("New passwords don't match");
+        setSaveStatus('error');
+        return;
+      }
+
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/settings/security`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentPassword: securityData.currentPassword,
+          newPassword: securityData.newPassword,
+          enableTwoFactor: securityData.twoFactorEnabled
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSaveStatus('success');
+        // Clear password fields
+        setSecurityData(prev => ({
+          ...prev,
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: ""
+        }));
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        throw new Error(result.message || 'Failed to update security settings');
+      }
+    } catch (error) {
+      console.error('Error saving security settings:', error);
+      setSaveStatus('error');
+      setErrorMessage(`Failed to update security settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const saveAccountSettings = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      // Update profile information
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: accountSettings.name,
+          phoneNumber: accountSettings.phoneNumber,
+          address: accountSettings.address,
+          city: accountSettings.city,
+          state: accountSettings.state,
+          country: accountSettings.country,
+          experience: accountSettings.experience,
+          services: accountSettings.services,
+          hourlyRate: accountSettings.hourlyRate
+        })
+      });
+
+      if (response.ok) {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        const result = await response.json();
+        throw new Error(result.message || 'Failed to save account settings');
+      }
+    } catch (error) {
+      console.error('Error saving account settings:', error);
+      setSaveStatus('error');
+      setErrorMessage(`Failed to save account settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const savePaymentSettings = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/settings/payment`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(paymentSettings)
+      });
+
+      if (response.ok) {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save payment settings');
+      }
+    } catch (error) {
+      console.error('Error saving payment settings:', error);
+      setSaveStatus('error');
+      setErrorMessage(`Failed to save payment settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const saveProviderSettings = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      console.log('Saving provider settings:', providerSettings);
+      console.log('Using token:', token ? 'Token exists' : 'No token');
+      
+      const response = await fetch(`${API_BASE_URL}/api/settings/provider`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(providerSettings)
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Provider settings saved successfully:', result);
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      } else {
+        let errorMessage = 'Failed to save provider settings';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          console.error('Server error response:', errorData);
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Error saving provider settings:', error);
+      setSaveStatus('error');
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      setErrorMessage(`Failed to save provider settings: ${errorMsg}`);
+      
+      // Log additional debug info
+      console.error('Debug info:', {
+        API_BASE_URL,
+        providerSettings,
+        hasToken: !!localStorage.getItem('authToken') || !!localStorage.getItem('token')
+      });
+      
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    }
+  };
+
+  // Service management
+  const addService = () => {
+    if (newService.trim() && !accountSettings.services.includes(newService.trim())) {
+      setAccountSettings(prev => ({
+        ...prev,
+        services: [...prev.services, newService.trim()]
+      }));
+      setNewService("");
+    }
+  };
+
+  const removeService = (service: string) => {
+    setAccountSettings(prev => ({
       ...prev,
-      [key]: !prev[key],
+      services: prev.services.filter(s => s !== service)
     }));
+  };
+
+  // Bank account management
+  const addBankAccount = () => {
+    if (newBankAccount.accountNumber && newBankAccount.routingNumber && newBankAccount.accountHolderName) {
+      const bankAccount: BankAccount = {
+        ...newBankAccount,
+        lastFour: newBankAccount.accountNumber.slice(-4)
+      };
+      
+      setPaymentSettings(prev => ({
+        ...prev,
+        bankAccount
+      }));
+      setNewBankAccount({
+        accountNumber: "",
+        routingNumber: "",
+        accountType: "checking",
+        bankName: "",
+        accountHolderName: ""
+      });
+    }
+  };
+
+  const removeBankAccount = () => {
+    setPaymentSettings(prev => ({
+      ...prev,
+      bankAccount: null
+    }));
+  };
+
+  const handleSaveAll = async () => {
+    try {
+      setSaveStatus('saving');
+      setErrorMessage('');
+      
+      // Save based on active section
+      switch (activeSection) {
+        case 'general':
+          await saveGeneralSettings();
+          break;
+        case 'security':
+          await saveSecuritySettings();
+          break;
+        case 'account':
+          await saveAccountSettings();
+          break;
+        case 'payment':
+          await savePaymentSettings();
+          break;
+        case 'provider':
+          await saveProviderSettings();
+          break;
+        default:
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      setSaveStatus('error');
+      setErrorMessage(`Failed to save settings: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      const confirmation = prompt('Please type "DELETE MY ACCOUNT" to confirm:');
+      
+      if (confirmation === 'DELETE MY ACCOUNT') {
+        try {
+          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+          const response = await fetch(`${API_BASE_URL}/api/settings/account`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ confirmation })
+          });
+
+          if (response.ok) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('authToken');
+            window.location.href = '/';
+          } else {
+            throw new Error('Failed to delete account');
+          }
+        } catch (error) {
+          console.error('Error deleting account:', error);
+          alert('Failed to delete account. Please try again.');
+        }
+      }
+    }
   };
 
   const getCurrentSection = (): SettingSection | undefined => {
@@ -134,13 +724,38 @@ const Settings: React.FC = () => {
 
   const handleSectionChange = (sectionId: string) => {
     setActiveSection(sectionId);
-    setSidebarOpen(false); // Close sidebar on mobile when section is selected
+    setSidebarOpen(false);
+    setErrorMessage(''); // Clear error when switching sections
   };
+
+  const getSaveButtonText = () => {
+    switch (saveStatus) {
+      case 'saving':
+        return 'Saving...';
+      case 'success':
+        return 'Saved!';
+      case 'error':
+        return 'Error Saving';
+      default:
+        return 'Save Changes';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading settings...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
-        {/* Mobile-first Header */}
+        {/* Header */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
             <div className="flex items-center justify-between">
@@ -153,7 +768,7 @@ const Settings: React.FC = () => {
                     Settings
                   </h1>
                   <p className="text-gray-600 text-sm sm:text-base lg:text-lg leading-tight">
-                    Manage your account preferences
+                    Manage your provider account
                   </p>
                 </div>
               </div>
@@ -171,14 +786,40 @@ const Settings: React.FC = () => {
               </button>
             </div>
 
-            <button className="w-full lg:w-auto bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 lg:gap-3">
-              <div className="w-4 h-4 lg:w-6 lg:h-6 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Save className="w-3 h-3 lg:w-4 lg:h-4" />
+            <button 
+              onClick={handleSaveAll}
+              disabled={saveStatus === 'saving'}
+              className={`w-full lg:w-auto px-4 py-3 lg:px-8 lg:py-4 rounded-xl lg:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg flex items-center justify-center gap-2 lg:gap-3 ${
+                saveStatus === 'saving' 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : saveStatus === 'success'
+                  ? 'bg-green-600 text-white'
+                  : saveStatus === 'error'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gradient-to-r from-emerald-600 to-green-600 text-white'
+              }`}
+            >
+              <div className={`w-4 h-4 lg:w-6 lg:h-6 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                saveStatus === 'success' ? 'bg-white/20' : 'bg-white/20'
+              }`}>
+                <Save className={`w-3 h-3 lg:w-4 lg:h-4 ${
+                  saveStatus === 'saving' ? 'animate-spin' : ''
+                }`} />
               </div>
-              <span className="text-sm lg:text-base">Save All Changes</span>
+              <span className="text-sm lg:text-base">{getSaveButtonText()}</span>
             </button>
           </div>
         </div>
+
+        {/* Error Message Display */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+              <p className="text-red-700 text-sm">{errorMessage}</p>
+            </div>
+          </div>
+        )}
 
         <div className="relative">
           {/* Mobile Sidebar Overlay */}
@@ -190,7 +831,7 @@ const Settings: React.FC = () => {
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
-            {/* Enhanced Settings Navigation - Mobile Sidebar */}
+            {/* Settings Navigation */}
             <div className={`
               fixed inset-y-0 left-0 z-50 w-80 max-w-[calc(100vw-2rem)] transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-auto lg:z-auto
               ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -202,7 +843,7 @@ const Settings: React.FC = () => {
                     Settings Menu
                   </h3>
                   <p className="text-xs lg:text-sm text-gray-600">
-                    Choose what to configure
+                    Configure your provider account
                   </p>
                 </div>
                 <nav className="space-y-2 lg:space-y-3">
@@ -250,7 +891,7 @@ const Settings: React.FC = () => {
               </div>
             </div>
 
-            {/* Enhanced Settings Content */}
+            {/* Settings Content */}
             <div className="lg:col-span-3">
               <div className="bg-white/80 backdrop-blur-sm rounded-2xl lg:rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Section Header */}
@@ -279,54 +920,9 @@ const Settings: React.FC = () => {
                 </div>
 
                 <div className="p-4 sm:p-6 lg:p-8">
+                  {/* General Settings */}
                   {activeSection === "general" && (
                     <div className="space-y-6 lg:space-y-8">
-                      {/* Theme Toggle */}
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
-                        <div className="flex items-center justify-between gap-3 sm:gap-4">
-                          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                            <div
-                              className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br ${
-                                darkMode
-                                  ? "from-indigo-600 to-purple-700"
-                                  : "from-yellow-400 to-orange-500"
-                              } rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg transition-all flex-shrink-0`}
-                            >
-                              {darkMode ? (
-                                <Moon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
-                              ) : (
-                                <Sun className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 leading-tight">
-                                Appearance
-                              </h3>
-                              <p className="text-sm sm:text-base text-gray-600 leading-tight">
-                                Switch between light and dark themes
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setDarkMode(!darkMode)}
-                            className={`relative w-12 h-6 sm:w-14 sm:h-7 lg:w-16 lg:h-8 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 ${
-                              darkMode
-                                ? "bg-gradient-to-r from-indigo-500 to-purple-600"
-                                : "bg-gradient-to-r from-gray-300 to-gray-400"
-                            }`}
-                          >
-                            <div
-                              className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 w-5 h-5 sm:w-5 sm:h-5 lg:w-6 lg:h-6 bg-white rounded-full shadow-lg transition-transform duration-300 ${
-                                darkMode
-                                  ? "transform translate-x-6 sm:translate-x-7 lg:translate-x-8"
-                                  : ""
-                              }`}
-                            />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Language & Region */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                         <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-emerald-200">
                           <div className="flex items-center gap-3 mb-3 sm:mb-4">
@@ -337,34 +933,94 @@ const Settings: React.FC = () => {
                               Language
                             </h3>
                           </div>
-                          <select className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm sm:text-base">
-                            <option>🇺🇸 English (US)</option>
-                            <option>🇪🇸 Spanish</option>
-                            <option>🇫🇷 French</option>
-                            <option>🇩🇪 German</option>
+                          <select 
+                            value={generalSettings.language}
+                            onChange={(e) => setGeneralSettings(prev => ({...prev, language: e.target.value}))}
+                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm sm:text-base"
+                          >
+                            <option value="en-US">🇺🇸 English (US)</option>
+                            <option value="es-ES">🇪🇸 Spanish</option>
+                            <option value="fr-FR">🇫🇷 French</option>
+                            <option value="de-DE">🇩🇪 German</option>
                           </select>
                         </div>
 
                         <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
                           <div className="flex items-center gap-3 mb-3 sm:mb-4">
                             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                              <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
                               Time Zone
                             </h3>
                           </div>
-                          <select className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm sm:text-base">
-                            <option>🕐 Pacific Time (PT)</option>
-                            <option>🕑 Mountain Time (MT)</option>
-                            <option>🕒 Central Time (CT)</option>
-                            <option>🕓 Eastern Time (ET)</option>
+                          <select 
+                            value={generalSettings.timeZone}
+                            onChange={(e) => setGeneralSettings(prev => ({...prev, timeZone: e.target.value}))}
+                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm sm:text-base"
+                          >
+                            <option value="America/New_York">🕐 Eastern Time (ET)</option>
+                            <option value="America/Chicago">🕑 Central Time (CT)</option>
+                            <option value="America/Denver">🕒 Mountain Time (MT)</option>
+                            <option value="America/Los_Angeles">🕓 Pacific Time (PT)</option>
                           </select>
                         </div>
+
+                        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
+                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                            </div>
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
+                              Currency
+                            </h3>
+                          </div>
+                          <select 
+                            value={generalSettings.currency}
+                            onChange={(e) => setGeneralSettings(prev => ({...prev, currency: e.target.value}))}
+                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                          >
+                            <option value="USD">💵 US Dollar (USD)</option>
+                            <option value="EUR">💶 Euro (EUR)</option>
+                            <option value="GBP">💷 British Pound (GBP)</option>
+                            <option value="NGN">🇳🇬 Nigerian Naira (NGN)</option>
+                          </select>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-orange-200">
+                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                              <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                            </div>
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
+                              Theme
+                            </h3>
+                          </div>
+                          <select 
+                            value={generalSettings.theme}
+                            onChange={(e) => setGeneralSettings(prev => ({...prev, theme: e.target.value}))}
+                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-orange-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 font-medium text-sm sm:text-base"
+                          >
+                            <option value="light">🌞 Light</option>
+                            <option value="dark">🌙 Dark</option>
+                            <option value="auto">⚙️ Auto</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={saveGeneralSettings}
+                          disabled={saveStatus === 'saving'}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold disabled:opacity-50"
+                        >
+                          {saveStatus === 'saving' ? 'Saving...' : 'Save General Settings'}
+                        </button>
                       </div>
                     </div>
                   )}
 
+                  {/* Notifications Settings */}
                   {activeSection === "notifications" && (
                     <div className="space-y-6 lg:space-y-8">
                       {/* Delivery Methods */}
@@ -383,37 +1039,33 @@ const Settings: React.FC = () => {
                           </div>
                         </div>
                         <div className="grid gap-3 sm:gap-4">
-                          {(
-                            [
-                              {
-                                key: "email",
-                                label: "Email Notifications",
-                                icon: Mail,
-                                color: "from-blue-500 to-indigo-600",
-                              },
-                              {
-                                key: "push",
-                                label: "Push Notifications",
-                                icon: Smartphone,
-                                color: "from-emerald-500 to-green-600",
-                              },
-                              {
-                                key: "sms",
-                                label: "SMS Notifications",
-                                icon: Smartphone,
-                                color: "from-orange-500 to-red-600",
-                              },
-                            ] as NotificationMethod[]
-                          ).map((method) => (
-                            <div
-                              key={method.key}
-                              className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50 hover:shadow-lg transition-all"
-                            >
+                          {[
+                            {
+                              key: "email",
+                              label: "Email Notifications",
+                              description: "Receive updates via email",
+                              icon: Mail,
+                              color: "from-blue-500 to-indigo-600",
+                            },
+                            {
+                              key: "push",
+                              label: "Push Notifications", 
+                              description: "Receive push notifications in app",
+                              icon: Bell,
+                              color: "from-emerald-500 to-green-600",
+                            },
+                            {
+                              key: "sms",
+                              label: "SMS Notifications",
+                              description: "Receive updates via SMS",
+                              icon: Smartphone,
+                              color: "from-orange-500 to-red-600",
+                            },
+                          ].map((method) => (
+                            <div key={method.key} className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50 hover:shadow-lg transition-all">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                  <div
-                                    className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${method.color} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}
-                                  >
+                                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${method.color} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
                                     <method.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                                   </div>
                                   <div className="min-w-0 flex-1">
@@ -421,29 +1073,26 @@ const Settings: React.FC = () => {
                                       {method.label}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-500 leading-tight">
-                                      Receive updates via{" "}
-                                      {method.label.toLowerCase()}
+                                      {method.description}
                                     </p>
                                   </div>
                                 </div>
                                 <button
-                                  onClick={() =>
-                                    handleNotificationChange(method.key)
-                                  }
+                                  onClick={() => handleNotificationChange(method.key as keyof NotificationSettings)}
                                   className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 ${
-                                    notifications[method.key]
+                                    notifications[method.key as keyof NotificationSettings]
                                       ? `bg-gradient-to-r ${method.color}`
                                       : "bg-gradient-to-r from-gray-300 to-gray-400"
                                   }`}
                                 >
                                   <div
                                     className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 w-5 h-5 sm:w-5 sm:h-5 bg-white rounded-full shadow-lg transition-transform duration-300 flex items-center justify-center ${
-                                      notifications[method.key]
+                                      notifications[method.key as keyof NotificationSettings]
                                         ? "transform translate-x-6 sm:translate-x-7"
                                         : ""
                                     }`}
                                   >
-                                    {notifications[method.key] && (
+                                    {notifications[method.key as keyof NotificationSettings] && (
                                       <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-600" />
                                     )}
                                   </div>
@@ -470,43 +1119,40 @@ const Settings: React.FC = () => {
                           </div>
                         </div>
                         <div className="grid gap-3 sm:gap-4">
-                          {(
-                            [
-                              {
-                                key: "newJobs",
-                                label: "New Job Opportunities",
-                                description:
-                                  "Get notified when new jobs match your skills",
-                                icon: Star,
-                                color: "from-yellow-500 to-orange-600",
-                              },
-                              {
-                                key: "messages",
-                                label: "New Messages",
-                                description:
-                                  "Receive alerts for new client messages",
-                                icon: Mail,
-                                color: "from-green-500 to-emerald-600",
-                              },
-                              {
-                                key: "payments",
-                                label: "Payment Updates",
-                                description:
-                                  "Get notified about payment confirmations and issues",
-                                icon: CreditCard,
-                                color: "from-purple-500 to-pink-600",
-                              },
-                            ] as NotificationType[]
-                          ).map((type) => (
-                            <div
-                              key={type.key}
-                              className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50 hover:shadow-lg transition-all"
-                            >
+                          {[
+                            {
+                              key: "newJobs",
+                              label: "New Job Opportunities",
+                              description: "Get notified when new jobs match your skills",
+                              icon: Star,
+                              color: "from-yellow-500 to-orange-600",
+                            },
+                            {
+                              key: "messages",
+                              label: "New Messages",
+                              description: "Receive alerts for new client messages",
+                              icon: Mail,
+                              color: "from-green-500 to-emerald-600",
+                            },
+                            {
+                              key: "payments",
+                              label: "Payment Updates",
+                              description: "Get notified about payment confirmations and issues",
+                              icon: CreditCard,
+                              color: "from-purple-500 to-pink-600",
+                            },
+                            {
+                              key: "reminders",
+                              label: "Booking Reminders",
+                              description: "Get reminders for upcoming appointments",
+                              icon: Calendar,
+                              color: "from-blue-500 to-cyan-600",
+                            },
+                          ].map((type) => (
+                            <div key={type.key} className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50 hover:shadow-lg transition-all">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                  <div
-                                    className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${type.color} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}
-                                  >
+                                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${type.color} rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform flex-shrink-0`}>
                                     <type.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                                   </div>
                                   <div className="min-w-0 flex-1">
@@ -519,23 +1165,21 @@ const Settings: React.FC = () => {
                                   </div>
                                 </div>
                                 <button
-                                  onClick={() =>
-                                    handleNotificationChange(type.key)
-                                  }
+                                  onClick={() => handleNotificationChange(type.key as keyof NotificationSettings)}
                                   className={`relative w-12 h-6 sm:w-14 sm:h-7 rounded-full transition-all duration-300 shadow-lg flex-shrink-0 ${
-                                    notifications[type.key]
+                                    notifications[type.key as keyof NotificationSettings]
                                       ? `bg-gradient-to-r ${type.color}`
                                       : "bg-gradient-to-r from-gray-300 to-gray-400"
                                   }`}
                                 >
                                   <div
                                     className={`absolute top-0.5 left-0.5 sm:top-1 sm:left-1 w-5 h-5 sm:w-5 sm:h-5 bg-white rounded-full shadow-lg transition-transform duration-300 flex items-center justify-center ${
-                                      notifications[type.key]
+                                      notifications[type.key as keyof NotificationSettings]
                                         ? "transform translate-x-6 sm:translate-x-7"
                                         : ""
                                     }`}
                                   >
-                                    {notifications[type.key] && (
+                                    {notifications[type.key as keyof NotificationSettings] && (
                                       <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-green-600" />
                                     )}
                                   </div>
@@ -548,6 +1192,7 @@ const Settings: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Security Settings */}
                   {activeSection === "security" && (
                     <div className="space-y-6 lg:space-y-8">
                       {/* Security Status */}
@@ -559,12 +1204,17 @@ const Settings: React.FC = () => {
                           <div className="min-w-0 flex-1">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-900 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 leading-tight">
                               Account Security
-                              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                              <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                securityData.twoFactorEnabled ? 'bg-green-500' : 'bg-yellow-500'
+                              }`}>
                                 <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                               </div>
                             </h3>
                             <p className="text-sm sm:text-base text-emerald-700 leading-tight">
-                              Your account is secured with two-factor authentication
+                              {securityData.twoFactorEnabled 
+                                ? 'Your account is secured with two-factor authentication'
+                                : 'Enable two-factor authentication for extra security'
+                              }
                             </p>
                           </div>
                         </div>
@@ -593,6 +1243,8 @@ const Settings: React.FC = () => {
                             <div className="relative">
                               <input
                                 type={showPassword ? "text" : "password"}
+                                value={securityData.currentPassword}
+                                onChange={(e) => setSecurityData(prev => ({...prev, currentPassword: e.target.value}))}
                                 className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium pr-12 text-sm sm:text-base"
                                 placeholder="Enter current password"
                               />
@@ -616,6 +1268,8 @@ const Settings: React.FC = () => {
                               </label>
                               <input
                                 type="password"
+                                value={securityData.newPassword}
+                                onChange={(e) => setSecurityData(prev => ({...prev, newPassword: e.target.value}))}
                                 className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
                                 placeholder="Enter new password"
                               />
@@ -627,15 +1281,21 @@ const Settings: React.FC = () => {
                               </label>
                               <input
                                 type="password"
+                                value={securityData.confirmPassword}
+                                onChange={(e) => setSecurityData(prev => ({...prev, confirmPassword: e.target.value}))}
                                 className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
                                 placeholder="Confirm new password"
                               />
                             </div>
                           </div>
 
-                          <button className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                          <button 
+                            onClick={saveSecuritySettings}
+                            disabled={saveStatus === 'saving'}
+                            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 font-semibold text-sm sm:text-base disabled:opacity-50"
+                          >
                             <Lock className="w-4 h-4" />
-                            <span>Update Password</span>
+                            <span>{saveStatus === 'saving' ? 'Updating...' : 'Update Password'}</span>
                           </button>
                         </div>
                       </div>
@@ -664,17 +1324,29 @@ const Settings: React.FC = () => {
                               <div className="min-w-0 flex-1">
                                 <h4 className="font-bold text-gray-900 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm sm:text-base leading-tight">
                                   SMS Authentication
-                                  <div className="w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <div className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                    securityData.twoFactorEnabled ? 'bg-green-500' : 'bg-gray-400'
+                                  }`}>
                                     <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />
                                   </div>
                                 </h4>
                                 <p className="text-xs sm:text-sm text-gray-600 leading-tight">
-                                  Enabled for +1 (555) 123-4567
+                                  {securityData.twoFactorEnabled 
+                                    ? 'Enabled for your phone number'
+                                    : 'Enable two-factor authentication via SMS'
+                                  }
                                 </p>
                               </div>
                             </div>
-                            <button className="w-full sm:w-auto bg-gradient-to-r from-gray-600 to-gray-700 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-medium text-sm">
-                              Manage
+                            <button 
+                              onClick={() => setSecurityData(prev => ({...prev, twoFactorEnabled: !prev.twoFactorEnabled}))}
+                              className={`w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-medium text-sm ${
+                                securityData.twoFactorEnabled
+                                  ? 'bg-gray-600 text-white'
+                                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                              }`}
+                            >
+                              {securityData.twoFactorEnabled ? 'Disable' : 'Enable'}
                             </button>
                           </div>
                         </div>
@@ -682,128 +1354,371 @@ const Settings: React.FC = () => {
                     </div>
                   )}
 
+                  {/* Payment Settings */}
                   {activeSection === "payment" && (
                     <div className="space-y-6 lg:space-y-8">
-                      {/* Payment Methods */}
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-6 mb-4 sm:mb-6">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                              <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            </div>
-                            <div className="min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
-                                Payment Methods
-                              </h3>
-                              <p className="text-sm sm:text-base text-gray-600 leading-tight">
-                                Manage your payment options
-                              </p>
-                            </div>
-                          </div>
-                          <button className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 font-medium text-sm">
-                            <Plus className="w-4 h-4" />
-                            <span>Add Method</span>
-                          </button>
-                        </div>
-
-                        <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                              <div className="w-12 h-8 sm:w-16 sm:h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0">
-                                <span className="text-white font-bold text-xs">
-                                  BANK
-                                </span>
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
-                                  Bank Account
-                                </h4>
-                                <p className="text-xs sm:text-sm text-gray-600 leading-tight">
-                                  ****1234 - Primary Account
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 self-end sm:self-center">
-                              <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                                <Edit3 className="w-4 h-4 text-gray-600" />
-                              </button>
-                              <button className="p-2 bg-red-100 rounded-lg hover:bg-red-200 transition-colors">
-                                <Trash2 className="w-4 h-4 text-red-600" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       {/* Payout Settings */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                        <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-emerald-200">
-                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                            </div>
-                            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
-                              Payout Schedule
-                            </h3>
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
-                          <select className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm sm:text-base">
-                            <option>📅 Weekly (Fridays)</option>
-                            <option>📆 Bi-weekly</option>
-                            <option>🗓️ Monthly</option>
-                          </select>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
-                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
-                              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                            </div>
-                            <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
-                              Currency
-                            </h3>
-                          </div>
-                          <select className="w-full p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm sm:text-base">
-                            <option>💵 USD - US Dollar</option>
-                            <option>💶 EUR - Euro</option>
-                            <option>💷 GBP - British Pound</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Tax Information */}
-                      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-yellow-200">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-                            <AlertCircle className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-white" />
-                          </div>
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
-                              Tax Information
+                              Payout Settings
                             </h3>
-                            <p className="text-sm sm:text-base text-yellow-800 leading-tight">
-                              Please update your tax information to continue receiving payments
+                            <p className="text-sm sm:text-base text-gray-600 leading-tight">
+                              Configure how you receive payments
                             </p>
                           </div>
                         </div>
-                        <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
-                                Tax Forms Required
-                              </h4>
-                              <p className="text-xs sm:text-sm text-gray-600 leading-tight">
-                                W-9 form needs to be submitted
-                              </p>
-                            </div>
-                            <button className="w-full sm:w-auto bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-4 sm:px-6 py-3 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold text-sm">
-                              Update Tax Info
-                            </button>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Payout Schedule
+                            </label>
+                            <select
+                              value={paymentSettings.payoutSchedule}
+                              onChange={(e) => setPaymentSettings(prev => ({...prev, payoutSchedule: e.target.value}))}
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                            >
+                              <option value="daily">📅 Daily</option>
+                              <option value="weekly">📆 Weekly (Fridays)</option>
+                              <option value="bi-weekly">🗓️ Bi-weekly</option>
+                              <option value="monthly">📊 Monthly</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Currency
+                            </label>
+                            <select
+                              value={paymentSettings.currency}
+                              onChange={(e) => setPaymentSettings(prev => ({...prev, currency: e.target.value}))}
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                            >
+                              <option value="USD">💵 USD - US Dollar</option>
+                              <option value="EUR">💶 EUR - Euro</option>
+                              <option value="GBP">💷 GBP - British Pound</option>
+                              <option value="NGN">🇳🇬 NGN - Nigerian Naira</option>
+                            </select>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Bank Account */}
+                      <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-emerald-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-6 mb-4 sm:mb-6">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                              <BankIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
+                                Bank Account
+                              </h3>
+                              <p className="text-sm sm:text-base text-gray-600 leading-tight">
+                                Manage your payout method
+                              </p>
+                            </div>
+                          </div>
+                          {!paymentSettings.bankAccount && (
+                            <button 
+                              onClick={() => document.getElementById('bank-account-form')?.scrollIntoView({ behavior: 'smooth' })}
+                              className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 font-medium text-sm"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Add Bank Account</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {paymentSettings.bankAccount ? (
+                          <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                                <div className="w-12 h-8 sm:w-16 sm:h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0">
+                                  <span className="text-white font-bold text-xs">BANK</span>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-tight">
+                                    {paymentSettings.bankAccount.bankName || 'Bank Account'}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 leading-tight">
+                                    ****{paymentSettings.bankAccount.lastFour} - {paymentSettings.bankAccount.accountHolderName}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {paymentSettings.bankAccount.accountType === 'checking' ? 'Checking Account' : 'Savings Account'}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 self-end sm:self-center">
+                                <button className="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                                  <Edit3 className="w-4 h-4 text-gray-600" />
+                                </button>
+                                <button 
+                                  onClick={removeBankAccount}
+                                  className="p-2 bg-red-100 rounded-lg hover:bg-red-200 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-600" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div id="bank-account-form" className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Bank Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newBankAccount.bankName}
+                                  onChange={(e) => setNewBankAccount(prev => ({...prev, bankName: e.target.value}))}
+                                  className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
+                                  placeholder="Enter bank name"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Account Holder Name
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newBankAccount.accountHolderName}
+                                  onChange={(e) => setNewBankAccount(prev => ({...prev, accountHolderName: e.target.value}))}
+                                  className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
+                                  placeholder="Full name as on account"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Account Number
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newBankAccount.accountNumber}
+                                  onChange={(e) => setNewBankAccount(prev => ({...prev, accountNumber: e.target.value}))}
+                                  className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
+                                  placeholder="Enter account number"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Routing Number
+                                </label>
+                                <input
+                                  type="text"
+                                  value={newBankAccount.routingNumber}
+                                  onChange={(e) => setNewBankAccount(prev => ({...prev, routingNumber: e.target.value}))}
+                                  className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
+                                  placeholder="Enter routing number"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">
+                                  Account Type
+                                </label>
+                                <select
+                                  value={newBankAccount.accountType}
+                                  onChange={(e) => setNewBankAccount(prev => ({...prev, accountType: e.target.value}))}
+                                  className="w-full p-3 bg-white/80 backdrop-blur-sm border border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm"
+                                >
+                                  <option value="checking">Checking</option>
+                                  <option value="savings">Savings</option>
+                                </select>
+                              </div>
+                            </div>
+                            <button
+                              onClick={addBankAccount}
+                              className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold text-sm"
+                            >
+                              Add Bank Account
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={savePaymentSettings}
+                          disabled={saveStatus === 'saving'}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold disabled:opacity-50"
+                        >
+                          {saveStatus === 'saving' ? 'Saving...' : 'Save Payment Settings'}
+                        </button>
                       </div>
                     </div>
                   )}
 
+                  {/* Provider Settings */}
+                  {activeSection === "provider" && (
+                    <div className="space-y-6 lg:space-y-8">
+                      {/* Service Preferences */}
+                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
+                              Service Preferences
+                            </h3>
+                            <p className="text-sm sm:text-base text-gray-600 leading-tight">
+                              Configure your service settings
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-bold text-gray-900">Auto-accept Jobs</h4>
+                              <p className="text-sm text-gray-600">Automatically accept new job requests</p>
+                            </div>
+                            <button
+                              onClick={() => setProviderSettings(prev => ({...prev, autoAcceptJobs: !prev.autoAcceptJobs}))}
+                              className={`relative w-12 h-6 rounded-full transition-all duration-300 shadow-lg ${
+                                providerSettings.autoAcceptJobs
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-600"
+                                  : "bg-gradient-to-r from-gray-300 to-gray-400"
+                              }`}
+                            >
+                              <div
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                                  providerSettings.autoAcceptJobs
+                                    ? "transform translate-x-6"
+                                    : ""
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Maximum Jobs Per Day
+                            </label>
+                            <input
+                              type="number"
+                              value={providerSettings.maxJobsPerDay}
+                              onChange={(e) => setProviderSettings(prev => ({...prev, maxJobsPerDay: parseInt(e.target.value) || 1}))}
+                              min="1"
+                              max="20"
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Service Radius (miles)
+                            </label>
+                            <input
+                              type="number"
+                              value={providerSettings.serviceRadius}
+                              onChange={(e) => setProviderSettings(prev => ({...prev, serviceRadius: parseInt(e.target.value) || 1}))}
+                              min="1"
+                              max="100"
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Working Hours */}
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
+                              Working Hours
+                            </h3>
+                            <p className="text-sm sm:text-base text-gray-600 leading-tight">
+                              Set your availability for appointments
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Start Time
+                            </label>
+                            <input
+                              type="time"
+                              value={providerSettings.workingHours.start}
+                              onChange={(e) => setProviderSettings(prev => ({
+                                ...prev,
+                                workingHours: {...prev.workingHours, start: e.target.value}
+                              }))}
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              End Time
+                            </label>
+                            <input
+                              type="time"
+                              value={providerSettings.workingHours.end}
+                              onChange={(e) => setProviderSettings(prev => ({
+                                ...prev,
+                                workingHours: {...prev.workingHours, end: e.target.value}
+                              }))}
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vacation Mode */}
+                      <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-orange-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                              <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Vacation Mode</h3>
+                              <p className="text-sm text-gray-600">Temporarily pause receiving new job requests</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setProviderSettings(prev => ({...prev, vacationMode: !prev.vacationMode}))}
+                            className={`relative w-12 h-6 rounded-full transition-all duration-300 shadow-lg ${
+                              providerSettings.vacationMode
+                                ? "bg-gradient-to-r from-red-500 to-pink-600"
+                                : "bg-gradient-to-r from-gray-300 to-gray-400"
+                            }`}
+                          >
+                            <div
+                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg transition-transform duration-300 ${
+                                providerSettings.vacationMode
+                                  ? "transform translate-x-6"
+                                  : ""
+                              }`}
+                            />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
+                        <button
+                          onClick={saveProviderSettings}
+                          disabled={saveStatus === 'saving'}
+                          className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold disabled:opacity-50"
+                        >
+                          {saveStatus === 'saving' ? 'Saving...' : 'Save Provider Settings'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Account Settings */}
                   {activeSection === "account" && (
                     <div className="space-y-6 lg:space-y-8">
                       {/* Profile Information */}
@@ -817,7 +1732,7 @@ const Settings: React.FC = () => {
                               Profile Information
                             </h3>
                             <p className="text-sm sm:text-base text-gray-600 leading-tight">
-                              Update your personal details
+                              Update your personal and professional details
                             </p>
                           </div>
                         </div>
@@ -829,8 +1744,10 @@ const Settings: React.FC = () => {
                             </label>
                             <input
                               type="text"
-                              defaultValue="Alex Rodriguez"
+                              value={accountSettings.name}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, name: e.target.value}))}
                               className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your full name"
                             />
                           </div>
 
@@ -840,8 +1757,10 @@ const Settings: React.FC = () => {
                             </label>
                             <input
                               type="email"
-                              defaultValue="alex.rodriguez@email.com"
+                              value={accountSettings.email}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, email: e.target.value}))}
                               className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your email"
                             />
                           </div>
 
@@ -851,32 +1770,155 @@ const Settings: React.FC = () => {
                             </label>
                             <input
                               type="tel"
-                              defaultValue="+1 (555) 123-4567"
+                              value={accountSettings.phoneNumber}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, phoneNumber: e.target.value}))}
                               className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your phone number"
                             />
                           </div>
 
                           <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">
-                              Location
+                              Hourly Rate ($)
+                            </label>
+                            <input
+                              type="number"
+                              value={accountSettings.hourlyRate}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, hourlyRate: parseFloat(e.target.value) || 0}))}
+                              className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your hourly rate"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Experience
                             </label>
                             <input
                               type="text"
-                              defaultValue="San Francisco, CA"
+                              value={accountSettings.experience}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, experience: e.target.value}))}
                               className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="e.g., 5 years in plumbing"
                             />
                           </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Address
+                            </label>
+                            <input
+                              type="text"
+                              value={accountSettings.address}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, address: e.target.value}))}
+                              className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your address"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              City
+                            </label>
+                            <input
+                              type="text"
+                              value={accountSettings.city}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, city: e.target.value}))}
+                              className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your city"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              State
+                            </label>
+                            <input
+                              type="text"
+                              value={accountSettings.state}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, state: e.target.value}))}
+                              className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                              placeholder="Enter your state"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              Country
+                            </label>
+                            <select
+                              value={accountSettings.country}
+                              onChange={(e) => setAccountSettings(prev => ({...prev, country: e.target.value}))}
+                              className="w-full p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
+                            >
+                              <option value="">Select Country</option>
+                              <option value="USA">United States</option>
+                              <option value="UK">United Kingdom</option>
+                              <option value="CANADA">Canada</option>
+                              <option value="NIGERIA">Nigeria</option>
+                              <option value="OTHER">Other</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Services Management */}
+                        <div className="mt-6">
+                          <label className="block text-sm font-bold text-gray-700 mb-2">
+                            Services Offered
+                          </label>
+                          <div className="flex gap-2 mb-3">
+                            <input
+                              type="text"
+                              value={newService}
+                              onChange={(e) => setNewService(e.target.value)}
+                              className="flex-1 p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm"
+                              placeholder="Add a service you offer"
+                              onKeyPress={(e) => e.key === 'Enter' && addService()}
+                            />
+                            <button
+                              onClick={addService}
+                              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-lg hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold text-sm"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {accountSettings.services.map((service, index) => (
+                              <div
+                                key={index}
+                                className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1"
+                              >
+                                {service}
+                                <button
+                                  onClick={() => removeService(service)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end mt-6">
+                          <button
+                            onClick={saveAccountSettings}
+                            disabled={saveStatus === 'saving'}
+                            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-semibold disabled:opacity-50"
+                          >
+                            {saveStatus === 'saving' ? 'Saving...' : 'Save Account Settings'}
+                          </button>
                         </div>
                       </div>
 
                       {/* Account Statistics */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                         <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-emerald-200 text-center">
                           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
                             <Star className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
                           <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
-                            247
+                            {accountStats.jobsCompleted}
                           </h3>
                           <p className="text-sm sm:text-base text-gray-600 font-medium leading-tight">
                             Jobs Completed
@@ -888,20 +1930,34 @@ const Settings: React.FC = () => {
                             <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
                           <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
-                            4.9
+                            {accountStats.averageRating.toFixed(1)}
                           </h3>
                           <p className="text-sm sm:text-base text-gray-600 font-medium leading-tight">
                             Average Rating
                           </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-yellow-200 text-center sm:col-span-1 col-span-1">
+                        <div className="bg-gradient-to-br from-yellow-50 to-orange-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-yellow-200 text-center">
                           <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
-                            <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                            <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
-                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">5</h3>
+                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
+                            ${accountStats.totalEarnings}
+                          </h3>
                           <p className="text-sm sm:text-base text-gray-600 font-medium leading-tight">
-                            Years Experience
+                            Total Earnings
+                          </p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200 text-center">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
+                            <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                          </div>
+                          <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
+                            {accountStats.activeClients}
+                          </h3>
+                          <p className="text-sm sm:text-base text-gray-600 font-medium leading-tight">
+                            Active Clients
                           </p>
                         </div>
                       </div>
@@ -925,7 +1981,10 @@ const Settings: React.FC = () => {
                           <button className="p-3 sm:p-4 bg-white/80 backdrop-blur-sm border border-red-200 text-red-600 rounded-lg sm:rounded-xl hover:bg-red-50 hover:shadow-lg transition-all font-bold text-sm sm:text-base">
                             Deactivate Account
                           </button>
-                          <button className="p-3 sm:p-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-bold text-sm sm:text-base">
+                          <button 
+                            onClick={handleDeleteAccount}
+                            className="p-3 sm:p-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-bold text-sm sm:text-base"
+                          >
                             Delete Account
                           </button>
                         </div>

@@ -20,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
               <Home className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              HomeHero
+              HomeHeroes
             </span>
           </Link>
 

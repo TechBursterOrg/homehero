@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle, Sparkles, Star, DollarSign, MoreVertical, ArrowRight, Plus } from 'lucide-react';
+import { Calendar, CheckCircle, Sparkles, Star, DollarSign, MoreVertical, ArrowRight, Plus, X } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
 import { bookings as mockBookings } from '../data/mockData';
 
@@ -35,11 +35,15 @@ interface ApiBooking {
   };
 }
 
+interface RescheduleFormData {
+  newDate: string;
+  newTime: string;
+  reason: string;
+}
+
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
-
-
 
 // Function to convert API booking to the format expected by BookingCard
 const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
@@ -127,6 +131,17 @@ const BookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'upcoming' | 'completed' | 'cancelled'>('all');
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<ApiBooking | null>(null);
+  const [rescheduleForm, setRescheduleForm] = useState<RescheduleFormData>({
+    newDate: '',
+    newTime: '',
+    reason: ''
+  });
+  const [rescheduleLoading, setRescheduleLoading] = useState(false);
 
   useEffect(() => {
     fetchUserBookings();
@@ -141,8 +156,6 @@ const BookingsPage: React.FC = () => {
         throw new Error('Authentication required. Please log in.');
       }
       
-      // FIXED: Use the correct API endpoint - check your server routes
-      // The endpoint might be different based on your server setup
       const response = await fetch(`${API_BASE_URL}/api/bookings/customer`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -171,19 +184,16 @@ const BookingsPage: React.FC = () => {
       console.error('Error fetching bookings:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
       
-      // Fallback to mock data in development - but handle it carefully
+      // Fallback to mock data in development
       if (process.env.NODE_ENV === 'development') {
         console.log('Using mock data as fallback');
-        // FIXED: Safely convert mock data to match ApiBooking interface
         const safeMockData = mockBookings.map(booking => {
-          const mockBooking = booking as any; // Cast to any to access all properties safely
+          const mockBooking = booking as any;
           
           return {
             _id: booking.id,
             id: booking.id,
-            // Safely add requestedAt if it doesn't exist
             requestedAt: mockBooking.requestedAt || new Date().toISOString(),
-            // Ensure all required fields exist
             providerId: mockBooking.providerId || 'mock-provider-id',
             providerName: mockBooking.providerName || mockBooking.provider || 'Provider',
             providerEmail: mockBooking.providerEmail || 'provider@example.com',
@@ -198,13 +208,11 @@ const BookingsPage: React.FC = () => {
             budget: mockBooking.price || '$100',
             specialRequests: mockBooking.specialRequests || '',
             bookingType: mockBooking.bookingType || 'regular',
-            // Map status to match API format
             status: (booking.status === 'upcoming' ? 'pending' : 
                     booking.status === 'in-progress' ? 'accepted' :
                     booking.status) as 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'confirmed',
             updatedAt: new Date().toISOString(),
             rating: mockBooking.rating || 0,
-            // Handle provider object - make it optional since it's optional in ApiBooking
             provider: mockBooking.providerObj ? {
               name: mockBooking.providerObj.name || mockBooking.provider || 'Provider',
               email: mockBooking.providerObj.email || 'provider@example.com',
@@ -222,7 +230,7 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const handleBookingAction = async (bookingId: string, action: string) => {
+  const handleBookingAction = async (bookingId: string, action: string, data?: any) => {
     try {
       const token = localStorage.getItem('authToken');
       
@@ -236,46 +244,58 @@ const BookingsPage: React.FC = () => {
 
       switch (action) {
         case 'cancel':
-          endpoint = `http://localhost:3001/api/bookings/${bookingId}/status`;
+          endpoint = `${API_BASE_URL}/api/bookings/${bookingId}/status`;
           body = JSON.stringify({ status: 'cancelled' });
           break;
         case 'reschedule':
-          console.log('Reschedule booking:', bookingId);
+          // This will now open the modal instead of direct API call
+          const booking = bookings.find(b => b._id === bookingId);
+          if (booking) {
+            setSelectedBooking(booking);
+            setShowRescheduleModal(true);
+          }
+          return;
+        case 'view-details':
+          handleViewDetails(bookingId);
           return;
         case 'contact-phone':
+          handleContactPhone(bookingId);
+          return;
         case 'contact-email':
-          console.log('Contact via:', action, bookingId);
+          handleContactEmail(bookingId);
           return;
         default:
           console.log('Unknown action:', action, bookingId);
           return;
       }
 
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body,
-      });
+      if (body) {
+        const response = await fetch(endpoint, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body,
+        });
 
-      if (response.status === 401) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userData');
-        throw new Error('Your session has expired. Please log in again.');
-      }
+        if (response.status === 401) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          throw new Error('Your session has expired. Please log in again.');
+        }
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${action} booking`);
-      }
+        if (!response.ok) {
+          throw new Error(`Failed to ${action} booking`);
+        }
 
-      const data = await response.json();
-      
-      if (data.success) {
-        fetchUserBookings();
-      } else {
-        throw new Error(data.message || `Failed to ${action} booking`);
+        const responseData = await response.json();
+        
+        if (responseData.success) {
+          fetchUserBookings();
+        } else {
+          throw new Error(responseData.message || `Failed to ${action} booking`);
+        }
       }
     } catch (err) {
       console.error(`Error ${action} booking:`, err);
@@ -283,11 +303,137 @@ const BookingsPage: React.FC = () => {
     }
   };
 
+  const handleRescheduleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBooking) return;
+
+    try {
+      setRescheduleLoading(true);
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      // First, create a reschedule request
+      const response = await fetch(`${API_BASE_URL}/api/bookings/reschedule`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId: selectedBooking._id,
+          newDate: rescheduleForm.newDate,
+          newTime: rescheduleForm.newTime,
+          reason: rescheduleForm.reason,
+          providerId: selectedBooking.providerId,
+          customerId: selectedBooking.customerId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit reschedule request');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Close modal and refresh bookings
+        setShowRescheduleModal(false);
+        setSelectedBooking(null);
+        setRescheduleForm({ newDate: '', newTime: '', reason: '' });
+        fetchUserBookings();
+        alert('Reschedule request submitted successfully! The provider will review your request.');
+      } else {
+        throw new Error(data.message || 'Failed to submit reschedule request');
+      }
+    } catch (err) {
+      console.error('Error submitting reschedule:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setRescheduleLoading(false);
+    }
+  };
+
+  const handleViewDetails = (bookingId: string) => {
+    const booking = bookings.find(b => b._id === bookingId);
+    if (booking) {
+      setSelectedBooking(booking);
+      setShowDetailsModal(true);
+    }
+  };
+
+  const handleContactPhone = (bookingId: string) => {
+    const booking = bookings.find(b => b._id === bookingId);
+    if (booking && booking.provider?.phoneNumber) {
+      window.location.href = `tel:${booking.provider.phoneNumber}`;
+    } else {
+      alert('Phone number not available for this provider');
+    }
+  };
+
+  const handleContactEmail = (bookingId: string) => {
+    const booking = bookings.find(b => b._id === bookingId);
+    if (booking && booking.providerEmail) {
+      window.location.href = `mailto:${booking.providerEmail}`;
+    } else {
+      alert('Email not available for this provider');
+    }
+  };
+
+  const handleViewCalendar = () => {
+    setShowCalendarModal(true);
+  };
+
+  const handleBookNewService = () => {
+    window.location.href = '/book-service';
+  };
+
+  const handleFilterChange = (newFilter: 'all' | 'upcoming' | 'completed' | 'cancelled') => {
+    setFilter(newFilter);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userData');
     window.location.href = '/login';
   };
+
+  // Filter bookings based on selected filter
+  const filteredBookings = bookings.filter(booking => {
+    switch (filter) {
+      case 'upcoming':
+        return booking.status === 'pending' || booking.status === 'accepted' || booking.status === 'confirmed';
+      case 'completed':
+        return booking.status === 'completed';
+      case 'cancelled':
+        return booking.status === 'cancelled' || booking.status === 'rejected';
+      default:
+        return true;
+    }
+  });
+
+  // Format date for display
+  const formatDate = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Generate calendar events from bookings
+  const calendarEvents = bookings.map(booking => ({
+    id: booking._id,
+    title: `${booking.serviceType} - ${booking.providerName}`,
+    date: new Date(booking.requestedAt).toISOString().split('T')[0],
+    status: booking.status,
+    service: booking.serviceType,
+    provider: booking.providerName
+  }));
 
   if (loading) {
     return (
@@ -331,6 +477,10 @@ const BookingsPage: React.FC = () => {
     booking.status === 'completed'
   );
   
+  const cancelledBookings = bookings.filter(booking => 
+    booking.status === 'cancelled' || booking.status === 'rejected'
+  );
+  
   const averageRating = bookings.reduce((acc, booking) => {
     const rating = booking.rating || 0;
     return acc + rating;
@@ -344,7 +494,7 @@ const BookingsPage: React.FC = () => {
   }, 0);
 
   // Convert API bookings to format expected by BookingCard
-  const cardBookings = bookings.map(convertApiBookingToCardFormat);
+  const cardBookings = filteredBookings.map(convertApiBookingToCardFormat);
 
   return (
     <div className="space-y-8">
@@ -372,12 +522,18 @@ const BookingsPage: React.FC = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            <button className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold">
+            <button 
+              onClick={handleViewCalendar}
+              className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold"
+            >
               <Calendar className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
               <span>View Calendar</span>
             </button>
             
-            <button className="group bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg">
+            <button 
+              onClick={handleBookNewService}
+              className="group bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg"
+            >
               <Plus className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
               <span>Book New Service</span>
             </button>
@@ -387,8 +543,13 @@ const BookingsPage: React.FC = () => {
 
       {/* Enhanced Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Upcoming Bookings */}
-        <div className="group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden">
+        {/* All Bookings */}
+        <div 
+          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
+            filter === 'all' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterChange('all')}
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
           
@@ -397,8 +558,34 @@ const BookingsPage: React.FC = () => {
               <Calendar className="w-7 h-7 text-white" />
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">{upcomingBookings.length}</p>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">{bookings.length}</p>
               <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+            </div>
+          </div>
+          
+          <div className="relative">
+            <h3 className="text-sm font-bold text-gray-900 mb-1">All Bookings</h3>
+            <p className="text-xs text-gray-600">Total service appointments</p>
+          </div>
+        </div>
+
+        {/* Upcoming Bookings */}
+        <div 
+          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
+            filter === 'upcoming' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterChange('upcoming')}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+          
+          <div className="relative flex items-start justify-between mb-4">
+            <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
+              <CheckCircle className="w-7 h-7 text-white" />
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-300">{upcomingBookings.length}</p>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </div>
           
@@ -409,17 +596,16 @@ const BookingsPage: React.FC = () => {
                 `Next: ${new Date(upcomingBookings[0].requestedAt).toLocaleDateString()}` : 
                 'No upcoming bookings'}
             </p>
-            <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" 
-                style={{ width: `${Math.min((upcomingBookings.length / (bookings.length || 1)) * 100, 100)}%` }}
-              ></div>
-            </div>
           </div>
         </div>
 
         {/* Completed Bookings */}
-        <div className="group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden">
+        <div 
+          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
+            filter === 'completed' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterChange('completed')}
+        >
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400/10 to-green-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
           
@@ -436,98 +622,112 @@ const BookingsPage: React.FC = () => {
           <div className="relative">
             <h3 className="text-sm font-bold text-gray-900 mb-1">Completed</h3>
             <p className="text-xs text-gray-600">100% success rate</p>
-            <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full w-full bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"
-                style={{ width: `${Math.min((completedBookings.length / (bookings.length || 1)) * 100, 100)}%` }}
-              ></div>
-            </div>
           </div>
         </div>
 
-        {/* Average Rating */}
-        <div className="group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-400/10 to-orange-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+        {/* Cancelled Bookings */}
+        <div 
+          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
+            filter === 'cancelled' ? 'ring-2 ring-blue-500' : ''
+          }`}
+          onClick={() => handleFilterChange('cancelled')}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-400/10 to-pink-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
           
           <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <Sparkles className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-right flex items-center gap-1">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-amber-600 transition-colors duration-300">
-                {averageRating.toFixed(1)}
-              </p>
-              <Star className="w-4 h-4 text-amber-500 fill-current" />
-            </div>
-          </div>
-          
-          <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Avg Rating</h3>
-            <p className="text-xs text-gray-600">From {bookings.length} bookings</p>
-            <div className="flex gap-1 mt-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star 
-                  key={star} 
-                  className={`w-3 h-3 ${star <= Math.round(averageRating) ? 'text-amber-400 fill-current' : 'text-gray-300'}`} 
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Total Spent */}
-        <div className="group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
-          
-          <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <DollarSign className="w-7 h-7 text-white" />
+            <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
+              <CheckCircle className="w-7 h-7 text-white" />
             </div>
             <div className="text-right">
-              <p className="text-2xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors duration-300">
-                ${totalSpent.toFixed(0)}
-              </p>
-              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-red-600 transition-colors duration-300">{cancelledBookings.length}</p>
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
             </div>
           </div>
           
           <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Total Spent</h3>
-            <p className="text-xs text-gray-600">This year</p>
-            <div className="mt-3 h-1 bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full w-4/5 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
-                style={{ width: `${Math.min((totalSpent / 2400) * 100, 100)}%` }}
-              ></div>
-            </div>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">Cancelled</h3>
+            <p className="text-xs text-gray-600">Cancelled appointments</p>
           </div>
         </div>
+      </div>
+
+      {/* Filter Buttons */}
+      <div className="flex flex-wrap gap-2 justify-center">
+        <button
+          onClick={() => handleFilterChange('all')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+            filter === 'all'
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          All Bookings
+        </button>
+        <button
+          onClick={() => handleFilterChange('upcoming')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+            filter === 'upcoming'
+              ? 'bg-green-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Upcoming
+        </button>
+        <button
+          onClick={() => handleFilterChange('completed')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+            filter === 'completed'
+              ? 'bg-emerald-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Completed
+        </button>
+        <button
+          onClick={() => handleFilterChange('cancelled')}
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+            filter === 'cancelled'
+              ? 'bg-red-600 text-white shadow-lg'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          Cancelled
+        </button>
       </div>
 
       {/* Enhanced Bookings List */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Recent Bookings</h2>
-            <p className="text-gray-600 mt-1">Your latest service appointments</p>
+            <h2 className="text-2xl font-bold text-gray-900">
+              {filter === 'all' && 'All Bookings'}
+              {filter === 'upcoming' && 'Upcoming Bookings'}
+              {filter === 'completed' && 'Completed Bookings'}
+              {filter === 'cancelled' && 'Cancelled Bookings'}
+            </h2>
+            <p className="text-gray-600 mt-1">
+              {filter === 'all' && 'All your service appointments'}
+              {filter === 'upcoming' && 'Your upcoming service appointments'}
+              {filter === 'completed' && 'Completed service appointments'}
+              {filter === 'cancelled' && 'Cancelled service appointments'}
+            </p>
           </div>
           
           <div className="flex items-center gap-3">
             <div className="relative">
-              <select className="appearance-none bg-white border border-gray-200 rounded-2xl px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors">
-                <option>All Bookings</option>
-                <option>Upcoming</option>
-                <option>Completed</option>
-                <option>Cancelled</option>
+              <select 
+                value={filter}
+                onChange={(e) => handleFilterChange(e.target.value as any)}
+                className="appearance-none bg-white border border-gray-200 rounded-2xl px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              >
+                <option value="all">All Bookings</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
               </select>
               <MoreVertical className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
-            
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
-              <MoreVertical className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -536,9 +736,25 @@ const BookingsPage: React.FC = () => {
           {cardBookings.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings yet</h3>
-              <p className="text-gray-600 mb-6">You haven't made any service bookings yet.</p>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+              <p className="text-gray-600 mb-6">
+                {filter === 'all' 
+                  ? "You haven't made any service bookings yet."
+                  : `No ${filter} bookings found.`
+                }
+              </p>
+              {filter !== 'all' && (
+                <button 
+                  onClick={() => handleFilterChange('all')}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-2"
+                >
+                  View All Bookings
+                </button>
+              )}
+              <button 
+                onClick={handleBookNewService}
+                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
                 Book Your First Service
               </button>
             </div>
@@ -554,6 +770,7 @@ const BookingsPage: React.FC = () => {
                   onReschedule={(id) => handleBookingAction(id, 'reschedule')}
                   onCancel={(id) => handleBookingAction(id, 'cancel')}
                   onContact={(id, method) => handleBookingAction(id, `contact-${method}`)}
+                  onViewDetails={(id) => handleViewDetails(id)}
                 />
               </div>
             ))
@@ -570,6 +787,352 @@ const BookingsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Reschedule Booking</h3>
+                <button
+                  onClick={() => {
+                    setShowRescheduleModal(false);
+                    setSelectedBooking(null);
+                    setRescheduleForm({ newDate: '', newTime: '', reason: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-semibold text-gray-900 mb-2">Current Booking Details</h4>
+                <p className="text-sm text-gray-600">
+                  <strong>Service:</strong> {selectedBooking.serviceType}<br />
+                  <strong>Provider:</strong> {selectedBooking.providerName}<br />
+                  <strong>Current Date:</strong> {formatDate(selectedBooking.requestedAt)}<br />
+                  <strong>Location:</strong> {selectedBooking.location}
+                </p>
+              </div>
+
+              <form onSubmit={handleRescheduleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    New Date
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={rescheduleForm.newDate}
+                    onChange={(e) => setRescheduleForm({ ...rescheduleForm, newDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    New Time
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={rescheduleForm.newTime}
+                    onChange={(e) => setRescheduleForm({ ...rescheduleForm, newTime: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for Rescheduling
+                  </label>
+                  <textarea
+                    required
+                    value={rescheduleForm.reason}
+                    onChange={(e) => setRescheduleForm({ ...rescheduleForm, reason: e.target.value })}
+                    placeholder="Please explain why you need to reschedule..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRescheduleModal(false);
+                      setSelectedBooking(null);
+                      setRescheduleForm({ newDate: '', newTime: '', reason: '' });
+                    }}
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={rescheduleLoading}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {rescheduleLoading ? 'Submitting...' : 'Submit Request'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar View Modal */}
+      {showCalendarModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900">Booking Calendar</h3>
+                <button
+                  onClick={() => setShowCalendarModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Calendar View */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-4">Calendar Overview</h4>
+                  <div className="bg-white rounded-lg border border-gray-200 p-4">
+                    <div className="text-center text-sm text-gray-500 mb-4">
+                      {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                        <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: 35 }, (_, i) => {
+                        const date = new Date();
+                        date.setDate(1);
+                        date.setDate(date.getDate() - date.getDay() + i);
+                        const dateString = date.toISOString().split('T')[0];
+                        const dayEvents = calendarEvents.filter(event => event.date === dateString);
+                        
+                        return (
+                          <div
+                            key={i}
+                            className={`min-h-12 p-1 border border-gray-200 text-sm ${
+                              date.getMonth() === new Date().getMonth() 
+                                ? 'bg-white' 
+                                : 'bg-gray-100 text-gray-400'
+                            }`}
+                          >
+                            <div className="text-right text-xs mb-1">{date.getDate()}</div>
+                            {dayEvents.slice(0, 2).map(event => (
+                              <div
+                                key={event.id}
+                                className={`text-xs p-1 mb-1 rounded ${
+                                  event.status === 'completed' 
+                                    ? 'bg-green-100 text-green-800'
+                                    : event.status === 'cancelled'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}
+                                title={`${event.service} with ${event.provider}`}
+                              >
+                                ●
+                              </div>
+                            ))}
+                            {dayEvents.length > 2 && (
+                              <div className="text-xs text-gray-500 text-center">
+                                +{dayEvents.length - 2} more
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Upcoming Events List */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-4">Upcoming Bookings</h4>
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {calendarEvents
+                      .filter(event => new Date(event.date) >= new Date())
+                      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                      .slice(0, 10)
+                      .map(event => (
+                        <div
+                          key={event.id}
+                          className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h5 className="font-medium text-gray-900">{event.title}</h5>
+                              <p className="text-sm text-gray-600">
+                                {new Date(event.date).toLocaleDateString('en-US', {
+                                  weekday: 'short',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              event.status === 'completed' 
+                                ? 'bg-green-100 text-green-800'
+                                : event.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {event.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    {calendarEvents.filter(event => new Date(event.date) >= new Date()).length === 0 && (
+                      <p className="text-gray-500 text-center py-4">No upcoming bookings</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h5 className="font-medium text-gray-900 mb-2">Legend</h5>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
+                    <span className="text-sm text-gray-600">Upcoming/Pending</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-100 border border-green-300 rounded"></div>
+                    <span className="text-sm text-gray-600">Completed</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-100 border border-red-300 rounded"></div>
+                    <span className="text-sm text-gray-600">Cancelled</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Details Modal */}
+      {showDetailsModal && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Booking Details</h3>
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedBooking(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Service Type</label>
+                    <p className="text-sm font-medium text-gray-900">{selectedBooking.serviceType}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Status</label>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      selectedBooking.status === 'completed' 
+                        ? 'bg-green-100 text-green-800'
+                        : selectedBooking.status === 'cancelled' || selectedBooking.status === 'rejected'
+                        ? 'bg-red-100 text-red-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {selectedBooking.status}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Provider</label>
+                  <p className="text-sm font-medium text-gray-900">{selectedBooking.providerName}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Date & Time</label>
+                  <p className="text-sm font-medium text-gray-900">
+                    {formatDate(selectedBooking.requestedAt)} at{' '}
+                    {new Date(selectedBooking.requestedAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Location</label>
+                  <p className="text-sm font-medium text-gray-900">{selectedBooking.location}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Budget</label>
+                  <p className="text-sm font-medium text-gray-900">{selectedBooking.budget}</p>
+                </div>
+
+                {selectedBooking.description && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Description</label>
+                    <p className="text-sm text-gray-900">{selectedBooking.description}</p>
+                  </div>
+                )}
+
+                {selectedBooking.specialRequests && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Special Requests</label>
+                    <p className="text-sm text-gray-900">{selectedBooking.specialRequests}</p>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        setSelectedBooking(null);
+                      }}
+                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                    {(selectedBooking.status === 'pending' || selectedBooking.status === 'accepted' || selectedBooking.status === 'confirmed') && (
+                      <button
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          handleBookingAction(selectedBooking._id, 'reschedule');
+                        }}
+                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Reschedule
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -198,7 +198,7 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <button
               onClick={() => navigate('/customer')}
-              className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity"
+              className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity focus:outline-none"
             >
               HomeHero
             </button>
@@ -210,7 +210,7 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item.path)}
-                className={`text-sm font-medium transition-colors duration-200 relative ${
+                className={`text-sm font-medium transition-colors duration-200 relative focus:outline-none ${
                   isActivePath(item.path) ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -226,7 +226,7 @@ const Header: React.FC<HeaderProps> = ({
 
           {/* User Menu */}
           <div className="flex items-center space-x-4">
-            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+            <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none">
               <Bell className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
             </button>
@@ -234,7 +234,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* Quick Messages Button - Mobile Only */}
             <button
               onClick={() => handleNavigation('/customer/messages')}
-              className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+              className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors md:hidden focus:outline-none"
             >
               <MessageCircle className="w-5 h-5" />
               {unreadMessagesCount > 0 && (
@@ -248,7 +248,7 @@ const Header: React.FC<HeaderProps> = ({
             <div className="hidden md:flex items-center space-x-3 relative" ref={dropdownRef}>
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200"
+                className="flex items-center space-x-3 hover:bg-gray-100 rounded-lg p-2 transition-colors duration-200 focus:outline-none"
               >
                 {profileData.avatar ? (
                   <img
@@ -273,7 +273,7 @@ const Header: React.FC<HeaderProps> = ({
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50">
                   <button
                     onClick={() => handleNavigation('/customer/profile')}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors focus:outline-none"
                   >
                     <User className="w-4 h-4 mr-3" />
                     Profile Settings
@@ -281,7 +281,7 @@ const Header: React.FC<HeaderProps> = ({
                   <hr className="my-2 border-gray-200" />
                   <button
                     onClick={handleLogout}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors focus:outline-none"
                   >
                     <LogOut className="w-4 h-4 mr-3" />
                     Sign Out
@@ -293,7 +293,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none"
             >
               {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -307,7 +307,7 @@ const Header: React.FC<HeaderProps> = ({
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item.path)}
-                className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none ${
                   isActivePath(item.path) ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
@@ -324,14 +324,14 @@ const Header: React.FC<HeaderProps> = ({
                 navigate('/customer/profile');
                 setIsMenuOpen(false);
               }}
-              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50"
+              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:bg-gray-50 focus:outline-none"
             >
               Profile
             </button>
             <hr className="my-2 border-gray-200" />
             <button 
               onClick={handleLogout}
-              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors focus:outline-none"
             >
               Sign Out
             </button>

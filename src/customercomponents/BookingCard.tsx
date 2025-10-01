@@ -29,7 +29,8 @@ interface BookingCardProps {
   booking: Booking;
   onReschedule: (bookingId: string) => void;
   onCancel: (bookingId: string) => void;
-  onContact: (bookingId: string, method: 'message' | 'phone') => void;
+  onContact: (bookingId: string, method: 'message' | 'phone' | 'email') => void;
+  onViewDetails: (bookingId: string) => void;
   onToggleFavorite?: (bookingId: string) => void;
   isFavorite?: boolean;
 }
@@ -39,6 +40,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onReschedule,
   onCancel,
   onContact,
+  onViewDetails,
   onToggleFavorite,
   isFavorite = false
 }) => {
@@ -108,16 +110,12 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
   const handleWebCall = (type: 'audio' | 'video') => {
     // Implement web call functionality
+    console.log(`Starting ${type} call for booking:`, booking.id);
     setShowCallOptions(false);
   };
 
   const handlePhoneCall = () => {
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      window.location.href = `tel:+1234567890`; // Use actual provider phone
-    } else {
-      window.open(`tel:+1234567890`);
-    }
+    onContact(booking.id, 'phone');
     setShowCallOptions(false);
   };
 
@@ -142,6 +140,23 @@ const BookingCard: React.FC<BookingCardProps> = ({
       return `Tomorrow at ${time}`;
     }
     return `${date} at ${time}`;
+  };
+
+  const handleViewDetailsClick = () => {
+    onViewDetails(booking.id);
+    setShowMoreOptions(false);
+  };
+
+  const handleRescheduleClick = () => {
+    onReschedule(booking.id);
+    setShowMoreOptions(false);
+  };
+
+  const handleCancelClick = () => {
+    if (window.confirm('Are you sure you want to cancel this booking?')) {
+      onCancel(booking.id);
+    }
+    setShowMoreOptions(false);
   };
 
   return (
@@ -192,9 +207,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                     {showMoreOptions && (
                       <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1 z-50 min-w-40">
                         <button
-                          onClick={() => {
-                            setShowMoreOptions(false);
-                          }}
+                          onClick={handleViewDetailsClick}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
                         >
                           <Eye className="w-4 h-4 text-blue-600" />
@@ -203,20 +216,14 @@ const BookingCard: React.FC<BookingCardProps> = ({
                         {booking.status === 'upcoming' && (
                           <>
                             <button
-                              onClick={() => {
-                                onReschedule(booking.id);
-                                setShowMoreOptions(false);
-                              }}
+                              onClick={handleRescheduleClick}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
                             >
                               <Edit3 className="w-4 h-4 text-green-600" />
                               <span>Reschedule</span>
                             </button>
                             <button
-                              onClick={() => {
-                                onCancel(booking.id);
-                                setShowMoreOptions(false);
-                              }}
+                              onClick={handleCancelClick}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
                             >
                               <XCircle className="w-4 h-4" />
@@ -299,11 +306,18 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   </div>
                 )}
               </div>
+
+              <button 
+                onClick={() => onContact(booking.id, 'email')}
+                className="p-2 bg-purple-100 text-purple-600 hover:bg-purple-200 rounded-xl transition-all duration-200 hover:scale-105"
+              >
+                <MessageCircle className="w-4 h-4" />
+              </button>
             </div>
             
             {booking.status === 'upcoming' && (
               <button
-                onClick={() => onReschedule(booking.id)}
+                onClick={handleRescheduleClick}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg text-sm"
               >
                 Reschedule
@@ -365,9 +379,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   {showMoreOptions && (
                     <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48">
                       <button
-                        onClick={() => {
-                          setShowMoreOptions(false);
-                        }}
+                        onClick={handleViewDetailsClick}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
                       >
                         <Eye className="w-4 h-4 text-blue-600" />
@@ -376,20 +388,14 @@ const BookingCard: React.FC<BookingCardProps> = ({
                       {booking.status === 'upcoming' && (
                         <>
                           <button
-                            onClick={() => {
-                              onReschedule(booking.id);
-                              setShowMoreOptions(false);
-                            }}
+                            onClick={handleRescheduleClick}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
                           >
                             <Edit3 className="w-4 h-4 text-green-600" />
                             <span>Reschedule</span>
                           </button>
                           <button
-                            onClick={() => {
-                              onCancel(booking.id);
-                              setShowMoreOptions(false);
-                            }}
+                            onClick={handleCancelClick}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
                           >
                             <XCircle className="w-4 h-4" />
@@ -485,10 +491,17 @@ const BookingCard: React.FC<BookingCardProps> = ({
                     </div>
                   )}
                 </div>
+
+                <button 
+                  onClick={() => onContact(booking.id, 'email')}
+                  className="p-3 bg-purple-100 text-purple-600 hover:bg-purple-200 rounded-xl transition-all duration-200 hover:scale-105"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                </button>
                 
                 {booking.status === 'upcoming' && (
                   <button
-                    onClick={() => onReschedule(booking.id)}
+                    onClick={handleRescheduleClick}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Reschedule

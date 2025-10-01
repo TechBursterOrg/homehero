@@ -758,7 +758,7 @@ const Dashboard: React.FC = () => {
                     </p>
                     <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
                       <span className="text-sm">🇳🇬</span>
-                      <span className="text-xs font-medium text-gray-600">NGN</span>
+                      <span className="text-xs font-medium text-gray-600"></span>
                     </div>
                   </div>
                 </div>
@@ -766,13 +766,13 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex gap-3">
-              <button 
+              {/* <button 
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="p-3 bg-white/80 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
               >
                 <Loader2 className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
+              </button> */}
               <button 
                 onClick={handleAddAvailability}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 w-full sm:w-auto"

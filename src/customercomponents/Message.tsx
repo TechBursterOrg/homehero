@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search,
   Send,
@@ -45,7 +46,7 @@ interface Message {
 interface MessagesProps {
   chatState: ChatState;
   onSendMessage: (conversationId: string, content: string) => void;
-  onStartConversation: (providerId: string) => Promise<string | void> | string | void;
+  onStartConversation: (providerId: string, providerData?: any) => Promise<string | void> | string | void;
   onSetActiveConversation: (conversationId: string) => void;
   currentUserId: string;
 }
@@ -66,6 +67,50 @@ const Messages: React.FC<MessagesProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef<number>(0);
+
+  // FIXED: Added missing imports
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // FIXED: Handle navigation state for starting new conversations
+  useEffect(() => {
+    const checkForNewConversation = async () => {
+      if (location.state?.startNewConversation && location.state?.provider) {
+        console.log('🎯 Starting new conversation from navigation state:', location.state.provider);
+        
+        const { provider } = location.state;
+        
+        // Check if conversation already exists
+        const existingConversation = chatState.conversations.find(
+          conv => conv.providerId === provider._id
+        );
+
+        if (existingConversation) {
+          // Switch to existing conversation
+          console.log('✅ Found existing conversation:', existingConversation.id);
+          onSetActiveConversation(existingConversation.id);
+          setShowMobileConversation(true);
+        } else {
+          // Start new conversation
+          console.log('🆕 Creating new conversation with provider:', provider._id);
+          try {
+            const conversationId = await onStartConversation(provider._id, provider);
+            if (conversationId) {
+              onSetActiveConversation(conversationId);
+              setShowMobileConversation(true);
+            }
+          } catch (error) {
+            console.error('Failed to start conversation:', error);
+          }
+        }
+
+        // Clear navigation state to prevent re-triggering
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    };
+
+    checkForNewConversation();
+  }, [location.state, chatState.conversations, onStartConversation, onSetActiveConversation, navigate, location.pathname]);
 
   // FIXED: Improved auto-scroll logic
   useEffect(() => {
@@ -156,17 +201,14 @@ const Messages: React.FC<MessagesProps> = ({
     
     let msgSenderIdString: string = '';
     let senderUserType: string = 'customer';
-    let senderName: string = 'Unknown';
     
     if (typeof message.senderId === 'string') {
       msgSenderIdString = message.senderId;
       senderUserType = 'customer';
-      senderName = 'User';
     } else if (message.senderId && typeof message.senderId === 'object') {
       const senderObj = message.senderId as any;
       msgSenderIdString = senderObj._id || senderObj.id || '';
       senderUserType = senderObj.userType || 'customer';
-      senderName = senderObj.name || 'Unknown';
     }
     
     let isMe = false;
@@ -183,11 +225,6 @@ const Messages: React.FC<MessagesProps> = ({
       const allSenderIds = currentMessages.map(msg => 
         typeof msg.senderId === 'string' ? msg.senderId : (msg.senderId as any)?._id || (msg.senderId as any)?.id || ''
       ).filter(id => id);
-      
-      const senderFrequency = allSenderIds.reduce((acc, id) => {
-        acc[id] = (acc[id] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
       
       // HEURISTIC: In a customer-provider chat where you're viewing as customer,
       // your messages are likely the ones that appear more frequently or in a pattern
@@ -578,13 +615,7 @@ const Messages: React.FC<MessagesProps> = ({
                   <MessageSquare className="w-12 lg:w-16 h-12 lg:h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg lg:text-xl font-bold text-gray-900 mb-2">Select a Provider</h3>
                   <p className="text-gray-600 mb-4 text-sm lg:text-base">Choose a service provider to start messaging</p>
-                  <button 
-                    onClick={() => onStartConversation('new')}
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-2 mx-auto"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Find Provider</span>
-                  </button>
+                  
                 </div>
               </div>
             )}

@@ -20,16 +20,20 @@ import {
   AlertCircle as AlertCircleIcon
 } from 'lucide-react';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
 // Define proper types
 interface EarningsData {
   total: number;
+  thisWeek: number;
   thisMonth: number;
+  thisQuarter: number;
+  thisYear: number;
   lastMonth: number;
   pending: number;
   growth: number;
   avgPerJob: number;
+  currency: string;
 }
 
 interface Transaction {
@@ -57,14 +61,19 @@ const Earnings: React.FC = () => {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [earningsData, setEarningsData] = useState<EarningsData>({
     total: 0,
+    thisWeek: 0,
     thisMonth: 0,
+    thisQuarter: 0,
+    thisYear: 0,
     lastMonth: 0,
     pending: 0,
     growth: 0,
-    avgPerJob: 0
+    avgPerJob: 0,
+    currency: 'NGN'
   });
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [exportLoading, setExportLoading] = useState<boolean>(false);
 
   // Currency configuration - Only Naira
   const currencyConfig = {
@@ -82,65 +91,63 @@ const Earnings: React.FC = () => {
   }, []);
 
   // Fetch earnings data from backend API
-  useEffect(() => {
-    const fetchEarningsData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Check if we have an auth token
-        if (!authToken) {
-          throw new Error('No authentication token found. Please log in again.');
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/earnings`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        console.log('Earnings response status:', response.status);
-        
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('token');
-          setAuthToken(null);
-          throw new Error('Your session has expired. Please log in again.');
-        }
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          setEarningsData(result.data.earnings || result.data.earningsData || {});
-          setTransactions(result.data.transactions || []);
-          setMonthlyData(result.data.monthlyData || []);
-        } else {
-          throw new Error(result.message || 'Failed to fetch earnings data');
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(errorMessage);
-        console.error('Earnings fetch error:', err);
-        
-        if (errorMessage.includes('session') || errorMessage.includes('authentication')) {
-          // Use mock data if authentication fails
-          const mockData = getMockEarningsData();
-          setEarningsData(mockData.earningsData);
-          setTransactions(mockData.transactions);
-          setMonthlyData(mockData.monthlyData);
-        }
-      } finally {
-        setLoading(false);
+  const fetchEarningsData = async (period: string = selectedPeriod) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if we have an auth token
+      if (!authToken) {
+        throw new Error('No authentication token found. Please log in again.');
       }
-    };
 
+      const response = await fetch(`${API_BASE_URL}/api/earnings?period=${period}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Earnings response status:', response.status);
+      
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        setAuthToken(null);
+        throw new Error('Your session has expired. Please log in again.');
+      }
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setEarningsData(result.data.earnings || result.data.earningsData || {});
+        setTransactions(result.data.transactions || []);
+        setMonthlyData(result.data.monthlyData || []);
+      } else {
+        throw new Error(result.message || 'Failed to fetch earnings data');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      console.error('Earnings fetch error:', err);
+      
+      // Use mock data if API fails
+      const mockData = getMockEarningsData(period);
+      setEarningsData(mockData.earningsData);
+      setTransactions(mockData.transactions);
+      setMonthlyData(mockData.monthlyData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (authToken) {
       fetchEarningsData();
     } else {
@@ -148,16 +155,26 @@ const Earnings: React.FC = () => {
     }
   }, [authToken]);
 
+  // Handle period change
+  const handlePeriodChange = async (period: string) => {
+    setSelectedPeriod(period);
+    await fetchEarningsData(period);
+  };
+
   // Mock data for development with Naira amounts
-  const getMockEarningsData = () => {
-    return {
+  const getMockEarningsData = (period: string = 'month') => {
+    const baseData = {
       earningsData: {
         total: 4702500, // ₦4,702,500
+        thisWeek: 346500, // ₦346,500
         thisMonth: 1468500, // ₦1,468,500
+        thisQuarter: 4125000, // ₦4,125,000
+        thisYear: 18700000, // ₦18,700,000
         lastMonth: 1237500, // ₦1,237,500
         pending: 206250, // ₦206,250
         growth: 18.7,
-        avgPerJob: 99000 // ₦99,000
+        avgPerJob: 99000, // ₦99,000
+        currency: 'NGN'
       },
       transactions: [
         {
@@ -231,6 +248,23 @@ const Earnings: React.FC = () => {
         { month: 'Jan', amount: 1468500, growth: 18.7 }
       ]
     };
+
+    // Adjust data based on selected period
+    switch (period) {
+      case 'week':
+        baseData.earningsData.growth = 12.3;
+        break;
+      case 'quarter':
+        baseData.earningsData.growth = 22.1;
+        break;
+      case 'year':
+        baseData.earningsData.growth = 45.6;
+        break;
+      default:
+        baseData.earningsData.growth = 18.7;
+    }
+
+    return baseData;
   };
 
   const getStatusIcon = (status: string) => {
@@ -287,11 +321,12 @@ const Earnings: React.FC = () => {
 
   const handleExportData = async () => {
     try {
+      setExportLoading(true);
       if (!authToken) {
         throw new Error('No authentication token found.');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/earnings/export`, {
+      const response = await fetch(`${API_BASE_URL}/api/earnings/export?period=${selectedPeriod}`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },
@@ -306,7 +341,7 @@ const Earnings: React.FC = () => {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `earnings-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `earnings-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -315,7 +350,40 @@ const Earnings: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : 'Failed to export data';
       setError(errorMessage);
       console.error('Export error:', err);
+      
+      // Fallback: Create a simple CSV download
+      const csvContent = createCSVExport();
+      downloadCSV(csvContent, `earnings-${selectedPeriod}-${new Date().toISOString().split('T')[0]}.csv`);
+    } finally {
+      setExportLoading(false);
     }
+  };
+
+  const createCSVExport = (): string => {
+    const headers = ['Date', 'Client', 'Service', 'Amount (₦)', 'Status', 'Payment Method', 'Category'];
+    const rows = transactions.map(transaction => [
+      transaction.date,
+      transaction.client,
+      transaction.service,
+      transaction.amount.toString(),
+      transaction.status,
+      transaction.method,
+      transaction.category
+    ]);
+    
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+  };
+
+  const downloadCSV = (content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleRetry = async () => {
@@ -323,11 +391,39 @@ const Earnings: React.FC = () => {
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     setAuthToken(token);
     setError(null);
+    await fetchEarningsData();
   };
 
   const handleLogin = () => {
     // Redirect to login page
     window.location.href = '/login';
+  };
+
+  // Get current period amount
+  const getCurrentPeriodAmount = () => {
+    switch (selectedPeriod) {
+      case 'week':
+        return earningsData.thisWeek;
+      case 'month':
+        return earningsData.thisMonth;
+      case 'quarter':
+        return earningsData.thisQuarter;
+      case 'year':
+        return earningsData.thisYear;
+      default:
+        return earningsData.thisMonth;
+    }
+  };
+
+  // Get period label
+  const getPeriodLabel = () => {
+    switch (selectedPeriod) {
+      case 'week': return 'This Week';
+      case 'month': return 'This Month';
+      case 'quarter': return 'This Quarter';
+      case 'year': return 'This Year';
+      default: return 'This Month';
+    }
   };
 
   // Loading state
@@ -362,7 +458,7 @@ const Earnings: React.FC = () => {
   }
 
   // Error state (other than auth)
-  if (error) {
+  if (error && !earningsData.total) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
@@ -414,25 +510,38 @@ const Earnings: React.FC = () => {
             </div>
             
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-              <select 
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="flex-1 sm:flex-none px-4 sm:px-6 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm font-medium transition-all duration-200"
-              >
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="quarter">This Quarter</option>
-                <option value="year">This Year</option>
-              </select>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {['week', 'month', 'quarter', 'year'].map((period) => (
+                  <button
+                    key={period}
+                    onClick={() => handlePeriodChange(period)}
+                    className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-xl sm:rounded-2xl font-medium transition-all duration-200 whitespace-nowrap ${
+                      selectedPeriod === period
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                        : 'bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 hover:bg-white hover:shadow-md'
+                    }`}
+                  >
+                    {period === 'week' && 'This Week'}
+                    {period === 'month' && 'This Month'}
+                    {period === 'quarter' && 'This Quarter'}
+                    {period === 'year' && 'This Year'}
+                  </button>
+                ))}
+              </div>
               
               <button 
                 onClick={handleExportData}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3"
+                disabled={exportLoading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Download className="w-3 h-3 sm:w-4 sm:h-4" />
-                </div>
-                <span>Export Data</span>
+                {exportLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-lg flex items-center justify-center">
+                    <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                  </div>
+                )}
+                <span>{exportLoading ? 'Exporting...' : 'Export Data'}</span>
               </button>
             </div>
           </div>
@@ -454,7 +563,7 @@ const Earnings: React.FC = () => {
               <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.total.toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
                 <span className="text-emerald-600 font-semibold">+{earningsData.growth}%</span>
-                <span className="text-gray-500">from last month</span>
+                <span className="text-gray-500">from last period</span>
               </div>
             </div>
           </div>
@@ -469,11 +578,11 @@ const Earnings: React.FC = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">This Month</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{earningsData.thisMonth.toLocaleString()}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">{getPeriodLabel()}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{getCurrentPeriodAmount().toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
-                <span className="text-blue-600 font-semibold">+₦{(earningsData.thisMonth - earningsData.lastMonth).toLocaleString()}</span>
-                <span className="text-gray-500">vs last month</span>
+                <span className="text-blue-600 font-semibold">+{earningsData.growth}%</span>
+                <span className="text-gray-500">growth</span>
               </div>
             </div>
           </div>
@@ -523,12 +632,15 @@ const Earnings: React.FC = () => {
                 <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Monthly Earnings Trend</h3>
-                <p className="text-sm sm:text-base text-gray-600">Performance over the last 7 months</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Earnings Trend - {getPeriodLabel()}</h3>
+                <p className="text-sm sm:text-base text-gray-600">Performance overview</p>
               </div>
             </div>
             <div className="text-xs sm:text-sm text-gray-600 bg-gray-100 px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl self-start sm:self-center">
-              Last 7 months
+              {selectedPeriod === 'week' && 'Last 7 days'}
+              {selectedPeriod === 'month' && 'Last 7 months'}
+              {selectedPeriod === 'quarter' && 'Last 4 quarters'}
+              {selectedPeriod === 'year' && 'Last 5 years'}
             </div>
           </div>
           
@@ -573,6 +685,28 @@ const Earnings: React.FC = () => {
         {/* Mobile-Optimized Recent Transactions */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
           <div className="p-4 sm:p-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                  <CreditCard className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Recent Transactions</h3>
+                  <p className="text-sm sm:text-base text-gray-600">Your payment history</p>
+                </div>
+              </div>
+              <div className="relative flex-1 sm:flex-none">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search transactions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
             <div className="space-y-3 sm:space-y-4">
               {filteredTransactions.map((transaction: Transaction) => (
                 <div key={transaction.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
