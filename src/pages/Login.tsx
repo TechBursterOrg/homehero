@@ -9,8 +9,6 @@ import {
   EyeOff,
   Shield,
   Star,
-  Globe,
-  Phone,
   MessageSquare,
 } from "lucide-react";
 
@@ -20,14 +18,11 @@ interface FormData {
   password: string;
   confirmPassword: string;
   userType: string;
-  country: string;
-  phoneNumber: string;
 }
 
 interface VerificationData {
   token: string;
-  phoneNumber: string;
-  country: string;
+  email: string;
 }
 
 const LoginPage = () => {
@@ -44,42 +39,20 @@ const LoginPage = () => {
     password: "",
     confirmPassword: "",
     userType: "provider",
-    country: "NIGERIA",
-    phoneNumber: "",
   });
   const [verificationData, setVerificationData] = useState<VerificationData>({
     token: "",
-    phoneNumber: "",
-    country: "",
+    email: "",
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-  // Country codes and validation
-  const countryData = {
-      NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{10}$/ }, // ✅ Both expect 10 digits
-
-    UK: { code: "+44", length: 10, pattern: /^[0-9]{10}$/ },
-    USA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
-    CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    if (name === "phoneNumber") {
-      // Remove any non-digit characters
-      const cleanedValue = value.replace(/\D/g, "");
-      setFormData({
-        ...formData,
-        [name]: cleanedValue,
-      });
-    } else {
-      setFormData({
-        ...formData,
-        [name]: value,
-      });
-    }
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
     
     if (error) setError("");
     if (successMessage) setSuccessMessage("");
@@ -93,23 +66,9 @@ const LoginPage = () => {
     });
   };
 
-  const validatePhoneNumber = (phone: string, country: string): string | null => {
-    const countryInfo = countryData[country as keyof typeof countryData];
-    if (!countryInfo) return "Invalid country selected";
-
-    if (phone.length !== countryInfo.length) {
-      return `Phone number must be ${countryInfo.length} digits for ${country}`;
-    }
-
-    if (!countryInfo.pattern.test(phone)) {
-      return `Invalid phone number format for ${country}`;
-    }
-
-    return null;
-  };
-
   const makeApiCall = async (endpoint: string, data: any) => {
     console.log(`🌐 Making API call to: ${API_BASE_URL}/api/auth/${endpoint}`);
+    console.log(`📤 Sending data:`, data);
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/${endpoint}`, {
@@ -149,116 +108,112 @@ const LoginPage = () => {
     }
   };
 
-  const sendVerificationToken = async (phoneNumber: string, country: string) => {
-    try {
-      setIsLoading(true);
-      setError("");
+  const sendVerificationToken = async (email: string) => {
+  try {
+    setIsLoading(true);
+    setError("");
 
-      console.log('📱 Sending verification token:', { phoneNumber, country });
+    console.log('📧 Sending verification token to email:', email);
 
-      const result = await makeApiCall('send-verification', {
-        phoneNumber,
-        country
-      });
+    const result = await makeApiCall('send-verification', {
+      email: email
+    });
 
-      if (result.success) {
-        setSuccessMessage(`Verification token sent to ${countryData[country as keyof typeof countryData].code}${phoneNumber}`);
-        setVerificationData({
-          token: "",
-          phoneNumber,
-          country
-        });
-        setCurrentStep("verify");
-        
-        // In development, show the token for testing
-        if (result.data?.debugToken) {
-          console.log('🔑 Debug Token:', result.data.debugToken);
-          setSuccessMessage(`Verification token sent! Code: ${result.data.debugToken}`);
-        }
+    if (result.success) {
+      // Always show the verification code in development
+      if (result.data?.debugToken) {
+        setSuccessMessage(`Verification code: ${result.data.debugToken} (Check your email or use this code)`);
+        console.log('🔑 Debug Token:', result.data.debugToken);
+      } else {
+        setSuccessMessage(`Verification code sent to ${email}. Please check your email.`);
       }
-    } catch (error: any) {
-      console.error('❌ Send verification error:', error);
-      setError(error.message || "Failed to send verification token. Please try again.");
-    } finally {
-      setIsLoading(false);
+      
+      setVerificationData({
+        token: "",
+        email: email
+      });
+      setCurrentStep("verify");
     }
-  };
+  } catch (error: any) {
+    console.error('❌ Send verification error:', error);
+    setError(error.message || "Failed to send verification code. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const verifyPhoneNumber = async () => {
+  const verifyEmail = async () => {
     try {
       setIsLoading(true);
       setError("");
 
-      console.log('✅ Verifying phone number:', verificationData);
+      console.log('✅ Verifying email:', verificationData);
 
-      const result = await makeApiCall('verify-phone', {
-        phoneNumber: verificationData.phoneNumber,
-        country: verificationData.country,
+      const result = await makeApiCall('verify-email', {
+        email: verificationData.email,
         token: verificationData.token
       });
 
       if (result.success) {
-        setSuccessMessage("Phone number verified successfully!");
+        setSuccessMessage("Email verified successfully!");
         setCurrentStep("complete");
         
         // Complete the signup process
         await completeSignup();
       }
     } catch (error: any) {
-      console.error('❌ Verify phone error:', error);
-      setError(error.message || "Failed to verify phone number. Please check the code and try again.");
+      console.error('❌ Verify email error:', error);
+      setError(error.message || "Failed to verify email. Please check the code and try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const completeSignup = async () => {
-  try {
-    setIsLoading(true);
-    setError("");
-    
-    // Final signup with verified phone number
-    const signupData = {
-      name: formData.name.trim(),
-      email: formData.email.toLowerCase().trim(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword, // ADD THIS LINE
-      userType: formData.userType || 'customer',
-      country: formData.country || 'NIGERIA',
-      phoneNumber: verificationData.phoneNumber
-    };
-
-    console.log('📝 Completing signup:', signupData);
-
-    const result = await makeApiCall('signup', signupData);
-
-    if (result.success) {
-      setSuccessMessage("Account created successfully! Redirecting...");
+    try {
+      setIsLoading(true);
+      setError("");
       
-      // Store user data
-      if (result.data.token) {
-        localStorage.setItem('authToken', result.data.token);
-        console.log('🔐 Token stored');
-      }
-      
-      localStorage.setItem('userData', JSON.stringify(result.data.user));
-      
-      // Navigate based on userType
-      setTimeout(() => {
-        if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
-          navigate('/provider/dashboard');
-        } else {
-          navigate('/customer');
+      // Final signup with verified email
+      const signupData = {
+        name: formData.name.trim(),
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        userType: formData.userType || 'customer',
+      };
+
+      console.log('📝 Completing signup:', signupData);
+
+      const result = await makeApiCall('signup', signupData);
+
+      if (result.success) {
+        setSuccessMessage("Account created successfully! Redirecting...");
+        
+        // Store user data
+        if (result.data.token) {
+          localStorage.setItem('authToken', result.data.token);
+          console.log('🔐 Token stored');
         }
-      }, 2000);
+        
+        localStorage.setItem('userData', JSON.stringify(result.data.user));
+        
+        // Navigate based on userType
+        setTimeout(() => {
+          if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
+            navigate('/provider/dashboard');
+          } else {
+            navigate('/customer');
+          }
+        }, 2000);
+      }
+    } catch (error: any) {
+      console.error('❌ Complete signup error:', error);
+      setError(error.message || "Failed to complete signup. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    console.error('❌ Complete signup error:', error);
-    setError(error.message || "Failed to complete signup. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -267,7 +222,7 @@ const LoginPage = () => {
 
     if (currentStep === "signup") {
       // Validate form data
-      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
         setError("Please fill in all required fields.");
         return;
       }
@@ -288,28 +243,21 @@ const LoginPage = () => {
         return;
       }
 
-      // Validate phone number
-      const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
-      if (phoneError) {
-        setError(phoneError);
-        return;
-      }
-
-      // Send verification token
-      await sendVerificationToken(formData.phoneNumber, formData.country);
+      // Send verification token to email
+      await sendVerificationToken(formData.email);
     } else if (currentStep === "verify") {
       // Verify token
       if (!verificationData.token.trim()) {
-        setError("Please enter the verification token.");
+        setError("Please enter the verification code.");
         return;
       }
       
       if (verificationData.token.length !== 6) {
-        setError("Verification token must be 6 digits.");
+        setError("Verification code must be 6 digits.");
         return;
       }
       
-      await verifyPhoneNumber();
+      await verifyEmail();
     }
   };
 
@@ -361,41 +309,7 @@ const LoginPage = () => {
   };
 
   const resendVerificationToken = async () => {
-    await sendVerificationToken(verificationData.phoneNumber, verificationData.country);
-  };
-
-  const testConnection = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/health`);
-      const result = await response.json();
-      console.log('Backend connection test:', result);
-      setSuccessMessage(`Backend connected! ${result.message}`);
-    } catch (error) {
-      console.error('Backend connection failed:', error);
-      setError(`Cannot connect to backend at ${API_BASE_URL}. Please ensure the backend is running.`);
-    }
-  };
-
-  const getCurrentCountryCode = () => {
-    return countryData[formData.country as keyof typeof countryData]?.code || "+234";
-  };
-
-  // Quick test function for the verification endpoint
-  const testVerificationEndpoint = async () => {
-    try {
-      const testData = {
-        phoneNumber: "1234567890",
-        country: "NIGERIA"
-      };
-      
-      console.log('🧪 Testing verification endpoint with:', testData);
-      const result = await makeApiCall('send-verification', testData);
-      console.log('✅ Verification test result:', result);
-      setSuccessMessage(`Verification test successful: ${result.message}`);
-    } catch (error: any) {
-      console.error('❌ Verification test failed:', error);
-      setError(`Verification test failed: ${error.message}`);
-    }
+    await sendVerificationToken(verificationData.email);
   };
 
   return (
@@ -449,21 +363,6 @@ const LoginPage = () => {
               </div>
             </div>
           </div>
-
-          <div className="flex space-x-2">
-            {/* <button
-              onClick={testConnection}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Test Backend Connection
-            </button>
-            <button
-              onClick={testVerificationEndpoint}
-              className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Test Verification
-            </button> */}
-          </div>
         </div>
 
         {/* Right Side - Login/Verification Form */}
@@ -478,11 +377,6 @@ const LoginPage = () => {
                 HomeHero
               </span>
             </div>
-
-            {/* API URL Display */}
-            {/* <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600 font-mono">
-              API: {API_BASE_URL}
-            </div> */}
 
             {/* Step Indicator */}
             {!isLogin && (
@@ -625,54 +519,6 @@ const LoginPage = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Country
-                    </label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <select
-                        name="country"
-                        value={formData.country}
-                        onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
-                        required
-                      >
-                        <option value="NIGERIA">🇳🇬 Nigeria</option>
-                        <option value="UK">🇬🇧 United Kingdom</option>
-                        <option value="USA">🇺🇸 United States</option>
-                        <option value="CANADA">🇨🇦 Canada</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number
-                    </label>
-                    <div className="relative">
-                      
-                      <div className="flex">
-                        <div className="flex items-center px-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50">
-                          <span className="text-gray-600 text-sm">{getCurrentCountryCode()}</span>
-                        </div>
-                        <input
-                          type="tel"
-                          name="phoneNumber"
-                          value={formData.phoneNumber}
-                          onChange={handleInputChange}
-                          className="flex-1 pl-3 pr-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
-                          placeholder={`Enter your phone number (${countryData[formData.country as keyof typeof countryData]?.length || 10} digits)`}
-                          required
-                          maxLength={countryData[formData.country as keyof typeof countryData]?.length || 10}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      We'll send a verification code to this number
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       I want to...
                     </label>
                     <select
@@ -693,9 +539,9 @@ const LoginPage = () => {
                 <div className="animate-fade-in-up">
                   <div className="text-center mb-6">
                     <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900">Verify Your Phone Number</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">Verify Your Email Address</h3>
                     <p className="text-gray-600">
-                      We sent a verification code to {getCurrentCountryCode()}{verificationData.phoneNumber}
+                      We sent a verification code to {verificationData.email}
                     </p>
                   </div>
 
@@ -801,7 +647,6 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      {/* <option value="customer">Customer</option> */}
                       <option value="provider">Service Provider</option>
                       <option value="customer">Customer</option>
                     </select>
@@ -855,7 +700,7 @@ const LoginPage = () => {
                       {currentStep === "signup" ? 'Sending Code...' : 'Verifying...'}
                     </>
                   ) : (
-                    currentStep === "signup" ? 'Send Verification Code' : 'Verify Phone Number'
+                    currentStep === "signup" ? 'Send Verification Code' : 'Verify Email'
                   )}
                 </button>
               )}
