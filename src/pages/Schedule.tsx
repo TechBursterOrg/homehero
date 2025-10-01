@@ -22,6 +22,7 @@ import {
   Zap,
   Loader2,
   AlertCircle as AlertCircleIcon,
+  X,
 } from "lucide-react";
 
 interface Appointment {
@@ -39,6 +40,7 @@ interface Appointment {
   notes: string;
   category: string;
   priority: "high" | "medium" | "low";
+  bookingId?: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
@@ -54,6 +56,9 @@ const Schedule: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Initialize auth token from localStorage
   useEffect(() => {
@@ -63,35 +68,43 @@ const Schedule: React.FC = () => {
   }, []);
 
   // Fetch appointments from backend API
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Check if we have an auth token
-        if (!authToken) {
-          throw new Error(
-            "No authentication token found. Please log in again."
-          );
-        }
+      if (!authToken) {
+        throw new Error("No authentication token found. Please log in again.");
+      }
 
-        const response = await fetch(`${API_BASE_URL}/api/user/schedule`, {
+      // First try the schedule endpoint
+      let response = await fetch(`${API_BASE_URL}/api/user/schedule`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("Schedule response status:", response.status);
+
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("token");
+        setAuthToken(null);
+        throw new Error("Your session has expired. Please log in again.");
+      }
+
+      if (!response.ok) {
+        // If schedule endpoint fails, try to get appointments from bookings
+        console.log("Schedule endpoint failed, trying bookings...");
+        response = await fetch(`${API_BASE_URL}/api/bookings/provider?status=confirmed`, {
           method: "GET",
           headers: {
             Authorization: `Bearer ${authToken}`,
             "Content-Type": "application/json",
           },
         });
-
-        console.log("Schedule response status:", response.status);
-
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("token");
-          setAuthToken(null);
-          throw new Error("Your session has expired. Please log in again.");
-        }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
@@ -100,30 +113,55 @@ const Schedule: React.FC = () => {
           );
         }
 
+        const bookingsResult = await response.json();
+        if (bookingsResult.success) {
+          // Transform bookings to appointments
+          const transformedAppointments = bookingsResult.data.bookings.map((booking: any) => ({
+            id: booking._id,
+            title: booking.serviceType,
+            client: booking.customerName || booking.customerId?.name || 'Unknown Client',
+            phone: booking.customerPhone || booking.customerId?.phoneNumber || 'No phone',
+            location: booking.location,
+            date: new Date(booking.requestedAt).toISOString().split('T')[0],
+            time: "10:00 AM", // Default time, you might want to extract from timeframe
+            endTime: "12:00 PM",
+            duration: "2 hours",
+            payment: booking.budget || "₦0",
+            status: "confirmed",
+            notes: booking.specialRequests || booking.description || '',
+            category: booking.serviceType.toLowerCase().includes('clean') ? 'cleaning' : 'handyman',
+            priority: 'medium',
+            bookingId: booking._id
+          }));
+          setAppointments(transformedAppointments);
+        } else {
+          throw new Error("Failed to fetch schedule data from bookings");
+        }
+      } else {
         const result = await response.json();
-
         if (result.success) {
           setAppointments(result.data || []);
         } else {
           throw new Error(result.message || "Failed to fetch schedule data");
         }
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "An unknown error occurred";
-        setError(errorMessage);
-        console.error("Schedule fetch error:", err);
-
-        if (
-          errorMessage.includes("session") ||
-          errorMessage.includes("authentication")
-        ) {
-          setAppointments([]);
-        }
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "An unknown error occurred";
+      setError(errorMessage);
+      console.error("Schedule fetch error:", err);
 
+      // Fallback to mock data for development
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Using mock data for development");
+        setAppointments(getMockAppointments());
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (authToken) {
       fetchAppointments();
     } else {
@@ -142,8 +180,8 @@ const Schedule: React.FC = () => {
 
   // Get payments in Naira only
   const getNairaPayments = () => {
-    const basePayments = [75, 120, 80, 60]; // Base prices in USD
-    const nairaMultiplier = 1650; // Conversion rate to Naira
+    const basePayments = [75, 120, 80, 60];
+    const nairaMultiplier = 1650;
 
     return basePayments.map((payment) => ({
       amount: Math.round(payment * nairaMultiplier),
@@ -188,39 +226,119 @@ const Schedule: React.FC = () => {
         category: "handyman",
         priority: "medium",
       },
-      {
-        id: "3",
-        title: "Garden Maintenance",
-        client: "Emma Wilson",
-        phone: "+234 246 813 5790",
-        location: "789 Elm Drive, Port Harcourt",
-        date: "2025-01-09",
-        time: "9:00 AM",
-        endTime: "1:00 PM",
-        duration: "4 hours",
-        payment: `₦${nairaPayments[2].amount.toLocaleString()}`,
-        status: "pending",
-        notes: "Weekly maintenance service",
-        category: "gardening",
-        priority: "low",
-      },
-      {
-        id: "4",
-        title: "Bathroom Deep Clean",
-        client: "David Brown",
-        phone: "+234 369 258 1470",
-        location: "321 Maple Street, Ibadan",
-        date: "2025-01-10",
-        time: "11:00 AM",
-        endTime: "1:00 PM",
-        duration: "2 hours",
-        payment: `₦${nairaPayments[3].amount.toLocaleString()}`,
-        status: "confirmed",
-        notes: "Post-renovation cleanup",
-        category: "cleaning",
-        priority: "medium",
-      },
     ];
+  };
+
+  // Appointment actions
+  const handleEditAppointment = async (appointment: Appointment) => {
+    setActionLoading(appointment.id);
+    try {
+      // Implement edit functionality
+      console.log("Editing appointment:", appointment);
+      // Add your API call here
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+    } catch (error) {
+      console.error("Error editing appointment:", error);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteAppointment = async (appointment: Appointment) => {
+    setActionLoading(appointment.id);
+    try {
+      if (appointment.bookingId) {
+        // Update booking status to cancelled
+        const response = await fetch(`${API_BASE_URL}/api/bookings/${appointment.bookingId}/status`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "cancelled" }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to cancel booking");
+        }
+      }
+
+      // Remove from local state
+      setAppointments(prev => prev.filter(apt => apt.id !== appointment.id));
+    } catch (error) {
+      console.error("Error deleting appointment:", error);
+      setError("Failed to delete appointment");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStatusChange = async (appointment: Appointment, newStatus: "confirmed" | "cancelled") => {
+    setActionLoading(appointment.id);
+    try {
+      if (appointment.bookingId) {
+        const response = await fetch(`${API_BASE_URL}/api/bookings/${appointment.bookingId}/status`, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: newStatus === "confirmed" ? "confirmed" : "cancelled" }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update status");
+        }
+      }
+
+      // Update local state
+      setAppointments(prev =>
+        prev.map(apt =>
+          apt.id === appointment.id ? { ...apt, status: newStatus } : apt
+        )
+      );
+    } catch (error) {
+      console.error("Error updating status:", error);
+      setError("Failed to update status");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleAddAppointment = async (appointmentData: Partial<Appointment>) => {
+    setActionLoading("new");
+    try {
+      // Implement add appointment functionality
+      console.log("Adding appointment:", appointmentData);
+      // Add your API call here
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      
+      // For now, add to local state
+      const newAppointment: Appointment = {
+        id: Date.now().toString(),
+        title: appointmentData.title || "New Appointment",
+        client: appointmentData.client || "New Client",
+        phone: appointmentData.phone || "+234 000 000 0000",
+        location: appointmentData.location || "Location",
+        date: appointmentData.date || new Date().toISOString().split('T')[0],
+        time: appointmentData.time || "10:00 AM",
+        endTime: appointmentData.endTime || "12:00 PM",
+        duration: appointmentData.duration || "2 hours",
+        payment: appointmentData.payment || "₦0",
+        status: "confirmed",
+        notes: appointmentData.notes || "",
+        category: appointmentData.category || "other",
+        priority: appointmentData.priority || "medium",
+      };
+
+      setAppointments(prev => [...prev, newAppointment]);
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Error adding appointment:", error);
+      setError("Failed to add appointment");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const getWeekDays = () => {
@@ -305,15 +423,14 @@ const Schedule: React.FC = () => {
   };
 
   const handleRetry = async () => {
-    // Refresh the token from localStorage
     const token =
       localStorage.getItem("authToken") || localStorage.getItem("token");
     setAuthToken(token);
     setError(null);
+    await fetchAppointments();
   };
 
   const handleLogin = () => {
-    // Redirect to login page
     window.location.href = "/login";
   };
 
@@ -373,7 +490,7 @@ const Schedule: React.FC = () => {
   }
 
   // Error state (other than auth)
-  if (error) {
+  if (error && appointments.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
@@ -429,7 +546,10 @@ const Schedule: React.FC = () => {
               </div>
             </div>
 
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto"
+            >
               <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
                 <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
               </div>
@@ -437,6 +557,22 @@ const Schedule: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Error Banner */}
+        {error && appointments.length > 0 && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircleIcon className="w-5 h-5 text-red-600" />
+              <p className="text-red-700">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
 
         {/* Empty State */}
         {appointments.length === 0 && !loading && !error && (
@@ -448,15 +584,20 @@ const Schedule: React.FC = () => {
             <p className="text-gray-600 mb-6">
               You don't have any upcoming appointments.
             </p>
-            <button className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200">
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+            >
               Create Your First Appointment
             </button>
           </div>
         )}
 
-        {/* Enhanced Stats Cards - Only show if there are appointments */}
+        {/* Rest of your component remains the same... */}
+        {/* Enhanced Stats Cards */}
         {appointments.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* Stats cards code remains the same */}
             <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -474,12 +615,7 @@ const Schedule: React.FC = () => {
                   {todayAppointments.length}
                 </p>
                 <div className="text-sm text-gray-500">
-                  {
-                    todayAppointments.filter(
-                      (apt) => apt.status === "confirmed"
-                    ).length
-                  }{" "}
-                  confirmed
+                  {todayAppointments.filter((apt) => apt.status === "confirmed").length} confirmed
                 </div>
               </div>
             </div>
@@ -498,10 +634,7 @@ const Schedule: React.FC = () => {
                   Confirmed Jobs
                 </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {
-                    appointments.filter((apt) => apt.status === "confirmed")
-                      .length
-                  }
+                  {appointments.filter((apt) => apt.status === "confirmed").length}
                 </p>
                 <div className="text-sm text-emerald-600 font-semibold">
                   Ready to go!
@@ -523,10 +656,7 @@ const Schedule: React.FC = () => {
                   Pending Approval
                 </p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {
-                    appointments.filter((apt) => apt.status === "pending")
-                      .length
-                  }
+                  {appointments.filter((apt) => apt.status === "pending").length}
                 </p>
                 <div className="text-sm text-amber-600 font-semibold">
                   Needs attention
@@ -558,7 +688,7 @@ const Schedule: React.FC = () => {
           </div>
         )}
 
-        {/* Controls and Filters - Only show if there are appointments */}
+        {/* Controls and Filters */}
         {appointments.length > 0 && (
           <>
             <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-8">
@@ -765,17 +895,7 @@ const Schedule: React.FC = () => {
                     >
                       <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1">
                         <span className="hidden sm:inline">
-                          {
-                            [
-                              "Sunday",
-                              "Monday",
-                              "Tuesday",
-                              "Wednesday",
-                              "Thursday",
-                              "Friday",
-                              "Saturday",
-                            ][index]
-                          }
+                          {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][index]}
                         </span>
                         <span className="sm:hidden">{day}</span>
                       </div>
@@ -796,9 +916,7 @@ const Schedule: React.FC = () => {
               {/* Calendar Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-7 min-h-64 sm:min-h-96">
                 {weekDays.map((day, index) => {
-                  const dayAppointments = getAppointmentsForDate(
-                    formatDate(day)
-                  );
+                  const dayAppointments = getAppointmentsForDate(formatDate(day));
 
                   return (
                     <div
@@ -809,17 +927,7 @@ const Schedule: React.FC = () => {
                       <div className="sm:hidden mb-3 pb-2 border-b border-gray-200">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-gray-700">
-                            {
-                              [
-                                "Sunday",
-                                "Monday",
-                                "Tuesday",
-                                "Wednesday",
-                                "Thursday",
-                                "Friday",
-                                "Saturday",
-                              ][index]
-                            }
+                            {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][index]}
                           </span>
                           <span
                             className={`text-lg font-bold ${
@@ -840,8 +948,11 @@ const Schedule: React.FC = () => {
                             className={`group p-3 sm:p-4 rounded-xl sm:rounded-2xl text-sm border-l-4 hover:shadow-lg transition-all duration-300 cursor-pointer ${
                               appointment.status === "confirmed"
                                 ? "bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-500 hover:from-emerald-100 hover:to-green-100"
-                                : "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-500 hover:from-amber-100 hover:to-yellow-100"
+                                : appointment.status === "pending"
+                                ? "bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-500 hover:from-amber-100 hover:to-yellow-100"
+                                : "bg-gradient-to-r from-red-50 to-pink-50 border-red-500 hover:from-red-100 hover:to-pink-100"
                             } ${getPriorityColor(appointment.priority)}`}
+                            onClick={() => setSelectedAppointment(appointment)}
                           >
                             <div className="flex items-center gap-2 mb-2">
                               <span className="text-sm sm:text-base">
@@ -849,6 +960,9 @@ const Schedule: React.FC = () => {
                               </span>
                               <div className="font-bold text-gray-900 text-xs sm:text-xs">
                                 {appointment.time}
+                              </div>
+                              <div className={`text-xs px-2 py-1 rounded-full ${getStatusColor(appointment.status)}`}>
+                                {appointment.status}
                               </div>
                             </div>
                             <div className="text-gray-800 font-semibold mb-2 text-xs sm:text-xs leading-tight">
@@ -961,11 +1075,27 @@ const Schedule: React.FC = () => {
 
                           {/* Mobile action buttons - vertical stack */}
                           <div className="flex flex-col gap-2">
-                            <button className="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl flex items-center justify-center transition-all duration-200">
-                              <Edit3 className="w-3 h-3" />
+                            <button 
+                              onClick={() => handleEditAppointment(appointment)}
+                              disabled={actionLoading === appointment.id}
+                              className="w-8 h-8 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-50"
+                            >
+                              {actionLoading === appointment.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Edit3 className="w-3 h-3" />
+                              )}
                             </button>
-                            <button className="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl flex items-center justify-center transition-all duration-200">
-                              <Trash2 className="w-3 h-3" />
+                            <button 
+                              onClick={() => handleDeleteAppointment(appointment)}
+                              disabled={actionLoading === appointment.id}
+                              className="w-8 h-8 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl flex items-center justify-center transition-all duration-200 disabled:opacity-50"
+                            >
+                              {actionLoading === appointment.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
                             </button>
                             <button className="w-8 h-8 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl flex items-center justify-center transition-all duration-200">
                               <MoreVertical className="w-3 h-3" />
@@ -996,14 +1126,11 @@ const Schedule: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-purple-500 flex-shrink-0" />
                             <span>
-                              {new Date(appointment.date).toLocaleDateString(
-                                "en-US",
-                                {
-                                  weekday: "short",
-                                  month: "short",
-                                  day: "numeric",
-                                }
-                              )}
+                              {new Date(appointment.date).toLocaleDateString("en-US", {
+                                weekday: "short",
+                                month: "short",
+                                day: "numeric",
+                              })}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1020,6 +1147,28 @@ const Schedule: React.FC = () => {
                               {appointment.payment}
                             </span>
                           </div>
+                        </div>
+
+                        {/* Status Actions */}
+                        <div className="flex gap-2">
+                          {appointment.status !== "confirmed" && (
+                            <button
+                              onClick={() => handleStatusChange(appointment, "confirmed")}
+                              disabled={actionLoading === appointment.id}
+                              className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                            >
+                              Confirm
+                            </button>
+                          )}
+                          {appointment.status !== "cancelled" && (
+                            <button
+                              onClick={() => handleStatusChange(appointment, "cancelled")}
+                              disabled={actionLoading === appointment.id}
+                              className="flex-1 bg-red-600 text-white py-2 px-3 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </div>
 
                         {/* Mobile notes */}
@@ -1096,9 +1245,7 @@ const Schedule: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-purple-500" />
                                 <span>
-                                  {new Date(
-                                    appointment.date
-                                  ).toLocaleDateString("en-US", {
+                                  {new Date(appointment.date).toLocaleDateString("en-US", {
                                     weekday: "short",
                                     month: "short",
                                     day: "numeric",
@@ -1121,6 +1268,28 @@ const Schedule: React.FC = () => {
                               </div>
                             </div>
 
+                            {/* Status Actions */}
+                            <div className="flex gap-3 mb-4">
+                              {appointment.status !== "confirmed" && (
+                                <button
+                                  onClick={() => handleStatusChange(appointment, "confirmed")}
+                                  disabled={actionLoading === appointment.id}
+                                  className="bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                                >
+                                  Confirm Appointment
+                                </button>
+                              )}
+                              {appointment.status !== "cancelled" && (
+                                <button
+                                  onClick={() => handleStatusChange(appointment, "cancelled")}
+                                  disabled={actionLoading === appointment.id}
+                                  className="bg-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                                >
+                                  Cancel Appointment
+                                </button>
+                              )}
+                            </div>
+
                             {appointment.notes && (
                               <div className="p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200">
                                 <div className="flex items-start gap-2">
@@ -1140,11 +1309,27 @@ const Schedule: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-2 ml-4">
-                          <button className="w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                            <Edit3 className="w-4 h-4" />
+                          <button 
+                            onClick={() => handleEditAppointment(appointment)}
+                            disabled={actionLoading === appointment.id}
+                            className="w-10 h-10 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 disabled:opacity-50"
+                          >
+                            {actionLoading === appointment.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Edit3 className="w-4 h-4" />
+                            )}
                           </button>
-                          <button className="w-10 h-10 bg-red-100 hover:bg-red-200 text-red-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-                            <Trash2 className="w-4 h-4" />
+                          <button 
+                            onClick={() => handleDeleteAppointment(appointment)}
+                            disabled={actionLoading === appointment.id}
+                            className="w-10 h-10 bg-red-100 hover:bg-red-200 text-red-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 disabled:opacity-50"
+                          >
+                            {actionLoading === appointment.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                           <button className="w-10 h-10 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200 hover:scale-110">
                             <MoreVertical className="w-4 h-4" />
@@ -1159,6 +1344,146 @@ const Schedule: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Add Appointment Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Add New Appointment</h3>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter appointment title"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter client name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleAddAppointment({})}
+                  disabled={actionLoading === "new"}
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                >
+                  {actionLoading === "new" ? (
+                    <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                  ) : (
+                    "Add Appointment"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Detail Modal */}
+      {selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Appointment Details</h3>
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <strong>Title:</strong> {selectedAppointment.title}
+              </div>
+              <div>
+                <strong>Client:</strong> {selectedAppointment.client}
+              </div>
+              <div>
+                <strong>Phone:</strong> {selectedAppointment.phone}
+              </div>
+              <div>
+                <strong>Location:</strong> {selectedAppointment.location}
+              </div>
+              <div>
+                <strong>Date:</strong> {selectedAppointment.date}
+              </div>
+              <div>
+                <strong>Time:</strong> {selectedAppointment.time} - {selectedAppointment.endTime}
+              </div>
+              <div>
+                <strong>Payment:</strong> {selectedAppointment.payment}
+              </div>
+              {selectedAppointment.notes && (
+                <div>
+                  <strong>Notes:</strong> {selectedAppointment.notes}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 pt-4">
+              <button
+                onClick={() => setSelectedAppointment(null)}
+                className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-400 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
