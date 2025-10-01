@@ -45,8 +45,7 @@ const LoginPage = () => {
     email: "",
   });
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
-
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomeheroes.onrender.com";
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -120,18 +119,22 @@ const LoginPage = () => {
     });
 
     if (result.success) {
-      // Always show the verification code in development
-      if (result.data?.debugToken) {
-        setSuccessMessage(`Verification code: ${result.data.debugToken} (Check your email or use this code)`);
-        console.log('🔑 Debug Token:', result.data.debugToken);
+      // Always show the verification code prominently
+      const debugToken = result.data?.debugToken;
+      if (debugToken) {
+       
+        console.log('🔑 Debug Token:', debugToken);
+        
+        
+        // Auto-fill the verification code for easier testing
+        setVerificationData({
+          token: debugToken, // Auto-fill the token
+          email: email
+        });
       } else {
         setSuccessMessage(`Verification code sent to ${email}. Please check your email.`);
       }
       
-      setVerificationData({
-        token: "",
-        email: email
-      });
       setCurrentStep("verify");
     }
   } catch (error: any) {
