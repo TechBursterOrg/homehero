@@ -51,6 +51,25 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Get current user ID from token or props
+  const getCurrentUserId = () => {
+    if (currentUser?._id) return currentUser._id;
+    if (currentUser?.id) return currentUser.id;
+    
+    // Try to get from localStorage token
+    try {
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.id;
+      }
+    } catch (error) {
+      console.error('Error getting user ID from token:', error);
+    }
+    
+    return null;
+  };
+
   useEffect(() => {
     fetchConversations();
   }, []);
@@ -102,20 +121,31 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
       
       if (response.ok) {
         const data = await response.json();
+        const currentUserId = getCurrentUserId();
+        
+        console.log('=== DEBUG MESSAGE FETCH ===');
+        console.log('Current User ID:', currentUserId);
+        console.log('Raw messages:', data.data.messages);
         
         // CORRECTED: Properly identify provider vs customer messages
         const messagesWithAlignment = data.data.messages.map((msg: Message) => {
-          const msgSenderId = msg.senderId?._id || msg.senderId?.id || msg.senderId;
-          const currentUserId = currentUser?._id || currentUser?.id;
+          // Extract sender ID properly
+          let msgSenderId = '';
+          if (typeof msg.senderId === 'string') {
+            msgSenderId = msg.senderId;
+          } else if (msg.senderId && typeof msg.senderId === 'object') {
+            msgSenderId = msg.senderId._id || msg.senderId.id || '';
+          }
           
           // Check if the sender is the current user
           const isMe = msgSenderId === currentUserId;
           
-          // Determine if sender is a provider
-          const senderUserType = msg.senderId?.userType || 'customer';
-          const isProvider = senderUserType === 'provider' || senderUserType === 'both';
+          console.log(`Message: "${msg.content}" | Sender ID: ${msgSenderId} | Current User ID: ${currentUserId} | IsMe: ${isMe} | Sender Name: ${msg.senderId?.name}`);
           
-          console.log(`Message: "${msg.content}" | Sender: ${msg.senderId?.name} | Type: ${senderUserType} | IsMe: ${isMe} | IsProvider: ${isProvider}`);
+          // SIMPLE FIX: In provider view
+          // - If I sent it (isMe = true) = Provider message (RIGHT)
+          // - If someone else sent it (isMe = false) = Customer message (LEFT)
+          const isProvider = isMe;
           
           return {
             ...msg,
@@ -176,16 +206,19 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
   };
 
   const getOtherParticipant = (conversation: Conversation) => {
-    if (!currentUser) return conversation.participants[0];
+    const currentUserId = getCurrentUserId();
+    if (!currentUserId) return conversation.participants[0];
+    
     return conversation.participants.find(p => {
       const participantId = p._id || p.id;
-      const currentUserId = currentUser._id || currentUser.id;
       return participantId !== currentUserId;
     });
   };
 
   const getParticipantType = (participant: any) => {
-    return participant?.userType || 'customer';
+    const userType = participant?.userType || 'customer';
+    // In provider view, always show other participants as customers
+    return 'customer'; // Always show as customer in provider view
   };
 
   const getLastMessageTime = (timestamp: string) => {
@@ -232,18 +265,18 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
     return null;
   };
 
-  // CORRECTED: Get alignment based on user type and sender
+  // SIMPLE ALIGNMENT: My messages = right, others = left
   const getMessageAlignment = (message: Message) => {
-    // If current user is provider, their messages should be on RIGHT
-    // Customer messages should be on LEFT
+    return message.isMe ? 'right' : 'left';
+  };
+
+  const getMessageStyle = (message: Message) => {
+    const alignment = getMessageAlignment(message);
     
-    if (message.isMe) {
-      // Current user's own messages
-      const currentUserType = currentUser?.userType || 'customer';
-      return currentUserType === 'provider' ? 'right' : 'left';
+    if (alignment === 'right') {
+      return 'bg-gradient-to-r from-blue-600 to-purple-600 text-white';
     } else {
-      // Other participant's messages
-      return message.isProvider ? 'right' : 'left';
+      return 'bg-white/90 backdrop-blur-sm text-gray-900 border border-gray-200';
     }
   };
 
@@ -300,14 +333,12 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                         <div className="flex items-start space-x-4">
                           <div className="relative flex-shrink-0">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
-                              participantType === 'provider' 
-                                ? 'bg-gradient-to-br from-green-500 to-teal-600' 
-                                : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                              'bg-gradient-to-br from-blue-500 to-purple-600'
                             }`}>
                               {otherParticipant?.name?.charAt(0) || 'U'}
                             </div>
                             <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                              participantType === 'provider' ? 'bg-green-500' : 'bg-blue-500'
+                              'bg-blue-500'
                             }`}></div>
                           </div>
                           
@@ -318,11 +349,9 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                                   {otherParticipant?.name || 'Unknown User'}
                                 </h4>
                                 <span className={`text-xs px-2 py-1 rounded-full ${
-                                  participantType === 'provider' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-blue-100 text-blue-800'
+                                  'bg-blue-100 text-blue-800'
                                 }`}>
-                                  {participantType}
+                                  Customer
                                 </span>
                               </div>
                               <span className="text-xs text-gray-500 flex-shrink-0">
@@ -361,9 +390,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       
                       <div className="relative flex-shrink-0">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
-                          getParticipantType(getOtherParticipant(selectedConversation)) === 'provider'
-                            ? 'bg-gradient-to-br from-green-500 to-teal-600'
-                            : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                          'bg-gradient-to-br from-blue-500 to-purple-600'
                         }`}>
                           {getOtherParticipant(selectedConversation)?.name?.charAt(0) || 'U'}
                         </div>
@@ -375,18 +402,14 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                             {getOtherParticipant(selectedConversation)?.name || 'Unknown User'}
                           </h3>
                           <span className={`text-xs px-2 py-1 rounded-full ${
-                            getParticipantType(getOtherParticipant(selectedConversation)) === 'provider'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-blue-100 text-blue-800'
+                            'bg-blue-100 text-blue-800'
                           }`}>
-                            {getParticipantType(getOtherParticipant(selectedConversation))}
+                            Customer
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <span className={`w-2 h-2 rounded-full ${
-                            getParticipantType(getOtherParticipant(selectedConversation)) === 'provider'
-                              ? 'bg-green-500'
-                              : 'bg-blue-500'
+                            'bg-blue-500'
                           }`}></span>
                           <span>Online</span>
                         </div>
@@ -404,7 +427,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                   </div>
                 </div>
 
-                {/* Messages Area - CORRECTED ALIGNMENT */}
+                {/* Messages Area - SIMPLE ALIGNMENT */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
@@ -419,25 +442,21 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                   ) : (
                     messages.map((message) => {
                       const alignment = getMessageAlignment(message);
-                      const isProviderMessage = message.isProvider;
+                      const messageStyle = getMessageStyle(message);
+                      
+                      console.log(`Rendering message: "${message.content}" | Alignment: ${alignment} | IsMe: ${message.isMe}`);
                       
                       return (
                         <div
                           key={message._id}
                           className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`max-w-md px-4 py-3 rounded-2xl shadow-sm relative ${
-                            alignment === 'right'
-                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' // Right-aligned (Provider messages)
-                              : 'bg-white/90 backdrop-blur-sm text-gray-900 border border-gray-200' // Left-aligned (Customer messages)
-                          }`}>
-                            {/* User type indicator */}
-                            {!message.isMe && (
+                          <div className={`max-w-md px-4 py-3 rounded-2xl shadow-sm relative ${messageStyle}`}>
+                            {/* Show sender label only for customer messages */}
+                            {alignment === 'left' && (
                               <div className="flex items-center gap-2 mb-1">
-                                <span className={`text-xs font-medium ${
-                                  alignment === 'right' ? 'text-blue-200' : 'text-gray-500'
-                                }`}>
-                                  {isProviderMessage ? 'Provider' : 'Customer'}
+                                <span className="text-xs font-medium text-gray-500">
+                                  Customer
                                 </span>
                               </div>
                             )}
