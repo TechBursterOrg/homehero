@@ -45,7 +45,8 @@ const LoginPage = () => {
     email: "",
   });
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomeheroes.onrender.com";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomeheroes.onrender.com";
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -108,53 +109,65 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
   };
 
   const sendVerificationToken = async (email: string) => {
-  try {
-    setIsLoading(true);
-    setError("");
+    try {
+      setIsLoading(true);
+      setError("");
 
-    console.log('📧 Sending verification token to email:', email);
+      console.log('📧 Sending verification token to email:', email);
 
-    const result = await makeApiCall('send-verification', {
-      email: email
-    });
+      // Make sure verificationData has the email
+      setVerificationData(prev => ({
+        ...prev,
+        email: email
+      }));
 
-    if (result.success) {
-      // Always show the verification code prominently
-      const debugToken = result.data?.debugToken;
-      if (debugToken) {
-       
-        console.log('🔑 Debug Token:', debugToken);
+      const result = await makeApiCall('send-verification', {
+        email: email
+      });
+
+      if (result.success) {
+        // Always show the verification code prominently
+        const debugToken = result.data?.debugToken;
+        if (debugToken) {
+          console.log('🔑 Debug Token:', debugToken);
+          
+          // Auto-fill the verification code for easier testing
+          setVerificationData({
+            token: debugToken, // Auto-fill the token
+            email: email // Make sure email is set
+          });
+        } else {
+          setSuccessMessage(`Verification code sent to ${email}. Please check your email.`);
+        }
         
-        
-        // Auto-fill the verification code for easier testing
-        setVerificationData({
-          token: debugToken, // Auto-fill the token
-          email: email
-        });
-      } else {
-        setSuccessMessage(`Verification code sent to ${email}. Please check your email.`);
+        setCurrentStep("verify");
       }
-      
-      setCurrentStep("verify");
+    } catch (error: any) {
+      console.error('❌ Send verification error:', error);
+      setError(error.message || "Failed to send verification code. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    console.error('❌ Send verification error:', error);
-    setError(error.message || "Failed to send verification code. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const verifyEmail = async () => {
     try {
       setIsLoading(true);
       setError("");
 
+      // Validate that we have both email and token
+      if (!verificationData.email || !verificationData.token) {
+        setError("Email and verification token are required. Please try again.");
+        return;
+      }
+
       console.log('✅ Verifying email:', verificationData);
+      console.log('📧 Email being sent:', verificationData.email);
+      console.log('🔑 Token being sent:', verificationData.token);
 
       const result = await makeApiCall('verify-email', {
-        email: verificationData.email,
-        token: verificationData.token
+        email: verificationData.email.trim().toLowerCase(),
+        token: verificationData.token.trim()
       });
 
       if (result.success) {
@@ -166,7 +179,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
       }
     } catch (error: any) {
       console.error('❌ Verify email error:', error);
-      setError(error.message || "Failed to verify email. Please check the code and try again.");
+      
+      // More specific error handling
+      if (error.message.includes('Email and verification token are required')) {
+        setError("Verification failed: Missing email or token. Please try again.");
+      } else if (error.message.includes('Invalid token') || error.message.includes('Invalid verification token')) {
+        setError("Invalid verification code. Please check the code and try again.");
+      } else if (error.message.includes('Token expired')) {
+        setError("Verification code has expired. Please request a new one.");
+      } else {
+        setError(error.message || "Failed to verify email. Please check the code and try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -247,7 +270,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
       }
 
       // Send verification token to email
-      await sendVerificationToken(formData.email);
+      await sendVerificationToken(formData.email.trim().toLowerCase());
     } else if (currentStep === "verify") {
       // Verify token
       if (!verificationData.token.trim()) {
@@ -260,7 +283,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
         return;
       }
       
-      await verifyEmail();
+      // Make sure we have the email
+      if (!verificationData.email) {
+        setVerificationData(prev => ({
+          ...prev,
+          email: formData.email.trim().toLowerCase()
+        }));
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          verifyEmail();
+        }, 100);
+      } else {
+        await verifyEmail();
+      }
     }
   };
 
@@ -312,7 +347,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
   };
 
   const resendVerificationToken = async () => {
-    await sendVerificationToken(verificationData.email);
+    await sendVerificationToken(verificationData.email || formData.email);
   };
 
   return (
@@ -544,7 +579,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
                     <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-3" />
                     <h3 className="text-lg font-semibold text-gray-900">Verify Your Email Address</h3>
                     <p className="text-gray-600">
-                      We sent a verification code to {verificationData.email}
+                      We sent a verification code to {verificationData.email || formData.email}
                     </p>
                   </div>
 
@@ -576,6 +611,22 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomehe
                   >
                     Didn't receive the code? Resend
                   </button>
+
+                  {/* Debug Info for Development */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm mt-4">
+                      <h4 className="font-semibold mb-2">Debug Info:</h4>
+                      <p>Email: {verificationData.email || 'Not set'}</p>
+                      <p>Token: {verificationData.token || 'Not set'}</p>
+                      <button
+                        type="button"
+                        onClick={() => console.log('Verification Data:', verificationData)}
+                        className="mt-2 text-xs bg-yellow-200 px-2 py-1 rounded"
+                      >
+                        Log Verification Data
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
