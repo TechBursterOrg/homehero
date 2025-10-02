@@ -1,3 +1,4 @@
+// LoginPage.tsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -23,6 +24,13 @@ interface FormData {
 interface VerificationData {
   token: string;
   email: string;
+}
+
+interface ApiResponse {
+  success: boolean;
+  message?: string;
+  data?: any;
+  errors?: any[];
 }
 
 const LoginPage = () => {
@@ -66,7 +74,7 @@ const LoginPage = () => {
     });
   };
 
-  const makeApiCall = async (endpoint: string, data: any) => {
+  const makeApiCall = async (endpoint: string, data: any): Promise<ApiResponse> => {
     console.log(`🌐 Making API call to: ${API_BASE_URL}/api/auth/${endpoint}`);
     console.log(`📤 Sending data:`, data);
     
@@ -79,7 +87,7 @@ const LoginPage = () => {
         body: JSON.stringify(data),
       });
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
       
       if (!response.ok) {
         console.error(`🔴 API Error Response:`, result);
@@ -92,9 +100,7 @@ const LoginPage = () => {
           throw new Error(`Validation failed: ${errorDetails}`);
         }
         
-        const errorMessage = result.message || 
-                            result.error ||
-                            `HTTP ${response.status}: ${response.statusText}`;
+        const errorMessage = result.message || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
       
@@ -156,17 +162,18 @@ const LoginPage = () => {
       setError("");
 
       // Validate that we have both email and token
-      if (!verificationData.email || !verificationData.token) {
+      const emailToVerify = verificationData.email || formData.email;
+      if (!emailToVerify || !verificationData.token) {
         setError("Email and verification token are required. Please try again.");
         return;
       }
 
-      console.log('✅ Verifying email:', verificationData);
-      console.log('📧 Email being sent:', verificationData.email);
+      console.log('✅ Verifying email:', { email: emailToVerify, token: verificationData.token });
+      console.log('📧 Email being sent:', emailToVerify);
       console.log('🔑 Token being sent:', verificationData.token);
 
       const result = await makeApiCall('verify-email', {
-        email: verificationData.email.trim().toLowerCase(),
+        email: emailToVerify.trim().toLowerCase(),
         token: verificationData.token.trim()
       });
 
@@ -347,7 +354,10 @@ const LoginPage = () => {
   };
 
   const resendVerificationToken = async () => {
-    await sendVerificationToken(verificationData.email || formData.email);
+    const emailToUse = verificationData.email || formData.email;
+    if (emailToUse) {
+      await sendVerificationToken(emailToUse);
+    }
   };
 
   return (
@@ -434,6 +444,7 @@ const LoginPage = () => {
             {/* Toggle Buttons */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
               <button
+                type="button"
                 onClick={() => {
                   setIsLogin(true);
                   setCurrentStep("signup");
@@ -449,6 +460,7 @@ const LoginPage = () => {
                 Sign In
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsLogin(false);
                   setCurrentStep("signup");
@@ -613,7 +625,7 @@ const LoginPage = () => {
                   </button>
 
                   {/* Debug Info for Development */}
-                  {process.env.NODE_ENV === 'development' && (
+                  {import.meta.env.DEV && (
                     <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm mt-4">
                       <h4 className="font-semibold mb-2">Debug Info:</h4>
                       <p>Email: {verificationData.email || 'Not set'}</p>
