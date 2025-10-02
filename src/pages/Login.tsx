@@ -1,4 +1,4 @@
-// LoginPage.tsx
+// LoginPage.tsx - DEBUG VERSION
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -76,7 +76,7 @@ const LoginPage = () => {
 
   const makeApiCall = async (endpoint: string, data: any): Promise<ApiResponse> => {
     console.log(`🌐 Making API call to: ${API_BASE_URL}/api/auth/${endpoint}`);
-    console.log(`📤 Sending data:`, data);
+    console.log(`📤 Sending data:`, JSON.stringify(data, null, 2));
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/${endpoint}`, {
@@ -87,7 +87,10 @@ const LoginPage = () => {
         body: JSON.stringify(data),
       });
 
+      console.log(`📥 Response status: ${response.status} ${response.statusText}`);
+      
       const result: ApiResponse = await response.json();
+      console.log(`📥 Response data:`, JSON.stringify(result, null, 2));
       
       if (!response.ok) {
         console.error(`🔴 API Error Response:`, result);
@@ -120,27 +123,30 @@ const LoginPage = () => {
       setError("");
 
       console.log('📧 Sending verification token to email:', email);
+      console.log('🔍 Email before sending:', email.trim().toLowerCase());
 
       // Make sure verificationData has the email
       setVerificationData(prev => ({
         ...prev,
-        email: email
+        email: email.trim().toLowerCase()
       }));
 
       const result = await makeApiCall('send-verification', {
-        email: email
+        email: email.trim().toLowerCase()
       });
 
       if (result.success) {
         // Always show the verification code prominently
         const debugToken = result.data?.debugToken;
         if (debugToken) {
-          console.log('🔑 Debug Token:', debugToken);
+          console.log('🔑 Debug Token received:', debugToken);
+          console.log('🔑 Token type:', typeof debugToken);
+          console.log('🔑 Token length:', debugToken.length);
           
           // Auto-fill the verification code for easier testing
           setVerificationData({
-            token: debugToken, // Auto-fill the token
-            email: email // Make sure email is set
+            token: debugToken.toString(), // Ensure it's a string
+            email: email.trim().toLowerCase() // Make sure email is set
           });
         } else {
           setSuccessMessage(`Verification code sent to ${email}. Please check your email.`);
@@ -163,19 +169,30 @@ const LoginPage = () => {
 
       // Validate that we have both email and token
       const emailToVerify = verificationData.email || formData.email;
-      if (!emailToVerify || !verificationData.token) {
+      const tokenToVerify = verificationData.token;
+      
+      if (!emailToVerify || !tokenToVerify) {
         setError("Email and verification token are required. Please try again.");
         return;
       }
 
-      console.log('✅ Verifying email:', { email: emailToVerify, token: verificationData.token });
-      console.log('📧 Email being sent:', emailToVerify);
-      console.log('🔑 Token being sent:', verificationData.token);
-
-      const result = await makeApiCall('verify-email', {
-        email: emailToVerify.trim().toLowerCase(),
-        token: verificationData.token.trim()
+      console.log('✅ Verifying email:', { 
+        email: emailToVerify, 
+        token: tokenToVerify,
+        emailType: typeof emailToVerify,
+        tokenType: typeof tokenToVerify,
+        tokenLength: tokenToVerify.length
       });
+
+      // Ensure data is properly formatted
+      const verificationPayload = {
+        email: emailToVerify.trim().toLowerCase(),
+        token: tokenToVerify.trim()
+      };
+
+      console.log('📤 Final verification payload:', verificationPayload);
+
+      const result = await makeApiCall('verify-email', verificationPayload);
 
       if (result.success) {
         setSuccessMessage("Email verified successfully!");
@@ -357,6 +374,31 @@ const LoginPage = () => {
     const emailToUse = verificationData.email || formData.email;
     if (emailToUse) {
       await sendVerificationToken(emailToUse);
+    }
+  };
+
+  // Debug function to test verification manually
+  const testVerificationManually = async () => {
+    const testData = {
+      email: verificationData.email || formData.email,
+      token: verificationData.token
+    };
+    
+    console.log('🧪 Manual test data:', testData);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testData),
+      });
+      
+      const result = await response.json();
+      console.log('🧪 Manual test result:', result);
+    } catch (error) {
+      console.error('🧪 Manual test error:', error);
     }
   };
 
@@ -624,21 +666,32 @@ const LoginPage = () => {
                     Didn't receive the code? Resend
                   </button>
 
-                  {/* Debug Info for Development */}
-                  {import.meta.env.DEV && (
-                    <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm mt-4">
-                      <h4 className="font-semibold mb-2">Debug Info:</h4>
-                      <p>Email: {verificationData.email || 'Not set'}</p>
-                      <p>Token: {verificationData.token || 'Not set'}</p>
+                  {/* Enhanced Debug Info */}
+                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm mt-4">
+                    <h4 className="font-semibold mb-2">Debug Information:</h4>
+                    <div className="space-y-1">
+                      <p><strong>Email:</strong> {verificationData.email || formData.email}</p>
+                      <p><strong>Token:</strong> {verificationData.token || 'Not set'}</p>
+                      <p><strong>Token Length:</strong> {verificationData.token?.length || 0}</p>
+                      <p><strong>Token Type:</strong> {typeof verificationData.token}</p>
+                    </div>
+                    <div className="mt-2 space-x-2">
                       <button
                         type="button"
                         onClick={() => console.log('Verification Data:', verificationData)}
-                        className="mt-2 text-xs bg-yellow-200 px-2 py-1 rounded"
+                        className="text-xs bg-yellow-200 px-2 py-1 rounded"
                       >
-                        Log Verification Data
+                        Log Data
+                      </button>
+                      <button
+                        type="button"
+                        onClick={testVerificationManually}
+                        className="text-xs bg-red-200 px-2 py-1 rounded"
+                      >
+                        Test Manually
                       </button>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
