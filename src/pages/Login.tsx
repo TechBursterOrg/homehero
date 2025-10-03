@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home,
   Mail,
@@ -12,6 +12,8 @@ import {
   Globe,
   Phone,
   MessageSquare,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 
 interface FormData {
@@ -32,6 +34,7 @@ interface VerificationData {
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -54,6 +57,19 @@ const LoginPage = () => {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+  // Check for verification messages in URL parameters
+  useEffect(() => {
+    const message = searchParams.get('message');
+    const error = searchParams.get('error');
+    
+    if (message) {
+      setSuccessMessage(message);
+    }
+    if (error) {
+      setError(error);
+    }
+  }, [searchParams]);
 
   // Country codes and validation
   const countryData = {
@@ -147,63 +163,37 @@ const LoginPage = () => {
     }
   };
 
-  const sendEmailVerification = async () => {
-  try {
-    setIsLoading(true);
-    setError("");
-
-    console.log('📧 Sending email verification:', formData.email);
-
-    const result = await makeApiCall('send-verification', {
-      email: formData.email  // Send email instead of phone data
-    });
-
-    if (result.success) {
-      setSuccessMessage(`Verification email sent to ${formData.email}! Please check your inbox and click the verification link.`);
-      setCurrentStep("complete");
-      
-      // In development, show the link for testing
-      if (result.data?.debugLink) {
-        console.log('🔗 Debug Link:', result.data.debugLink);
-        setSuccessMessage(`Verification email sent! Debug link: ${result.data.debugLink}`);
-      }
-    }
-  } catch (error: any) {
-    console.error('❌ Send verification error:', error);
-    setError(error.message || "Failed to send verification email. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-  
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // UPDATED: Signup function for email verification link
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setSuccessMessage("");
+    setIsLoading(true);
 
-    if (currentStep === "signup") {
+    try {
       // Validate form data
       if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
         setError("Please fill in all required fields.");
+        setIsLoading(false);
         return;
       }
 
       if (formData.password !== formData.confirmPassword) {
         setError("Passwords do not match.");
+        setIsLoading(false);
         return;
       }
 
       if (formData.password.length < 6) {
         setError("Password must be at least 6 characters long.");
+        setIsLoading(false);
         return;
       }
 
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(formData.email)) {
         setError("Please enter a valid email address.");
+        setIsLoading(false);
         return;
       }
 
@@ -211,48 +201,87 @@ const LoginPage = () => {
       const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
       if (phoneError) {
         setError(phoneError);
+        setIsLoading(false);
         return;
       }
 
-      // Complete signup and send verification email
-      await completeSignup();
+      console.log('📝 Starting signup process for:', formData.email);
+
+      // Complete signup with email verification
+      const signupData = {
+        name: formData.name.trim(),
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        userType: formData.userType || 'customer',
+        country: formData.country || 'NIGERIA',
+        phoneNumber: formData.phoneNumber
+      };
+
+      console.log('📝 Sending signup data:', signupData);
+
+      const result = await makeApiCall('signup', signupData);
+
+      if (result.success) {
+        setSuccessMessage("Account created successfully! Please check your email for the verification link. You'll be redirected to login after verification.");
+        setCurrentStep("complete");
+        
+        // Don't auto-login, wait for email verification
+        console.log('✅ Signup successful, waiting for email verification');
+      }
+    } catch (error: any) {
+      console.error('❌ Signup error:', error);
+      setError(error.message || "Failed to create account. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const completeSignup = async () => {
-  try {
-    setIsLoading(true);
-    setError("");
-    
-    const signupData = {
-      name: formData.name.trim(),
-      email: formData.email.toLowerCase().trim(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword,
-      userType: formData.userType || 'customer',
-      country: formData.country || 'NIGERIA',
-      phoneNumber: formData.phoneNumber
-    };
+  // Resend verification email
+  const resendVerificationEmail = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
 
-    console.log('📝 Completing signup:', signupData);
+      if (!formData.email.trim()) {
+        setError("Email address is required");
+        setIsLoading(false);
+        return;
+      }
 
-    const result = await makeApiCall('signup', signupData);
+      const result = await makeApiCall('resend-verification', {
+        email: formData.email.toLowerCase().trim()
+      });
 
-    if (result.success) {
-      setSuccessMessage("Account created successfully! Please check your email to verify your account.");
-      setCurrentStep("complete");
-      
-      // Send verification email
-      await sendEmailVerification();
+      if (result.success) {
+        setSuccessMessage("Verification email sent successfully! Please check your email.");
+      }
+    } catch (error: any) {
+      console.error('❌ Resend verification error:', error);
+      setError(error.message || "Failed to resend verification email. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    console.error('❌ Complete signup error:', error);
-    setError(error.message || "Failed to complete signup. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
+  // Check verification status
+  const checkVerificationStatus = async () => {
+    try {
+      if (!formData.email.trim()) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/verification-status/${formData.email.toLowerCase()}`);
+      const result = await response.json();
+
+      if (result.success && result.data.isEmailVerified) {
+        setSuccessMessage("Email verified successfully! You can now login.");
+        setCurrentStep("complete");
+      }
+    } catch (error) {
+      console.error('Error checking verification status:', error);
+    }
+  };
+
+  // Handle login (unchanged)
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -298,10 +327,6 @@ const LoginPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const resendVerificationEmail = async () => {
-    await sendEmailVerification();
   };
 
   const getCurrentCountryCode = () => {
@@ -423,7 +448,7 @@ const LoginPage = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={isLogin ? handleLogin : handleSubmit} className="space-y-6">
+            <form onSubmit={isLogin ? handleLogin : (currentStep === "signup" ? handleSignup : (e) => e.preventDefault())} className="space-y-6">
               {!isLogin && currentStep === "signup" && (
                 <>
                   <div className="animate-fade-in-up">
@@ -575,41 +600,42 @@ const LoginPage = () => {
               )}
 
               {!isLogin && currentStep === "complete" && (
-                <div className="text-center py-8">
+                <div className="text-center py-6">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Mail className="w-8 h-8 text-green-500" />
+                    <CheckCircle className="w-8 h-8 text-green-500" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Check Your Email!</h3>
                   <p className="text-gray-600 mb-4">
-                    We've sent a verification link to <strong>{formData.email}</strong>
+                    We've sent a verification link to <strong>{formData.email}</strong>. 
+                    Click the link in the email to verify your account.
                   </p>
-                  <p className="text-sm text-gray-500 mb-6">
-                    Click the link in the email to verify your account and complete your registration.
-                  </p>
-                  
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <button
                       type="button"
                       onClick={resendVerificationEmail}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                       disabled={isLoading}
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
-                      Didn't receive the email? Resend
+                      {isLoading ? "Sending..." : "Resend Verification Email"}
                     </button>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsLogin(true);
-                          setCurrentStep("signup");
-                          setError("");
-                          setSuccessMessage("");
-                        }}
-                        className="text-green-600 hover:text-green-700 text-sm font-medium"
-                      >
-                        Ready to login? Click here
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={checkVerificationStatus}
+                      className="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      I've Verified My Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLogin(true);
+                        setCurrentStep("signup");
+                        setSuccessMessage("");
+                      }}
+                      className="w-full text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Back to Login
+                    </button>
                   </div>
                 </div>
               )}
