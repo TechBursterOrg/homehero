@@ -83,38 +83,44 @@ const BookingModal: React.FC<BookingModalProps> = ({
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  e.preventDefault();
+  setIsSubmitting(true);
+  
+  try {
+    const bookingData = {
+      providerId: provider._id || provider.id,
+      providerName: provider.name,
+      providerEmail: provider.email,
+      serviceType: formData.serviceType,
+      description: formData.description,
+      location: formData.location,
+      timeframe: serviceType === 'immediate' ? 'ASAP' : formData.date ? `${formData.date} at ${formData.time}` : 'Flexible',
+      budget: formData.budget,
+      contactInfo: {
+        phone: formData.contactPhone,
+        email: formData.contactEmail,
+        name: currentUser.name
+      },
+      specialRequests: formData.specialRequests,
+      bookingType: serviceType,
+      requestedAt: new Date().toISOString()
+    };
     
-    try {
-      const bookingData = {
-        providerId: provider._id || provider.id,
-        providerName: provider.name,
-        providerEmail: provider.email,
-        serviceType: formData.serviceType,
-        description: formData.description,
-        location: formData.location,
-        timeframe: serviceType === 'immediate' ? 'ASAP' : formData.date ? `${formData.date} at ${formData.time}` : 'Flexible',
-        budget: formData.budget,
-        contactInfo: {
-          phone: formData.contactPhone,
-          email: formData.contactEmail,
-          name: currentUser.name
-        },
-        specialRequests: formData.specialRequests,
-        bookingType: serviceType,
-        requestedAt: new Date().toISOString()
-      };
-      
-      await onConfirm(bookingData);
-      onClose();
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert('Failed to submit booking. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    await onConfirm(bookingData);
+    
+    // Show success message
+    alert('Booking request sent! The service provider has been notified by email.');
+    
+    onClose();
+  } catch (error) {
+    console.error('Booking error:', error);
+    alert('Failed to submit booking. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
