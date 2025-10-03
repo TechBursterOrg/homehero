@@ -148,66 +148,36 @@ const LoginPage = () => {
   };
 
   const sendEmailVerification = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
+  try {
+    setIsLoading(true);
+    setError("");
 
-      console.log('📧 Sending email verification:', formData.email);
+    console.log('📧 Sending email verification:', formData.email);
 
-      const result = await makeApiCall('send-verification', {
-        email: formData.email
-      });
+    const result = await makeApiCall('send-verification', {
+      email: formData.email  // Send email instead of phone data
+    });
 
-      if (result.success) {
-        setSuccessMessage(`Verification email sent to ${formData.email}! Please check your inbox and click the verification link.`);
-        
-        // In development, show the link for testing
-        if (result.data?.debugLink) {
-          console.log('🔗 Debug Link:', result.data.debugLink);
-        }
-      }
-    } catch (error: any) {
-      console.error('❌ Send verification error:', error);
-      setError(error.message || "Failed to send verification email. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const completeSignup = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
+    if (result.success) {
+      setSuccessMessage(`Verification email sent to ${formData.email}! Please check your inbox and click the verification link.`);
+      setCurrentStep("complete");
       
-      // Final signup with verified email
-      const signupData = {
-        name: formData.name.trim(),
-        email: formData.email.toLowerCase().trim(),
-        password: formData.password,
-        confirmPassword: formData.confirmPassword,
-        userType: formData.userType || 'customer',
-        country: formData.country || 'NIGERIA',
-        phoneNumber: formData.phoneNumber
-      };
-
-      console.log('📝 Completing signup:', signupData);
-
-      const result = await makeApiCall('signup', signupData);
-
-      if (result.success) {
-        setSuccessMessage("Account created successfully! Please check your email to verify your account.");
-        setCurrentStep("complete");
-        
-        // Send verification email
-        await sendEmailVerification();
+      // In development, show the link for testing
+      if (result.data?.debugLink) {
+        console.log('🔗 Debug Link:', result.data.debugLink);
+        setSuccessMessage(`Verification email sent! Debug link: ${result.data.debugLink}`);
       }
-    } catch (error: any) {
-      console.error('❌ Complete signup error:', error);
-      setError(error.message || "Failed to complete signup. Please try again.");
-    } finally {
-      setIsLoading(false);
     }
-  };
+  } catch (error: any) {
+    console.error('❌ Send verification error:', error);
+    setError(error.message || "Failed to send verification email. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+  
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -248,6 +218,40 @@ const LoginPage = () => {
       await completeSignup();
     }
   };
+
+  const completeSignup = async () => {
+  try {
+    setIsLoading(true);
+    setError("");
+    
+    const signupData = {
+      name: formData.name.trim(),
+      email: formData.email.toLowerCase().trim(),
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      userType: formData.userType || 'customer',
+      country: formData.country || 'NIGERIA',
+      phoneNumber: formData.phoneNumber
+    };
+
+    console.log('📝 Completing signup:', signupData);
+
+    const result = await makeApiCall('signup', signupData);
+
+    if (result.success) {
+      setSuccessMessage("Account created successfully! Please check your email to verify your account.");
+      setCurrentStep("complete");
+      
+      // Send verification email
+      await sendEmailVerification();
+    }
+  } catch (error: any) {
+    console.error('❌ Complete signup error:', error);
+    setError(error.message || "Failed to complete signup. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
