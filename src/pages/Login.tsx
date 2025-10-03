@@ -13,7 +13,8 @@ import {
   Phone,
   MessageSquare,
   CheckCircle,
-  XCircle
+  XCircle,
+  X
 } from "lucide-react";
 
 interface FormData {
@@ -41,6 +42,8 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [currentStep, setCurrentStep] = useState<"signup" | "verify" | "complete">("signup");
+  const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
+  
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -50,6 +53,7 @@ const LoginPage = () => {
     country: "NIGERIA",
     phoneNumber: "",
   });
+  
   const [verificationData, setVerificationData] = useState<VerificationData>({
     token: "",
     phoneNumber: "",
@@ -58,16 +62,42 @@ const LoginPage = () => {
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-  // Check for verification messages in URL parameters
+  // Check for verification success and pre-populate form
   useEffect(() => {
+    const verified = searchParams.get('verified');
+    const email = searchParams.get('email');
     const message = searchParams.get('message');
     const error = searchParams.get('error');
     
-    if (message) {
-      setSuccessMessage(message);
+    if (verified === 'true' && email) {
+      // Show verification success popup
+      setShowVerificationSuccess(true);
+      
+      // Pre-populate the email in the form
+      setFormData(prev => ({
+        ...prev,
+        email: decodeURIComponent(email)
+      }));
+      
+      // Switch to login mode
+      setIsLogin(true);
+      
+      // Set success message
+      if (message) {
+        setSuccessMessage(decodeURIComponent(message));
+      }
+      
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
     }
+    
+    if (message && !verified) {
+      setSuccessMessage(decodeURIComponent(message));
+    }
+    
     if (error) {
-      setError(error);
+      setError(decodeURIComponent(error));
     }
   }, [searchParams]);
 
@@ -281,7 +311,7 @@ const LoginPage = () => {
     }
   };
 
-  // Handle login (unchanged)
+  // Handle login
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -333,8 +363,36 @@ const LoginPage = () => {
     return countryData[formData.country as keyof typeof countryData]?.code || "+234";
   };
 
+  // Close verification success popup
+  const closeVerificationSuccess = () => {
+    setShowVerificationSuccess(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+      {/* Verification Success Popup */}
+      {showVerificationSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Email Verified Successfully!</h3>
+              <p className="text-gray-600 mb-6">
+                Your email has been verified. You can now login to your account.
+              </p>
+              <button
+                onClick={closeVerificationSuccess}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Continue to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2220%22%20height=%2220%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern%20id=%22grid%22%20width=%2220%22%20height=%2220%22%20patternUnits=%22userSpaceOnUse%22%3E%3Cpath%20d=%22M%2020%200%20L%200%200%200%2020%22%20fill=%22none%22%20stroke=%22%23e5e7eb%22%20stroke-width=%221%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22url(%23grid)%22/%3E%3C/svg%3E')] opacity-30"></div>
 
       <div className="relative w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
@@ -815,8 +873,23 @@ const LoginPage = () => {
             }
           }
           
+          @keyframes scale-in {
+            from {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          
           .animate-fade-in-up {
             animation: fade-in-up 0.6s ease-out forwards;
+          }
+          
+          .animate-scale-in {
+            animation: scale-in 0.3s ease-out forwards;
           }
         `}
       </style>
