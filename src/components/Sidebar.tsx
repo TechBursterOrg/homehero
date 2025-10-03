@@ -247,7 +247,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                HomeHero
+                HomeHeroes
               </span>
               <p className="text-xs text-gray-500 mt-1">Service Provider</p>
             </div>

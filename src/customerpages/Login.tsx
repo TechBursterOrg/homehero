@@ -57,8 +57,7 @@ const LoginPage = () => {
 
   // Country codes and validation
   const countryData = {
-      NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{10}$/ }, // ✅ Both expect 10 digits
-
+    NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{10}$/ },
     UK: { code: "+44", length: 10, pattern: /^[0-9]{10}$/ },
     USA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
     CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
@@ -68,7 +67,6 @@ const LoginPage = () => {
     const { name, value } = e.target;
     
     if (name === "phoneNumber") {
-      // Remove any non-digit characters
       const cleanedValue = value.replace(/\D/g, "");
       setFormData({
         ...formData,
@@ -138,12 +136,14 @@ const LoginPage = () => {
                             `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
+
+      
       
       return result;
     } catch (error: any) {
       console.error('🔴 API Call Error:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running.`);
+        throw new Error(`Network error: Unable to reach the server. Please check your internet connection or try again later.`);
       }
       throw error;
     }
@@ -170,7 +170,6 @@ const LoginPage = () => {
         });
         setCurrentStep("verify");
         
-        // In development, show the token for testing
         if (result.data?.debugToken) {
           console.log('🔑 Debug Token:', result.data.debugToken);
           setSuccessMessage(`Verification token sent! Code: ${result.data.debugToken}`);
@@ -201,7 +200,6 @@ const LoginPage = () => {
         setSuccessMessage("Phone number verified successfully!");
         setCurrentStep("complete");
         
-        // Complete the signup process
         await completeSignup();
       }
     } catch (error: any) {
@@ -213,52 +211,53 @@ const LoginPage = () => {
   };
 
   const completeSignup = async () => {
-  try {
-    setIsLoading(true);
-    setError("");
-    
-    // Final signup with verified phone number
-    const signupData = {
-      name: formData.name.trim(),
-      email: formData.email.toLowerCase().trim(),
-      password: formData.password,
-      confirmPassword: formData.confirmPassword, // ADD THIS LINE
-      userType: formData.userType || 'customer',
-      country: formData.country || 'NIGERIA',
-      phoneNumber: verificationData.phoneNumber
-    };
-
-    console.log('📝 Completing signup:', signupData);
-
-    const result = await makeApiCall('signup', signupData);
-
-    if (result.success) {
-      setSuccessMessage("Account created successfully! Redirecting...");
+    try {
+      setIsLoading(true);
+      setError("");
       
-      // Store user data
-      if (result.data.token) {
-        localStorage.setItem('authToken', result.data.token);
-        console.log('🔐 Token stored');
+      const signupData = {
+        name: formData.name.trim(),
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        userType: formData.userType || 'customer',
+        country: formData.country || 'NIGERIA',
+        phoneNumber: verificationData.phoneNumber
+      };
+
+      console.log('📝 Completing signup:', signupData);
+
+      const result = await makeApiCall('signup', signupData);
+
+      if (result.success) {
+        setSuccessMessage("Account created successfully! Please check your email to verify your account before logging in.");
+        
+        // Don't store token or user data until email is verified
+        // Don't navigate to dashboard yet
+        setCurrentStep("complete");
+        
+        // Reset form for new signup
+        setTimeout(() => {
+          setIsLogin(true);
+          setCurrentStep("signup");
+          setFormData({
+            name: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            userType: "customer",
+            country: "NIGERIA",
+            phoneNumber: "",
+          });
+        }, 5000);
       }
-      
-      localStorage.setItem('userData', JSON.stringify(result.data.user));
-      
-      // Navigate based on userType
-      setTimeout(() => {
-        if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
-          navigate('/provider/dashboard');
-        } else {
-          navigate('/customer');
-        }
-      }, 2000);
+    } catch (error: any) {
+      console.error('❌ Complete signup error:', error);
+      setError(error.message || "Failed to complete signup. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error: any) {
-    console.error('❌ Complete signup error:', error);
-    setError(error.message || "Failed to complete signup. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -266,7 +265,6 @@ const LoginPage = () => {
     setSuccessMessage("");
 
     if (currentStep === "signup") {
-      // Validate form data
       if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
         setError("Please fill in all required fields.");
         return;
@@ -288,17 +286,14 @@ const LoginPage = () => {
         return;
       }
 
-      // Validate phone number
       const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
       if (phoneError) {
         setError(phoneError);
         return;
       }
 
-      // Send verification token
       await sendVerificationToken(formData.phoneNumber, formData.country);
     } else if (currentStep === "verify") {
-      // Verify token
       if (!verificationData.token.trim()) {
         setError("Please enter the verification token.");
         return;
@@ -354,7 +349,14 @@ const LoginPage = () => {
       }
     } catch (error: any) {
       console.error('❌ Login error:', error);
-      setError(error.message || 'Something went wrong. Please try again.');
+      
+      // Handle email verification required error
+      if (error.message.includes('verify your email') || error.message.includes('email verification')) {
+        setError(error.message);
+        // Optionally show resend verification option
+      } else {
+        setError(error.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -364,38 +366,27 @@ const LoginPage = () => {
     await sendVerificationToken(verificationData.phoneNumber, verificationData.country);
   };
 
-  const testConnection = async () => {
+  const resendEmailVerification = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/health`);
-      const result = await response.json();
-      console.log('Backend connection test:', result);
-      setSuccessMessage(`Backend connected! ${result.message}`);
-    } catch (error) {
-      console.error('Backend connection failed:', error);
-      setError(`Cannot connect to backend at ${API_BASE_URL}. Please ensure the backend is running.`);
+      setIsLoading(true);
+      setError("");
+      
+      const result = await makeApiCall('resend-verification', {
+        email: formData.email
+      });
+
+      if (result.success) {
+        setSuccessMessage("Verification email sent successfully! Please check your inbox.");
+      }
+    } catch (error: any) {
+      setError(error.message || "Failed to resend verification email.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const getCurrentCountryCode = () => {
     return countryData[formData.country as keyof typeof countryData]?.code || "+234";
-  };
-
-  // Quick test function for the verification endpoint
-  const testVerificationEndpoint = async () => {
-    try {
-      const testData = {
-        phoneNumber: "1234567890",
-        country: "NIGERIA"
-      };
-      
-      console.log('🧪 Testing verification endpoint with:', testData);
-      const result = await makeApiCall('send-verification', testData);
-      console.log('✅ Verification test result:', result);
-      setSuccessMessage(`Verification test successful: ${result.message}`);
-    } catch (error: any) {
-      console.error('❌ Verification test failed:', error);
-      setError(`Verification test failed: ${error.message}`);
-    }
   };
 
   return (
@@ -448,21 +439,6 @@ const LoginPage = () => {
               </div>
             </div>
           </div>
-
-          <div className="flex space-x-2">
-            {/* <button
-              onClick={testConnection}
-              className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Test Backend Connection
-            </button>
-            <button
-              onClick={testVerificationEndpoint}
-              className="bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-            >
-              Test Verification
-            </button> */}
-          </div>
         </div>
 
         {/* Right Side - Login/Verification Form */}
@@ -477,11 +453,6 @@ const LoginPage = () => {
                 HomeHero
               </span>
             </div>
-
-            {/* API URL Display */}
-            {/* <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600 font-mono">
-              API: {API_BASE_URL}
-            </div> */}
 
             {/* Step Indicator */}
             {!isLogin && (
@@ -648,7 +619,6 @@ const LoginPage = () => {
                       Phone Number
                     </label>
                     <div className="relative">
-                      
                       <div className="flex">
                         <div className="flex items-center px-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50">
                           <span className="text-gray-600 text-sm">{getCurrentCountryCode()}</span>
@@ -736,8 +706,31 @@ const LoginPage = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Complete!</h3>
-                  <p className="text-gray-600">Your account has been created successfully.</p>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Account Created Successfully!</h3>
+                  <p className="text-gray-600 mb-4">
+                    Please check your email to verify your account before logging in.
+                  </p>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={resendEmailVerification}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      disabled={isLoading}
+                    >
+                      Didn't receive the email? Resend verification
+                    </button>
+                    <br />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLogin(true);
+                        setCurrentStep("signup");
+                      }}
+                      className="text-green-600 hover:text-green-700 text-sm font-medium"
+                    >
+                      Proceed to Login
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -802,7 +795,6 @@ const LoginPage = () => {
                     >
                       <option value="customer">Customer</option>
                       <option value="provider">Service Provider</option>
-                      
                     </select>
                   </div>
 

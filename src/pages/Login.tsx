@@ -1,4 +1,3 @@
-// LoginPage.tsx - WITH COUNTRY FIELD
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,8 +9,9 @@ import {
   EyeOff,
   Shield,
   Star,
-  MessageSquare,
   Globe,
+  Phone,
+  MessageSquare,
 } from "lucide-react";
 
 interface FormData {
@@ -21,18 +21,13 @@ interface FormData {
   confirmPassword: string;
   userType: string;
   country: string;
+  phoneNumber: string;
 }
 
 interface VerificationData {
   token: string;
-  email: string;
-}
-
-interface ApiResponse {
-  success: boolean;
-  message?: string;
-  data?: any;
-  errors?: any[];
+  phoneNumber: string;
+  country: string;
 }
 
 const LoginPage = () => {
@@ -48,28 +43,41 @@ const LoginPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    userType: "provider",
-    country: "Nigeria", // Default country
+    userType: "customer",
+    country: "NIGERIA",
+    phoneNumber: "",
   });
   const [verificationData, setVerificationData] = useState<VerificationData>({
     token: "",
-    email: "",
+    phoneNumber: "",
+    country: "",
   });
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://backendhomeheroes.onrender.com";
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
-  // List of countries for dropdown
-  const countries = [
-    "Nigeria", "United States", "United Kingdom", "Canada", "Ghana",
-    "South Africa", "Kenya", "India", "Australia", "Germany", "France"
-  ];
+  // Country codes and validation
+  const countryData = {
+    NIGERIA: { code: "+234", length: 10, pattern: /^[0-9]{10}$/ },
+    UK: { code: "+44", length: 10, pattern: /^[0-9]{10}$/ },
+    USA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
+    CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    
+    if (name === "phoneNumber") {
+      const cleanedValue = value.replace(/\D/g, "");
+      setFormData({
+        ...formData,
+        [name]: cleanedValue,
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value,
+      });
+    }
     
     if (error) setError("");
     if (successMessage) setSuccessMessage("");
@@ -83,9 +91,23 @@ const LoginPage = () => {
     });
   };
 
-  const makeApiCall = async (endpoint: string, data: any): Promise<ApiResponse> => {
+  const validatePhoneNumber = (phone: string, country: string): string | null => {
+    const countryInfo = countryData[country as keyof typeof countryData];
+    if (!countryInfo) return "Invalid country selected";
+
+    if (phone.length !== countryInfo.length) {
+      return `Phone number must be ${countryInfo.length} digits for ${country}`;
+    }
+
+    if (!countryInfo.pattern.test(phone)) {
+      return `Invalid phone number format for ${country}`;
+    }
+
+    return null;
+  };
+
+  const makeApiCall = async (endpoint: string, data: any) => {
     console.log(`🌐 Making API call to: ${API_BASE_URL}/api/auth/${endpoint}`);
-    console.log(`📤 Sending data:`, JSON.stringify(data, null, 2));
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/${endpoint}`, {
@@ -96,10 +118,7 @@ const LoginPage = () => {
         body: JSON.stringify(data),
       });
 
-      console.log(`📥 Response status: ${response.status} ${response.statusText}`);
-      
-      const result: ApiResponse = await response.json();
-      console.log(`📥 Response data:`, JSON.stringify(result, null, 2));
+      const result = await response.json();
       
       if (!response.ok) {
         console.error(`🔴 API Error Response:`, result);
@@ -112,7 +131,9 @@ const LoginPage = () => {
           throw new Error(`Validation failed: ${errorDetails}`);
         }
         
-        const errorMessage = result.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorMessage = result.message || 
+                            result.error ||
+                            `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
       
@@ -126,136 +147,63 @@ const LoginPage = () => {
     }
   };
 
-  const completeSignupDirectly = async () => {
+  const sendEmailVerification = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
+
+      console.log('📧 Sending email verification:', formData.email);
+
+      const result = await makeApiCall('send-verification', {
+        email: formData.email
+      });
+
+      if (result.success) {
+        setSuccessMessage(`Verification email sent to ${formData.email}! Please check your inbox and click the verification link.`);
+        
+        // In development, show the link for testing
+        if (result.data?.debugLink) {
+          console.log('🔗 Debug Link:', result.data.debugLink);
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ Send verification error:', error);
+      setError(error.message || "Failed to send verification email. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeSignup = async () => {
     try {
       setIsLoading(true);
       setError("");
       
-      // Include country in signup data
+      // Final signup with verified email
       const signupData = {
         name: formData.name.trim(),
         email: formData.email.toLowerCase().trim(),
         password: formData.password,
         confirmPassword: formData.confirmPassword,
         userType: formData.userType || 'customer',
-        country: formData.country || 'Nigeria', // Ensure country is included
+        country: formData.country || 'NIGERIA',
+        phoneNumber: formData.phoneNumber
       };
 
-      console.log('📝 Completing signup with country:', signupData);
+      console.log('📝 Completing signup:', signupData);
 
       const result = await makeApiCall('signup', signupData);
 
       if (result.success) {
-        setSuccessMessage("Account created successfully! Redirecting...");
-        
-        // Store user data
-        if (result.data.token) {
-          localStorage.setItem('authToken', result.data.token);
-          console.log('🔐 Token stored');
-        }
-        
-        localStorage.setItem('userData', JSON.stringify(result.data.user));
-        
-        // Navigate based on userType
-        setTimeout(() => {
-          if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
-            navigate('/provider/dashboard');
-          } else {
-            navigate('/customer');
-          }
-        }, 2000);
-      }
-    } catch (error: any) {
-      console.error('❌ Direct signup error:', error);
-      setError(error.message || "Failed to create account. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const sendVerificationToken = async (email: string) => {
-    try {
-      setIsLoading(true);
-      setError("");
-
-      console.log('📧 Sending verification token to email:', email);
-
-      // Make sure verificationData has the email
-      setVerificationData(prev => ({
-        ...prev,
-        email: email.trim().toLowerCase()
-      }));
-
-      const result = await makeApiCall('send-verification', {
-        email: email.trim().toLowerCase()
-      });
-
-      if (result.success) {
-        const debugToken = result.data?.debugToken;
-        if (debugToken) {
-          console.log('🔑 Debug Token received:', debugToken);
-          
-          setVerificationData({
-            token: debugToken.toString(),
-            email: email.trim().toLowerCase()
-          });
-          setCurrentStep("verify");
-        } else {
-          console.log('⚠️ No debug token received, attempting direct signup');
-          await completeSignupDirectly();
-        }
-      }
-    } catch (error: any) {
-      console.error('❌ Send verification error:', error);
-      // If verification fails, try direct signup as fallback
-      console.log('⚠️ Verification failed, attempting direct signup');
-      await completeSignupDirectly();
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const verifyEmail = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-
-      const emailToVerify = verificationData.email || formData.email;
-      const tokenToVerify = verificationData.token;
-      
-      if (!emailToVerify || !tokenToVerify) {
-        setError("Email and verification token are required. Please try again.");
-        return;
-      }
-
-      console.log('✅ Verifying email:', { 
-        email: emailToVerify, 
-        token: tokenToVerify
-      });
-
-      const verificationPayload = {
-        email: emailToVerify.trim().toLowerCase(),
-        token: tokenToVerify.trim()
-      };
-
-      const result = await makeApiCall('verify-email', verificationPayload);
-
-      if (result.success) {
-        setSuccessMessage("Email verified successfully!");
+        setSuccessMessage("Account created successfully! Please check your email to verify your account.");
         setCurrentStep("complete");
-        await completeSignupDirectly();
+        
+        // Send verification email
+        await sendEmailVerification();
       }
     } catch (error: any) {
-      console.error('❌ Verify email error:', error);
-      
-      // WORKAROUND: If verification fails, try direct signup
-      if (error.message.includes('Invalid or expired verification token')) {
-        console.log('⚠️ Verification failed, attempting direct signup');
-        setError("Verification failed. Attempting to create account without verification...");
-        await completeSignupDirectly();
-      } else {
-        setError(error.message || "Failed to verify email. Please try again.");
-      }
+      console.error('❌ Complete signup error:', error);
+      setError(error.message || "Failed to complete signup. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -268,13 +216,8 @@ const LoginPage = () => {
 
     if (currentStep === "signup") {
       // Validate form data
-      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
         setError("Please fill in all required fields.");
-        return;
-      }
-
-      if (!formData.country.trim()) {
-        setError("Please select a country.");
         return;
       }
 
@@ -294,29 +237,15 @@ const LoginPage = () => {
         return;
       }
 
-      await sendVerificationToken(formData.email.trim().toLowerCase());
-    } else if (currentStep === "verify") {
-      if (!verificationData.token.trim()) {
-        setError("Please enter the verification code.");
+      // Validate phone number
+      const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
+      if (phoneError) {
+        setError(phoneError);
         return;
       }
-      
-      if (verificationData.token.length !== 6) {
-        setError("Verification code must be 6 digits.");
-        return;
-      }
-      
-      if (!verificationData.email) {
-        setVerificationData(prev => ({
-          ...prev,
-          email: formData.email.trim().toLowerCase()
-        }));
-        setTimeout(() => {
-          verifyEmail();
-        }, 100);
-      } else {
-        await verifyEmail();
-      }
+
+      // Complete signup and send verification email
+      await completeSignup();
     }
   };
 
@@ -367,17 +296,12 @@ const LoginPage = () => {
     }
   };
 
-  const resendVerificationToken = async () => {
-    const emailToUse = verificationData.email || formData.email;
-    if (emailToUse) {
-      await sendVerificationToken(emailToUse);
-    }
+  const resendVerificationEmail = async () => {
+    await sendEmailVerification();
   };
 
-  // WORKAROUND: Skip verification entirely
-  const skipVerification = async () => {
-    setError("Skipping verification and creating account directly...");
-    await completeSignupDirectly();
+  const getCurrentCountryCode = () => {
+    return countryData[formData.country as keyof typeof countryData]?.code || "+234";
   };
 
   return (
@@ -404,8 +328,7 @@ const LoginPage = () => {
               </span>
             </h1>
             <p className="text-xl text-gray-600 leading-relaxed">
-              Start your journey as a
-              professional provider today.
+              Connect with trusted service providers today
             </p>
           </div>
 
@@ -464,7 +387,6 @@ const LoginPage = () => {
             {/* Toggle Buttons */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
               <button
-                type="button"
                 onClick={() => {
                   setIsLogin(true);
                   setCurrentStep("signup");
@@ -480,7 +402,6 @@ const LoginPage = () => {
                 Sign In
               </button>
               <button
-                type="button"
                 onClick={() => {
                   setIsLogin(false);
                   setCurrentStep("signup");
@@ -540,29 +461,6 @@ const LoginPage = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Country
-                    </label>
-                    <div className="relative">
-                      <Globe className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <select
-                        name="country"
-                        value={formData.country}
-                        onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
-                        required
-                      >
-                        <option value="">Select your country</option>
-                        {countries.map((country) => (
-                          <option key={country} value={country}>
-                            {country}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Password
                     </label>
                     <div className="relative">
@@ -612,6 +510,50 @@ const LoginPage = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Country
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                      <select
+                        name="country"
+                        value={formData.country}
+                        onChange={handleInputChange}
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
+                        required
+                      >
+                        <option value="NIGERIA">🇳🇬 Nigeria</option>
+                        <option value="UK">🇬🇧 United Kingdom</option>
+                        <option value="USA">🇺🇸 United States</option>
+                        <option value="CANADA">🇨🇦 Canada</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone Number
+                    </label>
+                    <div className="relative">
+                      <div className="flex">
+                        <div className="flex items-center px-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50">
+                          <span className="text-gray-600 text-sm">{getCurrentCountryCode()}</span>
+                        </div>
+                        <input
+                          type="tel"
+                          name="phoneNumber"
+                          value={formData.phoneNumber}
+                          onChange={handleInputChange}
+                          className="flex-1 pl-3 pr-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                          placeholder={`Enter your phone number (${countryData[formData.country as keyof typeof countryData]?.length || 10} digits)`}
+                          required
+                          maxLength={countryData[formData.country as keyof typeof countryData]?.length || 10}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       I want to...
                     </label>
                     <select
@@ -628,76 +570,43 @@ const LoginPage = () => {
                 </>
               )}
 
-              {!isLogin && currentStep === "verify" && (
-                <div className="animate-fade-in-up">
-                  <div className="text-center mb-6">
-                    <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900">Verify Your Email Address</h3>
-                    <p className="text-gray-600">
-                      We sent a verification code to {verificationData.email || formData.email}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Verification Code
-                    </label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        name="token"
-                        value={verificationData.token}
-                        onChange={handleVerificationInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
-                        placeholder="Enter 6-digit code"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center">
-                    <button
-                      type="button"
-                      onClick={resendVerificationToken}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      disabled={isLoading}
-                    >
-                      Didn't receive the code? Resend
-                    </button>
-                    <button
-                      type="button"
-                      onClick={skipVerification}
-                      className="text-red-600 hover:text-red-700 text-sm font-medium"
-                      disabled={isLoading}
-                    >
-                      Skip Verification
-                    </button>
-                  </div>
-
-                  {/* Debug Info */}
-                  <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-xl text-sm mt-4">
-                    <h4 className="font-semibold mb-2">Debug Information:</h4>
-                    <div className="space-y-1">
-                      <p><strong>Email:</strong> {verificationData.email || formData.email}</p>
-                      <p><strong>Token:</strong> {verificationData.token || 'Not set'}</p>
-                      <p><strong>Country:</strong> {formData.country}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {!isLogin && currentStep === "complete" && (
                 <div className="text-center py-8">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
+                    <Mail className="w-8 h-8 text-green-500" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Complete!</h3>
-                  <p className="text-gray-600">Your account has been created successfully.</p>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Check Your Email!</h3>
+                  <p className="text-gray-600 mb-4">
+                    We've sent a verification link to <strong>{formData.email}</strong>
+                  </p>
+                  <p className="text-sm text-gray-500 mb-6">
+                    Click the link in the email to verify your account and complete your registration.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <button
+                      type="button"
+                      onClick={resendVerificationEmail}
+                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      disabled={isLoading}
+                    >
+                      Didn't receive the email? Resend
+                    </button>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLogin(true);
+                          setCurrentStep("signup");
+                          setError("");
+                          setSuccessMessage("");
+                        }}
+                        className="text-green-600 hover:text-green-700 text-sm font-medium"
+                      >
+                        Ready to login? Click here
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -760,8 +669,8 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      <option value="provider">Service Provider</option>
                       <option value="customer">Customer</option>
+                      <option value="provider">Service Provider</option>
                     </select>
                   </div>
 
@@ -798,7 +707,7 @@ const LoginPage = () => {
               )}
 
               {/* Submit Button */}
-              {!isLogin && currentStep !== "complete" && (
+              {!isLogin && currentStep === "signup" && (
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -810,10 +719,10 @@ const LoginPage = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      {currentStep === "signup" ? 'Sending Code...' : 'Verifying...'}
+                      Creating Account...
                     </>
                   ) : (
-                    currentStep === "signup" ? 'Send Verification Code' : 'Verify Email'
+                    'Create Account'
                   )}
                 </button>
               )}

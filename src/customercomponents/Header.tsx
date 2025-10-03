@@ -175,7 +175,7 @@ const Header: React.FC<HeaderProps> = ({
                 <Home className="w-6 h-6 text-white" />
               </div>
               <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                HomeHero
+                HomeHeroes
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -200,7 +200,7 @@ const Header: React.FC<HeaderProps> = ({
               onClick={() => navigate('/customer')}
               className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity focus:outline-none"
             >
-              HomeHero
+              HomeHeroes
             </button>
           </div>
 
