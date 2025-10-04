@@ -19,10 +19,8 @@ import {
   AlertCircle,
   BookOpen,
   Eye,
-  MessageCircle,
   Mail,
-  Phone,
-  User
+  Phone
 } from 'lucide-react';
 
 interface BusinessHours {
@@ -33,15 +31,6 @@ interface BusinessHours {
   isAvailable: boolean;
   serviceTypes: string[];
   notes: string;
-}
-
-interface Notification {
-  _id: string;
-  title: string;
-  message: string;
-  type: string;
-  read: boolean;
-  createdAt: string;
 }
 
 interface Booking {
@@ -60,11 +49,16 @@ interface Booking {
   budget: string;
   specialRequests: string;
   bookingType: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled'; // FIXED: changed 'confirmed' to 'accepted'
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   requestedAt: string;
   acceptedAt?: string;
   completedAt?: string;
   updatedAt: string;
+  ratingStatus?: {
+    customerRated: boolean;
+    providerRated: boolean;
+  };
+  ratingPrompted?: boolean;
 }
 
 interface ScheduleEntry {
@@ -78,7 +72,7 @@ interface ScheduleEntry {
   endTime: string;
   duration: string;
   payment: string;
-  status: 'accepted' | 'pending' | 'cancelled'; // FIXED: changed 'confirmed' to 'accepted'
+  status: 'accepted' | 'pending' | 'cancelled';
   notes: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
@@ -90,6 +84,7 @@ interface DashboardData {
     email: string;
     id: string;
     country: string;
+    phoneNumber?: string;
   };
   businessHours: BusinessHours[];
   recentJobs: any[];
@@ -104,7 +99,160 @@ interface DashboardData {
   };
 }
 
+interface RatingModalProps {
+  isOpen: boolean;
+  booking: Booking;
+  onClose: () => void;
+  onSubmit: (rating: number, comment?: string) => void;
+  type: 'provider' | 'customer';
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+// Rating Modal Component
+const RatingModal: React.FC<RatingModalProps> = ({ isOpen, booking, onClose, onSubmit, type }) => {
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+  const [hoverRating, setHoverRating] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (rating === 0) {
+      alert('Please select a rating');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit(rating, comment);
+      onClose();
+      setRating(0);
+      setComment('');
+    } catch (error) {
+      console.error('Rating submission error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const isRatingCustomer = type === 'customer';
+  const ratedPersonName = isRatingCustomer ? booking.customerName : booking.providerName;
+  const modalTitle = isRatingCustomer ? 'Rate Customer' : 'Rate Your Experience';
+  const modalDescription = isRatingCustomer 
+    ? `How was your experience with ${booking.customerName}?`
+    : `How was your service with ${booking.providerName}?`;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full">
+        <div className="p-6 sm:p-8 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                <Star className="w-5 h-5 sm:w-6 sm:h-6 text-white fill-current" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900">{modalTitle}</h2>
+                <p className="text-gray-600 text-sm sm:text-base">{modalDescription}</p>
+              </div>
+            </div>
+            <button 
+              onClick={onClose}
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl sm:rounded-2xl flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-6 sm:p-8 space-y-6">
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-900 mb-4">
+              How would you rate {ratedPersonName}?
+            </p>
+            
+            {/* Star Rating */}
+            <div className="flex justify-center gap-2 mb-4">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoverRating(star)}
+                  onMouseLeave={() => setHoverRating(0)}
+                  className="text-4xl transition-transform hover:scale-110"
+                >
+                  <Star 
+                    className={`${
+                      star <= (hoverRating || rating)
+                        ? 'text-yellow-500 fill-current'
+                        : 'text-gray-300'
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            
+            <div className="text-sm text-gray-600 mb-2">
+              {rating === 0 ? 'Select a rating' :
+               rating === 1 ? 'Poor' :
+               rating === 2 ? 'Fair' :
+               rating === 3 ? 'Good' :
+               rating === 4 ? 'Very Good' : 'Excellent'}
+            </div>
+          </div>
+
+          {/* Comment Section - Only show for customer rating provider */}
+          {!isRatingCustomer && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Additional Comments (Optional)
+              </label>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share your experience... What did you like? Any suggestions for improvement?"
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+              />
+            </div>
+          )}
+
+          {/* Service Details */}
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-semibold text-gray-900 mb-2">Service Details</h4>
+            <p className="text-sm text-gray-700"><strong>Service:</strong> {booking.serviceType}</p>
+            <p className="text-sm text-gray-700"><strong>Date:</strong> {new Date(booking.requestedAt).toLocaleDateString()}</p>
+            <p className="text-sm text-gray-700"><strong>Location:</strong> {booking.location}</p>
+          </div>
+        </div>
+
+        <div className="p-6 sm:p-8 border-t border-gray-100 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-xl sm:rounded-2xl hover:bg-gray-50 transition-all duration-200 font-semibold"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={rating === 0 || isSubmitting}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-600 text-white rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 font-semibold"
+          >
+            {isSubmitting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Star className="w-5 h-5" />
+            )}
+            <span>{isSubmitting ? 'Submitting...' : 'Submit Rating'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const Dashboard: React.FC = () => {
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
@@ -115,54 +263,10 @@ const Dashboard: React.FC = () => {
   const [selectedDay, setSelectedDay] = useState<string>('Monday');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifications, setShowNotifications] = useState(false);
-
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) return;
-
-      const response = await fetch(`${API_BASE_URL}/api/notifications`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.data.notifications || []);
-        setUnreadCount(data.data.unreadCount || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  const markAsRead = async (notificationId: string) => {
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      if (!token) return;
-
-      await fetch(`${API_BASE_URL}/api/notifications/${notificationId}/read`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      // Update local state
-      setNotifications(prev => prev.map(n => 
-        n._id === notificationId ? { ...n, read: true } : n
-      ));
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
+  const [ratingType, setRatingType] = useState<'provider' | 'customer'>('provider');
 
   // Days of the week
   const daysOfWeek = [
@@ -247,11 +351,8 @@ const Dashboard: React.FC = () => {
       setBusinessHours(data.businessHours || []);
       setSchedule(data.schedule || []);
       
-      if (data.bookings) {
-        console.log('Bookings received:', data.bookings.length);
-      } else {
-        console.log('No bookings in response');
-      }
+      // Check for rating prompts
+      checkForRatingPrompt(data.bookings || []);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -272,7 +373,21 @@ const Dashboard: React.FC = () => {
       }
     } finally {
       setLoading(false);
-      setRefreshing(false);
+    }
+  };
+
+  // Check for bookings that need rating
+  const checkForRatingPrompt = (bookings: Booking[]) => {
+    const needsRating = bookings.find(booking => 
+      booking.status === 'completed' && 
+      booking.ratingPrompted && 
+      !booking.ratingStatus?.customerRated
+    );
+    
+    if (needsRating) {
+      setRatingBooking(needsRating);
+      setRatingType('provider');
+      setShowRatingModal(true);
     }
   };
 
@@ -286,7 +401,8 @@ const Dashboard: React.FC = () => {
       name: 'John Doe',
       email: 'john@example.com',
       id: '1',
-      country: 'NIGERIA'
+      country: 'NIGERIA',
+      phoneNumber: '+2341234567890'
     },
     businessHours: [
       {
@@ -366,7 +482,12 @@ const Dashboard: React.FC = () => {
         budget: '₦15,000',
         specialRequests: 'Focus on kitchen and bathrooms',
         bookingType: 'immediate',
-        status: 'pending',
+        status: 'completed',
+        ratingStatus: {
+          customerRated: false,
+          providerRated: false
+        },
+        ratingPrompted: true,
         requestedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -386,7 +507,11 @@ const Dashboard: React.FC = () => {
         budget: '₦25,000',
         specialRequests: '',
         bookingType: 'long-term',
-        status: 'confirmed', // FIXED: changed from 'confirmed' to 'accepted'
+        status: 'confirmed',
+        ratingStatus: {
+          customerRated: false,
+          providerRated: false
+        },
         requestedAt: new Date().toISOString(),
         acceptedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -404,7 +529,7 @@ const Dashboard: React.FC = () => {
         endTime: '4:00 PM',
         duration: '2 hours',
         payment: '₦15,000',
-        status: 'accepted', // FIXED: changed from 'confirmed' to 'accepted'
+        status: 'accepted',
         notes: 'Focus on kitchen and bathrooms',
         category: 'cleaning',
         priority: 'medium'
@@ -488,13 +613,12 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  // FIXED: Updated status colors to match new status values
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
       case 'upcoming': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'in-progress': return 'bg-amber-100 text-amber-700 border-amber-200';
-      case 'accepted': return 'bg-blue-100 text-blue-700 border-blue-200'; // FIXED: changed from 'confirmed'
+      case 'confirmed': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
       case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -586,7 +710,7 @@ const Dashboard: React.FC = () => {
         endTime: calculateEndTime('10:00 AM', booking.serviceType),
         duration: '2 hours',
         payment: booking.budget,
-        status: 'accepted' as const, // FIXED: changed from 'confirmed'
+        status: 'accepted' as const,
         notes: booking.specialRequests || booking.description,
         category: booking.serviceType.toLowerCase().includes('clean') ? 'cleaning' : 'handyman',
         priority: 'medium' as const
@@ -614,8 +738,85 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // FIXED: Updated function to handle booking status changes with correct status values
-  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'accepted' | 'completed' | 'cancelled') => {
+  // Handle customer rating submission
+  const handleCustomerRating = async (bookingId: string, rating: number, comment?: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/ratings/customer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId,
+          rating,
+          comment
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rating');
+      }
+
+      // Refresh dashboard data
+      await fetchDashboardData();
+      
+      alert('Thank you for your rating!');
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit rating';
+      setError(errorMessage);
+      console.error('Rating error:', err);
+      throw err;
+    }
+  };
+
+  // Handle provider rating of customer
+  const handleProviderRating = async (bookingId: string, rating: number) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/ratings/provider`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId,
+          rating
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rating');
+      }
+
+      // Refresh dashboard data
+      await fetchDashboardData();
+      
+      alert('Customer rated successfully!');
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to rate customer';
+      setError(errorMessage);
+      console.error('Provider rating error:', err);
+      throw err;
+    }
+  };
+
+  // Enhanced function to handle booking completion with rating prompts
+  const handleCompleteBooking = async (bookingId: string) => {
     try {
       setError(null);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -624,18 +825,15 @@ const Dashboard: React.FC = () => {
         throw new Error('Authentication token not found');
       }
 
-      console.log('Updating booking status:', { bookingId, status });
-
+      // First, update the booking status to completed
       const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: 'completed' }),
       });
-
-      console.log('Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -645,45 +843,190 @@ const Dashboard: React.FC = () => {
       const result = await response.json();
       
       if (result.success) {
-        // If status is accepted, add to schedule
-        if (status === 'accepted' && selectedBooking) {
-          await addBookingToSchedule(selectedBooking);
+        // Refresh dashboard data
+        await fetchDashboardData();
+        
+        // Find the completed booking
+        const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
+        if (completedBooking) {
+          // Show provider rating modal for customer
+          setRatingBooking(completedBooking);
+          setRatingType('customer');
+          setShowRatingModal(true);
         }
         
-        // Refresh all data
-        setRefreshing(true);
-        await Promise.all([
-          fetchDashboardData(),
-          fetchNotifications()
-        ]);
-        
-        // Show success message
         setError(null);
-        
-        // Close modal
         setShowBookingModal(false);
         
-        // Show success feedback
-        alert(`Booking ${status} successfully! ${status === 'accepted' ? 'Added to schedule and customer has been notified.' : ''}`);
+        alert('Booking marked as completed! Please rate the customer.');
       } else {
         throw new Error(result.message || 'Failed to update booking status');
       }
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
       setError(errorMessage);
-      console.error('Booking status update error:', err);
-      
-      // Show detailed error in development
-      if (process.env.NODE_ENV === 'development') {
+      console.error('Complete booking error:', err);
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+  // Enhanced booking status update function
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    if (status === 'completed') {
+      await handleCompleteBooking(bookingId);
+    } else {
+      // Use the existing logic for other status updates
+      try {
+        setError(null);
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          if (status === 'confirmed' && selectedBooking) {
+            await addBookingToSchedule(selectedBooking);
+            
+            // Send email notification to customer
+            try {
+              const bookingData = {
+                customerName: selectedBooking.customerName,
+                serviceType: selectedBooking.serviceType,
+                location: selectedBooking.location,
+                timeframe: selectedBooking.timeframe,
+                budget: selectedBooking.budget,
+                description: selectedBooking.description,
+                specialRequests: selectedBooking.specialRequests
+              };
+
+              const providerInfo = {
+                name: dashboardData?.user.name || 'Service Provider',
+                phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
+                email: dashboardData?.user.email || ''
+              };
+
+              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-accepted`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  customerEmail: selectedBooking.customerEmail,
+                  bookingData,
+                  providerInfo
+                }),
+              });
+
+              if (emailResponse.ok) {
+                console.log('✅ Booking acceptance email sent to customer');
+              } else {
+                console.log('⚠️ Failed to send booking acceptance email, but booking was accepted');
+              }
+            } catch (emailError) {
+              console.error('⚠️ Email notification failed (non-critical):', emailError);
+            }
+          }
+          
+          await fetchDashboardData();
+          setError(null);
+          setShowBookingModal(false);
+          
+          let successMessage = `Booking ${status} successfully!`;
+          if (status === 'confirmed') {
+            successMessage += ' Added to schedule and customer has been notified.';
+          }
+          alert(successMessage);
+        } else {
+          throw new Error(result.message || 'Failed to update booking status');
+        }
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
+        setError(errorMessage);
+        console.error('Booking status update error:', err);
         alert(`Error: ${errorMessage}`);
       }
     }
   };
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
+  // Enhanced rating submission handler
+  const handleRatingSubmit = async (rating: number, comment?: string) => {
+    if (!ratingBooking) return;
+
+    try {
+      if (ratingType === 'customer') {
+        // Provider is rating the customer
+        await handleProviderRating(ratingBooking._id, rating);
+        
+        // After provider rates customer, trigger customer rating prompt via email
+        await triggerCustomerRatingPrompt(ratingBooking._id);
+        
+      } else {
+        // Customer is rating the provider
+        await handleCustomerRating(ratingBooking._id, rating, comment);
+      }
+      
+      // Refresh data to update rating status
+      await fetchDashboardData();
+      
+    } catch (error) {
+      console.error('Rating submission error:', error);
+      throw error;
+    }
+  };
+
+  // Function to trigger customer rating prompt (send email/notification)
+  const triggerCustomerRatingPrompt = async (bookingId: string) => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+
+      // Update booking to indicate customer should be prompted to rate
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/rating-prompt`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        console.log('✅ Customer rating prompt triggered');
+        
+        // In a real implementation, this would send an email/notification to the customer
+        // For now, we'll just log it
+        const booking = ratingBooking;
+        if (booking) {
+          console.log(`📧 Rating prompt should be sent to: ${booking.customerEmail}`);
+          console.log(`🔗 Customer should be directed to rate provider: ${booking.providerName}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to trigger customer rating prompt:', error);
+      // Don't throw error here as it's non-critical
+    }
   };
 
   const handleContactCustomer = (booking: Booking, method: 'email' | 'phone') => {
@@ -693,6 +1036,19 @@ const Dashboard: React.FC = () => {
       window.location.href = `tel:${booking.customerPhone}`;
     }
   };
+
+  // Check for completed bookings that need provider rating
+  useEffect(() => {
+    if (dashboardData?.bookings) {
+      const completedBookingsNeedingRating = dashboardData.bookings.filter(booking => 
+        booking.status === 'completed' && 
+        !booking.ratingStatus?.providerRated
+      );
+      
+      // You could automatically prompt for rating here if desired
+      // For now, we'll rely on the manual completion flow
+    }
+  }, [dashboardData]);
 
   if (loading) {
     return (
@@ -766,13 +1122,6 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex gap-3">
-              {/* <button 
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-3 bg-white/80 border border-gray-200 rounded-xl hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
-              >
-                <Loader2 className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              </button> */}
               <button 
                 onClick={handleAddAvailability}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 w-full sm:w-auto"
@@ -1445,9 +1794,8 @@ const Dashboard: React.FC = () => {
                     Update Status
                   </label>
                   <div className="flex gap-2 flex-wrap">
-                    {/* FIXED: Changed 'confirmed' to 'accepted' */}
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'accepted')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
                       className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
                       disabled={selectedBooking.status === 'confirmed'}
                     >
@@ -1458,7 +1806,7 @@ const Dashboard: React.FC = () => {
                       className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
                       disabled={selectedBooking.status === 'completed'}
                     >
-                      Complete
+                      Complete & Rate
                     </button>
                     <button 
                       onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
@@ -1468,6 +1816,28 @@ const Dashboard: React.FC = () => {
                       Cancel
                     </button>
                   </div>
+                  {selectedBooking.status === 'completed' && (
+                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Rating Status:</strong><br />
+                        Provider Rated: {selectedBooking.ratingStatus?.providerRated ? '✅' : '❌'}<br />
+                        Customer Rated: {selectedBooking.ratingStatus?.customerRated ? '✅' : '❌'}
+                      </p>
+                      {!selectedBooking.ratingStatus?.providerRated && (
+                        <button
+                          onClick={() => {
+                            setRatingBooking(selectedBooking);
+                            setRatingType('customer');
+                            setShowRatingModal(true);
+                            setShowBookingModal(false);
+                          }}
+                          className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                        >
+                          Rate Customer
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1504,6 +1874,18 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Rating Modal */}
+        <RatingModal
+          isOpen={showRatingModal}
+          booking={ratingBooking!}
+          onClose={() => {
+            setShowRatingModal(false);
+            setRatingBooking(null);
+          }}
+          onSubmit={handleRatingSubmit}
+          type={ratingType}
+        />
       </div>
     </div>
   );

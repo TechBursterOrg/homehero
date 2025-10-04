@@ -20,5 +20,9 @@ export interface Booking {
   acceptedAt?: string | Date;
   completedAt?: string | Date;
   updatedAt?: string | Date;
-  rating?: number;
+  rating?: number; // Add this
+  ratingStatus?: { // Add this
+    customerRated: boolean;
+    providerRated: boolean;
+  };
 }

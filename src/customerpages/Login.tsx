@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home,
   Mail,
@@ -12,6 +12,9 @@ import {
   Globe,
   Phone,
   MessageSquare,
+  CheckCircle,
+  XCircle,
+  X
 } from "lucide-react";
 
 interface FormData {
@@ -32,12 +35,15 @@ interface VerificationData {
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [currentStep, setCurrentStep] = useState<"signup" | "verify" | "complete">("signup");
+  const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
+  
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -47,6 +53,7 @@ const LoginPage = () => {
     country: "NIGERIA",
     phoneNumber: "",
   });
+  
   const [verificationData, setVerificationData] = useState<VerificationData>({
     token: "",
     phoneNumber: "",
@@ -54,6 +61,45 @@ const LoginPage = () => {
   });
 
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+
+  // Check for verification success and pre-populate form
+  useEffect(() => {
+    const verified = searchParams.get('verified');
+    const email = searchParams.get('email');
+    const message = searchParams.get('message');
+    const error = searchParams.get('error');
+    
+    if (verified === 'true' && email) {
+      // Show verification success popup
+      setShowVerificationSuccess(true);
+      
+      // Pre-populate the email in the form
+      setFormData(prev => ({
+        ...prev,
+        email: decodeURIComponent(email)
+      }));
+      
+      // Switch to login mode
+      setIsLogin(true);
+      
+      // Set success message
+      if (message) {
+        setSuccessMessage(decodeURIComponent(message));
+      }
+      
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+    
+    if (message && !verified) {
+      setSuccessMessage(decodeURIComponent(message));
+    }
+    
+    if (error) {
+      setError(decodeURIComponent(error));
+    }
+  }, [searchParams]);
 
   // Country codes and validation
   const countryData = {
@@ -136,85 +182,62 @@ const LoginPage = () => {
                             `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
-
-      
       
       return result;
     } catch (error: any) {
       console.error('🔴 API Call Error:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(`Network error: Unable to reach the server. Please check your internet connection or try again later.`);
+        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running.`);
       }
       throw error;
     }
   };
 
-  const sendVerificationToken = async (phoneNumber: string, country: string) => {
+  // UPDATED: Signup function for email verification link
+  const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setSuccessMessage("");
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      setError("");
-
-      console.log('📱 Sending verification token:', { phoneNumber, country });
-
-      const result = await makeApiCall('send-verification', {
-        phoneNumber,
-        country
-      });
-
-      if (result.success) {
-        setSuccessMessage(`Verification token sent to ${countryData[country as keyof typeof countryData].code}${phoneNumber}`);
-        setVerificationData({
-          token: "",
-          phoneNumber,
-          country
-        });
-        setCurrentStep("verify");
-        
-        if (result.data?.debugToken) {
-          console.log('🔑 Debug Token:', result.data.debugToken);
-          setSuccessMessage(`Verification token sent! Code: ${result.data.debugToken}`);
-        }
+      // Validate form data
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
+        setError("Please fill in all required fields.");
+        setIsLoading(false);
+        return;
       }
-    } catch (error: any) {
-      console.error('❌ Send verification error:', error);
-      setError(error.message || "Failed to send verification token. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const verifyPhoneNumber = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-
-      console.log('✅ Verifying phone number:', verificationData);
-
-      const result = await makeApiCall('verify-phone', {
-        phoneNumber: verificationData.phoneNumber,
-        country: verificationData.country,
-        token: verificationData.token
-      });
-
-      if (result.success) {
-        setSuccessMessage("Phone number verified successfully!");
-        setCurrentStep("complete");
-        
-        await completeSignup();
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match.");
+        setIsLoading(false);
+        return;
       }
-    } catch (error: any) {
-      console.error('❌ Verify phone error:', error);
-      setError(error.message || "Failed to verify phone number. Please check the code and try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const completeSignup = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      
+      if (formData.password.length < 6) {
+        setError("Password must be at least 6 characters long.");
+        setIsLoading(false);
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        setError("Please enter a valid email address.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate phone number
+      const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
+      if (phoneError) {
+        setError(phoneError);
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('📝 Starting signup process for:', formData.email);
+
+      // Complete signup with email verification
       const signupData = {
         name: formData.name.trim(),
         email: formData.email.toLowerCase().trim(),
@@ -222,92 +245,73 @@ const LoginPage = () => {
         confirmPassword: formData.confirmPassword,
         userType: formData.userType || 'customer',
         country: formData.country || 'NIGERIA',
-        phoneNumber: verificationData.phoneNumber
+        phoneNumber: formData.phoneNumber
       };
 
-      console.log('📝 Completing signup:', signupData);
+      console.log('📝 Sending signup data:', signupData);
 
       const result = await makeApiCall('signup', signupData);
 
       if (result.success) {
-        setSuccessMessage("Account created successfully! Please check your email to verify your account before logging in.");
-        
-        // Don't store token or user data until email is verified
-        // Don't navigate to dashboard yet
+        setSuccessMessage("Account created successfully! Please check your email for the verification link. You'll be redirected to login after verification.");
         setCurrentStep("complete");
         
-        // Reset form for new signup
-        setTimeout(() => {
-          setIsLogin(true);
-          setCurrentStep("signup");
-          setFormData({
-            name: "",
-            email: "",
-            password: "",
-            confirmPassword: "",
-            userType: "customer",
-            country: "NIGERIA",
-            phoneNumber: "",
-          });
-        }, 5000);
+        // Don't auto-login, wait for email verification
+        console.log('✅ Signup successful, waiting for email verification');
       }
     } catch (error: any) {
-      console.error('❌ Complete signup error:', error);
-      setError(error.message || "Failed to complete signup. Please try again.");
+      console.error('❌ Signup error:', error);
+      setError(error.message || "Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMessage("");
+  // Resend verification email
+  const resendVerificationEmail = async () => {
+    try {
+      setIsLoading(true);
+      setError("");
 
-    if (currentStep === "signup") {
-      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
-        setError("Please fill in all required fields.");
-        return;
-      }
-
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
+      if (!formData.email.trim()) {
+        setError("Email address is required");
+        setIsLoading(false);
         return;
       }
 
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters long.");
-        return;
-      }
+      const result = await makeApiCall('resend-verification', {
+        email: formData.email.toLowerCase().trim()
+      });
 
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        setError("Please enter a valid email address.");
-        return;
+      if (result.success) {
+        setSuccessMessage("Verification email sent successfully! Please check your email.");
       }
-
-      const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
-      if (phoneError) {
-        setError(phoneError);
-        return;
-      }
-
-      await sendVerificationToken(formData.phoneNumber, formData.country);
-    } else if (currentStep === "verify") {
-      if (!verificationData.token.trim()) {
-        setError("Please enter the verification token.");
-        return;
-      }
-      
-      if (verificationData.token.length !== 6) {
-        setError("Verification token must be 6 digits.");
-        return;
-      }
-      
-      await verifyPhoneNumber();
+    } catch (error: any) {
+      console.error('❌ Resend verification error:', error);
+      setError(error.message || "Failed to resend verification email. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Check verification status
+  const checkVerificationStatus = async () => {
+    try {
+      if (!formData.email.trim()) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/verification-status/${formData.email.toLowerCase()}`);
+      const result = await response.json();
+
+      if (result.success && result.data.isEmailVerified) {
+        setSuccessMessage("Email verified successfully! You can now login.");
+        setCurrentStep("complete");
+      }
+    } catch (error) {
+      console.error('Error checking verification status:', error);
+    }
+  };
+
+  // Handle login
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -349,37 +353,7 @@ const LoginPage = () => {
       }
     } catch (error: any) {
       console.error('❌ Login error:', error);
-      
-      // Handle email verification required error
-      if (error.message.includes('verify your email') || error.message.includes('email verification')) {
-        setError(error.message);
-        // Optionally show resend verification option
-      } else {
-        setError(error.message || 'Something went wrong. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resendVerificationToken = async () => {
-    await sendVerificationToken(verificationData.phoneNumber, verificationData.country);
-  };
-
-  const resendEmailVerification = async () => {
-    try {
-      setIsLoading(true);
-      setError("");
-      
-      const result = await makeApiCall('resend-verification', {
-        email: formData.email
-      });
-
-      if (result.success) {
-        setSuccessMessage("Verification email sent successfully! Please check your inbox.");
-      }
-    } catch (error: any) {
-      setError(error.message || "Failed to resend verification email.");
+      setError(error.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -389,8 +363,36 @@ const LoginPage = () => {
     return countryData[formData.country as keyof typeof countryData]?.code || "+234";
   };
 
+  // Close verification success popup
+  const closeVerificationSuccess = () => {
+    setShowVerificationSuccess(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+      {/* Verification Success Popup */}
+      {showVerificationSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-500" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Email Verified Successfully!</h3>
+              <p className="text-gray-600 mb-6">
+                Your email has been verified. You can now login to your account.
+              </p>
+              <button
+                onClick={closeVerificationSuccess}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Continue to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width=%2220%22%20height=%2220%22%20xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cdefs%3E%3Cpattern%20id=%22grid%22%20width=%2220%22%20height=%2220%22%20patternUnits=%22userSpaceOnUse%22%3E%3Cpath%20d=%22M%2020%200%20L%200%200%200%2020%22%20fill=%22none%22%20stroke=%22%23e5e7eb%22%20stroke-width=%221%22/%3E%3C/pattern%3E%3C/defs%3E%3Crect%20width=%22100%25%22%20height=%22100%25%22%20fill=%22url(%23grid)%22/%3E%3C/svg%3E')] opacity-30"></div>
 
       <div className="relative w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
@@ -504,7 +506,7 @@ const LoginPage = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={isLogin ? handleLogin : handleSubmit} className="space-y-6">
+            <form onSubmit={isLogin ? handleLogin : (currentStep === "signup" ? handleSignup : (e) => e.preventDefault())} className="space-y-6">
               {!isLogin && currentStep === "signup" && (
                 <>
                   <div className="animate-fade-in-up">
@@ -635,9 +637,6 @@ const LoginPage = () => {
                         />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      We'll send a verification code to this number
-                    </p>
                   </div>
 
                   <div>
@@ -658,77 +657,42 @@ const LoginPage = () => {
                 </>
               )}
 
-              {!isLogin && currentStep === "verify" && (
-                <div className="animate-fade-in-up">
-                  <div className="text-center mb-6">
-                    <MessageSquare className="w-12 h-12 text-blue-500 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-gray-900">Verify Your Phone Number</h3>
-                    <p className="text-gray-600">
-                      We sent a verification code to {getCurrentCountryCode()}{verificationData.phoneNumber}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Verification Code
-                    </label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        name="token"
-                        value={verificationData.token}
-                        onChange={handleVerificationInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
-                        placeholder="Enter 6-digit code"
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={resendVerificationToken}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    disabled={isLoading}
-                  >
-                    Didn't receive the code? Resend
-                  </button>
-                </div>
-              )}
-
               {!isLogin && currentStep === "complete" && (
-                <div className="text-center py-8">
+                <div className="text-center py-6">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
+                    <CheckCircle className="w-8 h-8 text-green-500" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Account Created Successfully!</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Check Your Email!</h3>
                   <p className="text-gray-600 mb-4">
-                    Please check your email to verify your account before logging in.
+                    We've sent a verification link to <strong>{formData.email}</strong>. 
+                    Click the link in the email to verify your account.
                   </p>
                   <div className="space-y-3">
                     <button
                       type="button"
-                      onClick={resendEmailVerification}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      onClick={resendVerificationEmail}
                       disabled={isLoading}
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
-                      Didn't receive the email? Resend verification
+                      {isLoading ? "Sending..." : "Resend Verification Email"}
                     </button>
-                    <br />
+                    <button
+                      type="button"
+                      onClick={checkVerificationStatus}
+                      className="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+                    >
+                      I've Verified My Email
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
                         setIsLogin(true);
                         setCurrentStep("signup");
+                        setSuccessMessage("");
                       }}
-                      className="text-green-600 hover:text-green-700 text-sm font-medium"
+                      className="w-full text-blue-600 hover:text-blue-700 font-medium"
                     >
-                      Proceed to Login
+                      Back to Login
                     </button>
                   </div>
                 </div>
@@ -831,7 +795,7 @@ const LoginPage = () => {
               )}
 
               {/* Submit Button */}
-              {!isLogin && currentStep !== "complete" && (
+              {!isLogin && currentStep === "signup" && (
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -843,10 +807,10 @@ const LoginPage = () => {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      {currentStep === "signup" ? 'Sending Code...' : 'Verifying...'}
+                      Creating Account...
                     </>
                   ) : (
-                    currentStep === "signup" ? 'Send Verification Code' : 'Verify Phone Number'
+                    'Create Account'
                   )}
                 </button>
               )}
@@ -909,8 +873,23 @@ const LoginPage = () => {
             }
           }
           
+          @keyframes scale-in {
+            from {
+              opacity: 0;
+              transform: scale(0.9);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
+          }
+          
           .animate-fade-in-up {
             animation: fade-in-up 0.6s ease-out forwards;
+          }
+          
+          .animate-scale-in {
+            animation: scale-in 0.3s ease-out forwards;
           }
         `}
       </style>

@@ -609,9 +609,9 @@ const LoginPage = () => {
                         required
                       >
                         <option value="NIGERIA">🇳🇬 Nigeria</option>
-                        <option value="UK">🇬🇧 United Kingdom</option>
+                        {/* <option value="UK">🇬🇧 United Kingdom</option>
                         <option value="USA">🇺🇸 United States</option>
-                        <option value="CANADA">🇨🇦 Canada</option>
+                        <option value="CANADA">🇨🇦 Canada</option> */}
                       </select>
                     </div>
                   </div>
@@ -649,8 +649,9 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      <option value="customer">Find Services (Customer)</option>
+                      
                       <option value="provider">Provide Services (Provider)</option>
+                      <option value="customer">Find Services (Customer)</option>
                       <option value="both">Both (Customer & Provider)</option>
                     </select>
                   </div>
@@ -757,8 +758,9 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      <option value="customer">Customer</option>
+                     
                       <option value="provider">Service Provider</option>
+                       <option value="customer">Customer</option>
                     </select>
                   </div>
 

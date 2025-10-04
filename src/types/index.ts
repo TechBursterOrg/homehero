@@ -39,13 +39,24 @@ export interface Provider {
 }
 export interface Booking {
   id: string;
-  provider: string;
   service: string;
+  description: string;
   date: string;
   time: string;
-  status: 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
+  location: string;
   price: string;
+  status: 'completed' | 'cancelled' | 'upcoming' | 'in-progress';
+  provider: string;
+  customer: string;
+  specialRequests: string;
+  timeframe: string;
+  rating?: number; // Add this
+  ratingStatus?: { // Add this
+    customerRated: boolean;
+    providerRated: boolean;
+  };
 }
+
 export interface IdentityVerification {
   nin: string;
   nepaBillUrl?: string;

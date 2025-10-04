@@ -338,24 +338,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Quick Stats & Logout Section */}
         <div className="p-4 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50">
           {/* Quick Stats */}
-          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
-            <div className="flex items-center justify-between text-xs">
-              <div className="text-center">
-                <div className="font-bold text-gray-900">{notificationCount.messages}</div>
-                <div className="text-gray-600">Messages</div>
-              </div>
-              <div className="w-px h-6 bg-blue-200"></div>
-              <div className="text-center">
-                <div className="font-bold text-gray-900">{notificationCount.total}</div>
-                <div className="text-gray-600">Alerts</div>
-              </div>
-              <div className="w-px h-6 bg-blue-200"></div>
-              <div className="text-center">
-                <div className="font-bold text-gray-900">Online</div>
-                <div className="text-green-600">●</div>
-              </div>
-            </div>
-          </div>
+          
           
           {/* Logout Button */}
           <button 
@@ -369,11 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
           
           {/* Version Info */}
-          <div className="mt-3 pt-3 border-t border-gray-200">
-            <div className="text-xs text-gray-500 text-center">
-              HomeHero v2.0.0
-            </div>
-          </div>
+         
         </div>
       </div>
     </>

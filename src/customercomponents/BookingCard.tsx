@@ -7,7 +7,6 @@ import {
   Phone,
   CheckCircle,
   XCircle,
-  MapPin,
   DollarSign,
   User,
   Briefcase,
@@ -23,7 +22,6 @@ import {
   Star
 } from 'lucide-react';
 import { Booking } from '../types';
-import { getStatusColor } from '../utils/helpers';
 
 interface BookingCardProps {
   booking: Booking;
@@ -31,6 +29,7 @@ interface BookingCardProps {
   onCancel: (bookingId: string) => void;
   onContact: (bookingId: string, method: 'message' | 'phone' | 'email') => void;
   onViewDetails: (bookingId: string) => void;
+  onRateProvider: (bookingId: string, rating: number, comment?: string) => void;
   onToggleFavorite?: (bookingId: string) => void;
   isFavorite?: boolean;
 }
@@ -41,11 +40,18 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onCancel,
   onContact,
   onViewDetails,
+  onRateProvider,
   onToggleFavorite,
   isFavorite = false
 }) => {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [showCallOptions, setShowCallOptions] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState('');
+
+  // Type guard to check if booking has rating property
+  const bookingRating = (booking as any).rating as number | undefined;
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -109,7 +115,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
   };
 
   const handleWebCall = (type: 'audio' | 'video') => {
-    // Implement web call functionality
     console.log(`Starting ${type} call for booking:`, booking.id);
     setShowCallOptions(false);
   };
@@ -157,6 +162,29 @@ const BookingCard: React.FC<BookingCardProps> = ({
       onCancel(booking.id);
     }
     setShowMoreOptions(false);
+  };
+
+  const handleRateProvider = () => {
+    setShowRatingModal(true);
+    setShowMoreOptions(false);
+  };
+
+  const handleSubmitRating = () => {
+    if (rating > 0) {
+      onRateProvider(booking.id, rating, comment);
+      setShowRatingModal(false);
+      setRating(0);
+      setComment('');
+    }
+  };
+
+  const renderStars = (count: number, size = 'w-5 h-5') => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`${size} ${i < count ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+      />
+    ));
   };
 
   return (
@@ -213,6 +241,15 @@ const BookingCard: React.FC<BookingCardProps> = ({
                           <Eye className="w-4 h-4 text-blue-600" />
                           <span>View Details</span>
                         </button>
+                        {booking.status === 'completed' && !bookingRating && (
+                          <button
+                            onClick={handleRateProvider}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                          >
+                            <Star className="w-4 h-4 text-yellow-500" />
+                            <span>Rate Provider</span>
+                          </button>
+                        )}
                         {booking.status === 'upcoming' && (
                           <>
                             <button
@@ -306,13 +343,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   </div>
                 )}
               </div>
-
-              <button 
-                onClick={() => onContact(booking.id, 'email')}
-                className="p-2 bg-purple-100 text-purple-600 hover:bg-purple-200 rounded-xl transition-all duration-200 hover:scale-105"
-              >
-                <MessageCircle className="w-4 h-4" />
-              </button>
             </div>
             
             {booking.status === 'upcoming' && (
@@ -325,9 +355,20 @@ const BookingCard: React.FC<BookingCardProps> = ({
             )}
 
             {booking.status === 'completed' && (
-              <div className="flex items-center gap-2 text-emerald-600">
-                <CheckCircle className="w-5 h-5" />
-                <span className="text-sm font-semibold">Completed</span>
+              <div className="flex items-center gap-2">
+                {bookingRating ? (
+                  <div className="flex items-center gap-1 text-emerald-600">
+                    {renderStars(bookingRating, 'w-4 h-4')}
+                    <span className="text-sm font-semibold">Rated</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleRateProvider}
+                    className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg text-sm"
+                  >
+                    Rate Provider
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -385,6 +426,15 @@ const BookingCard: React.FC<BookingCardProps> = ({
                         <Eye className="w-4 h-4 text-blue-600" />
                         <span>View Details</span>
                       </button>
+                      {booking.status === 'completed' && !bookingRating && (
+                        <button
+                          onClick={handleRateProvider}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        >
+                          <Star className="w-4 h-4 text-yellow-500" />
+                          <span>Rate Provider</span>
+                        </button>
+                      )}
                       {booking.status === 'upcoming' && (
                         <>
                           <button
@@ -491,13 +541,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
                     </div>
                   )}
                 </div>
-
-                <button 
-                  onClick={() => onContact(booking.id, 'email')}
-                  className="p-3 bg-purple-100 text-purple-600 hover:bg-purple-200 rounded-xl transition-all duration-200 hover:scale-105"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                </button>
                 
                 {booking.status === 'upcoming' && (
                   <button
@@ -509,9 +552,22 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 )}
 
                 {booking.status === 'completed' && (
-                  <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl">
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                    <span className="text-emerald-600 font-semibold">Completed</span>
+                  <div className="flex items-center gap-2">
+                    {bookingRating ? (
+                      <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl">
+                        <div className="flex items-center gap-1">
+                          {renderStars(bookingRating)}
+                        </div>
+                        <span className="text-emerald-600 font-semibold">Rated</span>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleRateProvider}
+                        className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+                      >
+                        Rate Provider
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -522,6 +578,67 @@ const BookingCard: React.FC<BookingCardProps> = ({
         {/* Hover Effect Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl sm:rounded-3xl"></div>
       </div>
+
+      {/* Rating Modal */}
+      {showRatingModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Rate Your Experience</h3>
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <p className="text-gray-600 mb-4">How was your experience with {booking.provider}?</p>
+              
+              <div className="flex justify-center gap-2 mb-4">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    onClick={() => setRating(star)}
+                    className="text-3xl transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`w-8 h-8 ${
+                        star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Share your experience (optional)"
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRatingModal(false)}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitRating}
+                disabled={rating === 0}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Submit Rating
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showMoreOptions && (
         <div 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle, Sparkles, Star, DollarSign, MoreVertical, ArrowRight, Plus, X } from 'lucide-react';
+import { Calendar, CheckCircle, Star, MoreVertical, ArrowRight, Plus, X } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
 import { bookings as mockBookings } from '../data/mockData';
 
@@ -27,6 +27,10 @@ interface ApiBooking {
   completedAt?: string | Date;
   updatedAt: string | Date;
   rating?: number;
+  ratingStatus?: {
+    customerRated: boolean;
+    providerRated: boolean;
+  };
   provider?: {
     name: string;
     email: string;
@@ -102,10 +106,14 @@ const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
       customer: apiBooking.customerName,
       specialRequests: apiBooking.specialRequests,
       timeframe: apiBooking.timeframe,
+      rating: apiBooking.rating,
+      ratingStatus: apiBooking.ratingStatus || {
+        customerRated: false,
+        providerRated: false
+      },
       // Include other properties that might be needed
       providerId: apiBooking.providerId,
-      customerId: apiBooking.customerId,
-      rating: apiBooking.rating
+      customerId: apiBooking.customerId
     };
   } catch (error) {
     console.error('Error converting booking:', error);
@@ -122,7 +130,12 @@ const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
       provider: apiBooking.providerName || 'Provider',
       customer: apiBooking.customerName || 'Customer',
       specialRequests: apiBooking.specialRequests || '',
-      timeframe: apiBooking.timeframe || ''
+      timeframe: apiBooking.timeframe || '',
+      rating: apiBooking.rating,
+      ratingStatus: apiBooking.ratingStatus || {
+        customerRated: false,
+        providerRated: false
+      }
     };
   }
 };
@@ -213,6 +226,10 @@ const BookingsPage: React.FC = () => {
                     booking.status) as 'pending' | 'accepted' | 'rejected' | 'completed' | 'cancelled' | 'confirmed',
             updatedAt: new Date().toISOString(),
             rating: mockBooking.rating || 0,
+            ratingStatus: mockBooking.ratingStatus || {
+              customerRated: false,
+              providerRated: false
+            },
             provider: mockBooking.providerObj ? {
               name: mockBooking.providerObj.name || mockBooking.provider || 'Provider',
               email: mockBooking.providerObj.email || 'provider@example.com',
@@ -230,7 +247,7 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const handleBookingAction = async (bookingId: string, action: string, data?: any) => {
+  const handleBookingAction = async (bookingId: string, action: string) => {
     try {
       const token = localStorage.getItem('authToken');
       
@@ -289,17 +306,66 @@ const BookingsPage: React.FC = () => {
           throw new Error(`Failed to ${action} booking`);
         }
 
-        const responseData = await response.json();
-        
-        if (responseData.success) {
-          fetchUserBookings();
-        } else {
-          throw new Error(responseData.message || `Failed to ${action} booking`);
-        }
+        await response.json();
+        fetchUserBookings();
       }
     } catch (err) {
       console.error(`Error ${action} booking:`, err);
       setError(err instanceof Error ? err.message : 'An error occurred');
+    }
+  };
+
+  const handleRateProvider = async (bookingId: string, rating: number, comment?: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/ratings/customer`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookingId,
+          rating,
+          comment: comment || ''
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rating');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update the local state to reflect the rating
+        setBookings(prevBookings => 
+          prevBookings.map(booking => 
+            booking._id === bookingId 
+              ? { 
+                  ...booking, 
+                  rating,
+                  ratingStatus: { 
+                    customerRated: true,
+                    providerRated: booking.ratingStatus?.providerRated || false
+                  } 
+                }
+              : booking
+          )
+        );
+        
+        alert('Rating submitted successfully!');
+      } else {
+        throw new Error(result.message || 'Failed to submit rating');
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred');
     }
   };
 
@@ -336,9 +402,9 @@ const BookingsPage: React.FC = () => {
         throw new Error('Failed to submit reschedule request');
       }
 
-      const data = await response.json();
+      const result = await response.json();
       
-      if (data.success) {
+      if (result.success) {
         // Close modal and refresh bookings
         setShowRescheduleModal(false);
         setSelectedBooking(null);
@@ -346,7 +412,7 @@ const BookingsPage: React.FC = () => {
         fetchUserBookings();
         alert('Reschedule request submitted successfully! The provider will review your request.');
       } else {
-        throw new Error(data.message || 'Failed to submit reschedule request');
+        throw new Error(result.message || 'Failed to submit reschedule request');
       }
     } catch (err) {
       console.error('Error submitting reschedule:', err);
@@ -458,7 +524,7 @@ const BookingsPage: React.FC = () => {
             </button>
             <button 
               onClick={handleLogout}
-              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:gray-700"
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
             >
               Logout
             </button>
@@ -480,18 +546,6 @@ const BookingsPage: React.FC = () => {
   const cancelledBookings = bookings.filter(booking => 
     booking.status === 'cancelled' || booking.status === 'rejected'
   );
-  
-  const averageRating = bookings.reduce((acc, booking) => {
-    const rating = booking.rating || 0;
-    return acc + rating;
-  }, 0) / (bookings.length || 1);
-  
-  const totalSpent = bookings.reduce((acc, booking) => {
-    const amount = typeof booking.budget === 'string' ? 
-      parseFloat(booking.budget.replace(/[^0-9.]/g, '')) || 0 : 
-      (typeof booking.budget === 'number' ? booking.budget : 0);
-    return acc + amount;
-  }, 0);
 
   // Convert API bookings to format expected by BookingCard
   const cardBookings = filteredBookings.map(convertApiBookingToCardFormat);
@@ -771,6 +825,7 @@ const BookingsPage: React.FC = () => {
                   onCancel={(id) => handleBookingAction(id, 'cancel')}
                   onContact={(id, method) => handleBookingAction(id, `contact-${method}`)}
                   onViewDetails={(id) => handleViewDetails(id)}
+                  onRateProvider={handleRateProvider}
                 />
               </div>
             ))
@@ -1104,6 +1159,25 @@ const BookingsPage: React.FC = () => {
                   </div>
                 )}
 
+                {selectedBooking.rating && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Your Rating</label>
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star
+                          key={star}
+                          className={`w-4 h-4 ${
+                            star <= selectedBooking.rating! 
+                              ? 'text-yellow-400 fill-current' 
+                              : 'text-gray-300'
+                          }`}
+                        />
+                      ))}
+                      <span className="text-sm text-gray-600 ml-2">({selectedBooking.rating}/5)</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 border-t border-gray-200">
                   <div className="flex gap-3">
                     <button
@@ -1124,6 +1198,17 @@ const BookingsPage: React.FC = () => {
                         className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                       >
                         Reschedule
+                      </button>
+                    )}
+                    {selectedBooking.status === 'completed' && !selectedBooking.rating && (
+                      <button
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          handleRateProvider(selectedBooking._id, 5); // Default 5 stars
+                        }}
+                        className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium"
+                      >
+                        Rate Provider
                       </button>
                     )}
                   </div>
