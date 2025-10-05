@@ -128,7 +128,7 @@ function App() {
           
           
           <Route 
-            path="/providerLogin" 
+            path="/provider-login" 
             element={
               
                 <Login />

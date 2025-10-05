@@ -49,7 +49,7 @@ const LoginPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    userType: "customer",
+    userType: "provider",
     country: "NIGERIA",
     phoneNumber: "",
   });
@@ -328,7 +328,7 @@ const LoginPage = () => {
       const loginData = {
         email: formData.email,
         password: formData.password,
-        userType: formData.userType || 'customer'
+        userType: formData.userType || 'provider'
       };
 
       console.log('🔐 Attempting login:', loginData);

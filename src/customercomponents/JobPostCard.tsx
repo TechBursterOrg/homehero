@@ -67,24 +67,23 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
   };
 
   const getStatusBadge = (status: string) => {
-  const baseClasses = "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold";
-  
-  switch (status) {
-    case 'pending':
-      return `${baseClasses} bg-yellow-100 text-yellow-800`;
-    case 'accepted':
-      return `${baseClasses} bg-blue-100 text-blue-800`;
-    case 'completed':
-      return `${baseClasses} bg-green-100 text-green-800`;
-    case 'cancelled':
-      return `${baseClasses} bg-red-100 text-red-800`;
-    case 'rejected':
-      return `${baseClasses} bg-red-100 text-red-800`;
-    default:
-      return `${baseClasses} bg-gray-100 text-gray-600`;
-  }
-};
-
+    const baseClasses = "inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold";
+    
+    switch (status) {
+      case 'pending':
+        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+      case 'accepted':
+        return `${baseClasses} bg-blue-100 text-blue-800`;
+      case 'completed':
+        return `${baseClasses} bg-green-100 text-green-800`;
+      case 'cancelled':
+        return `${baseClasses} bg-red-100 text-red-800`;
+      case 'rejected':
+        return `${baseClasses} bg-red-100 text-red-800`;
+      default:
+        return `${baseClasses} bg-gray-100 text-gray-600`;
+    }
+  };
 
   const getInitials = (title: string) => {
     return title.split(' ').slice(0, 2).map(word => word[0]).join('').toUpperCase();
@@ -99,7 +98,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
 
   return (
     <>
-      <div className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 p-4">
+      <div className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 p-4 relative">
         {/* Mobile Layout */}
         <div className="flex flex-col sm:hidden space-y-3">
           {/* Header Row */}
@@ -268,9 +267,9 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
           </div>
         </div>
 
-        {/* Dropdown Menu */}
+        {/* Dropdown Menu - Fixed positioning */}
         {showMoreOptions && (
-          <div className="absolute right-4 top-12 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-10 min-w-32">
+          <div className="absolute right-4 top-12 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-32">
             <button
               onClick={() => {
                 onViewProposals(jobPost.id);
@@ -305,9 +304,10 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
         )}
       </div>
 
+      {/* Backdrop - Fixed positioning */}
       {showMoreOptions && (
         <div 
-          className="fixed inset-0 z-0" 
+          className="fixed inset-0 z-40" 
           onClick={() => setShowMoreOptions(false)}
         />
       )}

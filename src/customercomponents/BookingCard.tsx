@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   Clock,
@@ -7,6 +7,7 @@ import {
   Phone,
   CheckCircle,
   XCircle,
+  MapPin,
   DollarSign,
   User,
   Briefcase,
@@ -22,6 +23,7 @@ import {
   Star
 } from 'lucide-react';
 import { Booking } from '../types';
+import { getStatusColor } from '../utils/helpers';
 
 interface BookingCardProps {
   booking: Booking;
@@ -50,8 +52,26 @@ const BookingCard: React.FC<BookingCardProps> = ({
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
 
-  // Type guard to check if booking has rating property
-  const bookingRating = (booking as any).rating as number | undefined;
+  // Refs for dropdown containers
+  const moreOptionsRef = useRef<HTMLDivElement>(null);
+  const callOptionsRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreOptionsRef.current && !moreOptionsRef.current.contains(event.target as Node)) {
+        setShowMoreOptions(false);
+      }
+      if (callOptionsRef.current && !callOptionsRef.current.contains(event.target as Node)) {
+        setShowCallOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -164,7 +184,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
     setShowMoreOptions(false);
   };
 
-  const handleRateProvider = () => {
+  const handleRateProviderClick = () => {
     setShowRatingModal(true);
     setShowMoreOptions(false);
   };
@@ -178,6 +198,26 @@ const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
+  const handleMoreOptionsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setShowMoreOptions(!showMoreOptions);
+    // Close other dropdown when opening this one
+    if (!showMoreOptions) {
+      setShowCallOptions(false);
+    }
+  };
+
+  const handleCallOptionsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setShowCallOptions(!showCallOptions);
+    // Close other dropdown when opening this one
+    if (!showCallOptions) {
+      setShowMoreOptions(false);
+    }
+  };
+
   const renderStars = (count: number, size = 'w-5 h-5') => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star
@@ -186,6 +226,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
       />
     ));
   };
+
+  // Check if booking is already rated
+  const bookingRating = booking.rating;
+  const isRated = bookingRating && bookingRating > 0;
 
   return (
     <>
@@ -215,7 +259,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <div className="flex items-center gap-1">
                   {onToggleFavorite && (
                     <button
-                      onClick={() => onToggleFavorite(booking.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onToggleFavorite(booking.id);
+                      }}
                       className={`p-1 rounded-full transition-colors duration-200 ${
                         isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
                       }`}
@@ -224,27 +272,30 @@ const BookingCard: React.FC<BookingCardProps> = ({
                     </button>
                   )}
                   
-                  <div className="relative">
+                  <div className="relative" ref={moreOptionsRef}>
                     <button 
-                      onClick={() => setShowMoreOptions(!showMoreOptions)}
+                      onClick={handleMoreOptionsClick}
                       className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <MoreVertical className="w-4 h-4" />
                     </button>
                     
                     {showMoreOptions && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1 z-50 min-w-40">
+                      <div 
+                        className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl p-1 z-50 min-w-40"
+                        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dropdown
+                      >
                         <button
                           onClick={handleViewDetailsClick}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                         >
                           <Eye className="w-4 h-4 text-blue-600" />
                           <span>View Details</span>
                         </button>
-                        {booking.status === 'completed' && !bookingRating && (
+                        {booking.status === 'completed' && !isRated && (
                           <button
-                            onClick={handleRateProvider}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                            onClick={handleRateProviderClick}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                           >
                             <Star className="w-4 h-4 text-yellow-500" />
                             <span>Rate Provider</span>
@@ -254,14 +305,14 @@ const BookingCard: React.FC<BookingCardProps> = ({
                           <>
                             <button
                               onClick={handleRescheduleClick}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                             >
                               <Edit3 className="w-4 h-4 text-green-600" />
                               <span>Reschedule</span>
                             </button>
                             <button
                               onClick={handleCancelClick}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600 transition-colors duration-200"
                             >
                               <XCircle className="w-4 h-4" />
                               <span>Cancel</span>
@@ -293,49 +344,72 @@ const BookingCard: React.FC<BookingCardProps> = ({
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => onContact(booking.id, 'message')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onContact(booking.id, 'message');
+                }}
                 className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-xl transition-all duration-200 hover:scale-105"
               >
                 <MessageCircle className="w-4 h-4" />
               </button>
               
-              <div className="relative">
+              <div className="relative" ref={callOptionsRef}>
                 <button 
-                  onClick={handleCallClick}
+                  onClick={handleCallOptionsClick}
                   className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-xl transition-all duration-200 hover:scale-105"
                 >
                   <Phone className="w-4 h-4" />
                 </button>
                 
                 {showCallOptions && (
-                  <div className="absolute left-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-44">
+                  <div 
+                    className="absolute left-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-44"
+                    onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dropdown
+                  >
                     <button
-                      onClick={() => handleWebCall('audio')}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleWebCall('audio');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                     >
                       <PhoneCall className="w-4 h-4 text-green-600" />
                       <span>Web Call</span>
                     </button>
                     
                     <button
-                      onClick={() => handleWebCall('video')}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleWebCall('video');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                     >
                       <Video className="w-4 h-4 text-blue-600" />
                       <span>Video Call</span>
                     </button>
                     
                     <button
-                      onClick={handlePhoneCall}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handlePhoneCall();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                     >
                       <ExternalLink className="w-4 h-4 text-purple-600" />
                       <span>Phone App</span>
                     </button>
                     
                     <button
-                      onClick={handleCopyNumber}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        handleCopyNumber();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                     >
                       <Copy className="w-4 h-4 text-gray-600" />
                       <span>Copy Number</span>
@@ -347,7 +421,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
             
             {booking.status === 'upcoming' && (
               <button
-                onClick={handleRescheduleClick}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onReschedule(booking.id);
+                }}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg text-sm"
               >
                 Reschedule
@@ -356,14 +434,18 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
             {booking.status === 'completed' && (
               <div className="flex items-center gap-2">
-                {bookingRating ? (
+                {isRated ? (
                   <div className="flex items-center gap-1 text-emerald-600">
                     {renderStars(bookingRating, 'w-4 h-4')}
                     <span className="text-sm font-semibold">Rated</span>
                   </div>
                 ) : (
                   <button
-                    onClick={handleRateProvider}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      setShowRatingModal(true);
+                    }}
                     className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-3 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg text-sm"
                   >
                     Rate Provider
@@ -400,7 +482,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
               <div className="flex items-center gap-2">
                 {onToggleFavorite && (
                   <button
-                    onClick={() => onToggleFavorite(booking.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onToggleFavorite(booking.id);
+                    }}
                     className={`p-2 rounded-full transition-all duration-200 ${
                       isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                     }`}
@@ -409,27 +495,30 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   </button>
                 )}
                 
-                <div className="relative">
+                <div className="relative" ref={moreOptionsRef}>
                   <button 
-                    onClick={() => setShowMoreOptions(!showMoreOptions)}
+                    onClick={handleMoreOptionsClick}
                     className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors"
                   >
                     <MoreVertical className="w-5 h-5" />
                   </button>
                   
                   {showMoreOptions && (
-                    <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48">
+                    <div 
+                      className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48"
+                      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dropdown
+                    >
                       <button
                         onClick={handleViewDetailsClick}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                       >
                         <Eye className="w-4 h-4 text-blue-600" />
                         <span>View Details</span>
                       </button>
-                      {booking.status === 'completed' && !bookingRating && (
+                      {booking.status === 'completed' && !isRated && (
                         <button
-                          onClick={handleRateProvider}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                          onClick={handleRateProviderClick}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                         >
                           <Star className="w-4 h-4 text-yellow-500" />
                           <span>Rate Provider</span>
@@ -439,14 +528,14 @@ const BookingCard: React.FC<BookingCardProps> = ({
                         <>
                           <button
                             onClick={handleRescheduleClick}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                           >
                             <Edit3 className="w-4 h-4 text-green-600" />
                             <span>Reschedule</span>
                           </button>
                           <button
                             onClick={handleCancelClick}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-lg flex items-center gap-2 text-red-600 transition-colors duration-200"
                           >
                             <XCircle className="w-4 h-4" />
                             <span>Cancel Booking</span>
@@ -491,49 +580,72 @@ const BookingCard: React.FC<BookingCardProps> = ({
               
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => onContact(booking.id, 'message')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onContact(booking.id, 'message');
+                  }}
                   className="p-3 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-xl transition-all duration-200 hover:scale-105"
                 >
                   <MessageCircle className="w-5 h-5" />
                 </button>
                 
-                <div className="relative">
+                <div className="relative" ref={callOptionsRef}>
                   <button 
-                    onClick={handleCallClick}
+                    onClick={handleCallOptionsClick}
                     className="p-3 bg-green-100 text-green-600 hover:bg-green-200 rounded-xl transition-all duration-200 hover:scale-105"
                   >
                     <Phone className="w-5 h-5" />
                   </button>
                   
                   {showCallOptions && (
-                    <div className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48">
+                    <div 
+                      className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 min-w-48"
+                      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside dropdown
+                    >
                       <button
-                        onClick={() => handleWebCall('audio')}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleWebCall('audio');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                       >
                         <PhoneCall className="w-4 h-4 text-green-600" />
                         <span>Web Audio Call</span>
                       </button>
                       
                       <button
-                        onClick={() => handleWebCall('video')}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleWebCall('video');
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                       >
                         <Video className="w-4 h-4 text-blue-600" />
                         <span>Web Video Call</span>
                       </button>
                       
                       <button
-                        onClick={handlePhoneCall}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handlePhoneCall();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                       >
                         <ExternalLink className="w-4 h-4 text-purple-600" />
                         <span>Phone App</span>
                       </button>
                       
                       <button
-                        onClick={handleCopyNumber}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleCopyNumber();
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors duration-200"
                       >
                         <Copy className="w-4 h-4 text-gray-600" />
                         <span>Copy Number</span>
@@ -544,7 +656,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 
                 {booking.status === 'upcoming' && (
                   <button
-                    onClick={handleRescheduleClick}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      onReschedule(booking.id);
+                    }}
                     className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                   >
                     Reschedule
@@ -553,7 +669,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
                 {booking.status === 'completed' && (
                   <div className="flex items-center gap-2">
-                    {bookingRating ? (
+                    {isRated ? (
                       <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl">
                         <div className="flex items-center gap-1">
                           {renderStars(bookingRating)}
@@ -562,7 +678,11 @@ const BookingCard: React.FC<BookingCardProps> = ({
                       </div>
                     ) : (
                       <button
-                        onClick={handleRateProvider}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setShowRatingModal(true);
+                        }}
                         className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                       >
                         Rate Provider
@@ -582,11 +702,16 @@ const BookingCard: React.FC<BookingCardProps> = ({
       {/* Rating Modal */}
       {showRatingModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6">
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">Rate Your Experience</h3>
               <button
-                onClick={() => setShowRatingModal(false)}
+                onClick={() => {
+                  setShowRatingModal(false);
+                }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <XCircle className="w-6 h-6" />
@@ -600,7 +725,9 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
-                    onClick={() => setRating(star)}
+                    onClick={() => {
+                      setRating(star);
+                    }}
                     className="text-3xl transition-transform hover:scale-110"
                   >
                     <Star
@@ -623,7 +750,9 @@ const BookingCard: React.FC<BookingCardProps> = ({
             
             <div className="flex gap-3">
               <button
-                onClick={() => setShowRatingModal(false)}
+                onClick={() => {
+                  setShowRatingModal(false);
+                }}
                 className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium"
               >
                 Cancel
@@ -638,20 +767,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
             </div>
           </div>
         </div>
-      )}
-
-      {showMoreOptions && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowMoreOptions(false)}
-        />
-      )}
-
-      {showCallOptions && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowCallOptions(false)}
-        />
       )}
     </>
   );
