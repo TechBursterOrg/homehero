@@ -21,6 +21,7 @@ export interface Provider {
   state: string;
   country: string;
   profileImage?: string;
+  profilePicture?: string;
   isAvailableNow: boolean;
   experience: string;
   distance?: number;
