@@ -20,7 +20,8 @@ import {
   BookOpen,
   Eye,
   Mail,
-  Phone
+  Phone,
+  DollarSign
 } from 'lucide-react';
 
 interface BusinessHours {
@@ -97,7 +98,6 @@ interface DashboardData {
     averageRating: number;
     activeClients: number;
     totalRatings?: number;
-    
   };
 }
 
@@ -309,89 +309,92 @@ const Dashboard: React.FC = () => {
 
   // Fetch dashboard data from backend
   const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('No authentication token found. Please log in again.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      console.log('Response status:', response.status, response.statusText);
-      
-      if (response.status === 401 || response.status === 403) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        throw new Error('Your session has expired. Please log in again.');
-      }
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Dashboard API response:', data);
-      
-      if (data.success === false && data.message?.includes('token')) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        throw new Error('Authentication failed. Please log in again.');
-      }
-      
-      setDashboardData(data);
-      setBusinessHours(data.businessHours || []);
-      setSchedule(data.schedule || []);
-      
-      // Check for rating prompts
-      checkForRatingPrompt(data.bookings || []);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      console.error('Dashboard fetch error:', err);
-      
-      if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for development');
-        const mockData = getMockData();
-        setDashboardData(mockData);
-        setSchedule(mockData.schedule || []);
-      }
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('No authentication token found. Please log in again.');
     }
-  };
+
+    // Add cache-busting parameter to force fresh data
+    const response = await fetch(`${API_BASE_URL}/api/user/dashboard?refresh=${Date.now()}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    console.log('Dashboard response status:', response.status);
+    
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+      throw new Error('Your session has expired. Please log in again.');
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Dashboard API response:', data);
+    
+    if (data.success === false && data.message?.includes('token')) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+      throw new Error('Authentication failed. Please log in again.');
+    }
+    
+    setDashboardData(data);
+    setBusinessHours(data.businessHours || []);
+    setSchedule(data.schedule || []);
+    
+    // Check for rating prompts
+    checkForRatingPrompt(data.bookings || []);
+
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+    setError(errorMessage);
+    console.error('Dashboard fetch error:', err);
+    
+    if (errorMessage.includes('session') || errorMessage.includes('Authentication') || errorMessage.includes('token')) {
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Using mock data for development');
+      const mockData = getMockData();
+      setDashboardData(mockData);
+      setSchedule(mockData.schedule || []);
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Check for bookings that need rating
   const checkForRatingPrompt = (bookings: Booking[]) => {
-    const needsRating = bookings.find(booking => 
-      booking.status === 'completed' && 
-      booking.ratingPrompted && 
-      !booking.ratingStatus?.customerRated
-    );
-    
-    if (needsRating) {
-      setRatingBooking(needsRating);
-      setRatingType('provider');
-      setShowRatingModal(true);
-    }
-  };
+  const needsRating = bookings.find(booking => 
+    booking.status === 'completed' && 
+    booking.ratingPrompted && 
+    !booking.ratingStatus?.customerRated &&
+    // ADD THIS CHECK: Make sure the current user is the customer, not the provider
+    booking.customerId !== dashboardData?.user.id
+  );
+  
+  if (needsRating) {
+    setRatingBooking(needsRating);
+    setRatingType('provider'); // Customer rating the provider
+    setShowRatingModal(true);
+  }
+};
 
   useEffect(() => {
     fetchDashboardData();
@@ -542,7 +545,6 @@ const Dashboard: React.FC = () => {
       jobsCompleted: 45,
       averageRating: 4.8,
       activeClients: 12,
-      
     }
   });
 
@@ -818,61 +820,131 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Enhanced function to handle booking completion with rating prompts
+  // Extract numeric value from budget string (e.g., "₦15,000" -> 15000)
+const extractBudgetAmount = (budget: string): number => {
+  if (!budget) return 0;
+  
+  // Remove currency symbol and commas, then convert to number
+  const numericString = budget.replace(/[^\d.]/g, '');
+  return parseFloat(numericString) || 0;
+};
+
+  // Enhanced function to handle booking completion with dashboard updates
   const handleCompleteBooking = async (bookingId: string) => {
-    try {
+  try {
+    setError(null);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    console.log('🔄 Starting booking completion process for:', bookingId);
+
+    // First, update the booking status to completed
+    const statusResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'completed' }),
+    });
+
+    if (!statusResponse.ok) {
+      const errorData = await statusResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${statusResponse.status}`);
+    }
+
+    const statusResult = await statusResponse.json();
+    
+    if (statusResult.success) {
+      console.log('✅ Booking status updated to completed');
+      
+      // Now update the provider dashboard with earnings and stats
+      const completeResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!completeResponse.ok) {
+        console.warn('⚠️ Failed to update dashboard, but booking was completed');
+      } else {
+        const completeResult = await completeResponse.json();
+        console.log('✅ Dashboard updated with earnings:', completeResult.data);
+      }
+
+      // Find the completed booking
+      const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
+      if (completedBooking) {
+        // Show provider rating modal for customer
+        setRatingBooking(completedBooking);
+        setRatingType('customer');
+        setShowRatingModal(true);
+      }
+      
+      // Refresh dashboard data to show updated stats
+      await fetchDashboardData();
+      
       setError(null);
+      setShowBookingModal(false);
+      
+      alert('Booking marked as completed! Earnings added to your dashboard. Please rate the customer.');
+    } else {
+      throw new Error(statusResult.message || 'Failed to update booking status');
+    }
+    
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
+    setError(errorMessage);
+    console.error('❌ Complete booking error:', err);
+    alert(`Error: ${errorMessage}`);
+  }
+};
+
+
+
+  // Function to update provider dashboard when job is completed
+  const updateProviderDashboard = async (bookingId: string) => {
+    try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       if (!token) {
         throw new Error('Authentication token not found');
       }
 
-      // First, update the booking status to completed
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-        method: 'PATCH',
+      // Call the endpoint to update provider dashboard
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: 'completed' }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        console.warn('Failed to update provider dashboard, but booking was completed');
+        return;
       }
 
       const result = await response.json();
       
       if (result.success) {
-        // Refresh dashboard data
+        console.log('✅ Provider dashboard updated successfully');
+        // Refresh dashboard data to show updated stats
         await fetchDashboardData();
-        
-        // Find the completed booking
-        const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
-        if (completedBooking) {
-          // Show provider rating modal for customer
-          setRatingBooking(completedBooking);
-          setRatingType('customer');
-          setShowRatingModal(true);
-        }
-        
-        setError(null);
-        setShowBookingModal(false);
-        
-        alert('Booking marked as completed! Please rate the customer.');
-      } else {
-        throw new Error(result.message || 'Failed to update booking status');
       }
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
-      setError(errorMessage);
-      console.error('Complete booking error:', err);
-      alert(`Error: ${errorMessage}`);
+    } catch (error) {
+      console.error('Error updating provider dashboard:', error);
+      // Don't throw error here as the booking was already completed
     }
   };
+
+  
 
   // Enhanced booking status update function
   const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
@@ -1143,7 +1215,7 @@ const Dashboard: React.FC = () => {
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg sm:text-xl">₦</span>
+                <DollarSign className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
               </div>
               <div className="text-emerald-600">
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1738,7 +1810,7 @@ const Dashboard: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Location
+                      Location
                   </label>
                   <p className="text-gray-900">{selectedBooking.location}</p>
                 </div>
