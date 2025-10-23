@@ -85,6 +85,7 @@ interface DashboardData {
     id: string;
     country: string;
     phoneNumber?: string;
+    profileImage?: string;
   };
   businessHours: BusinessHours[];
   recentJobs: any[];
@@ -96,8 +97,7 @@ interface DashboardData {
     jobsCompleted: number;
     averageRating: number;
     activeClients: number;
-    totalRatings?: number;
-    
+    totalRatings: number;
   };
 }
 
@@ -319,6 +319,7 @@ const Dashboard: React.FC = () => {
         throw new Error('No authentication token found. Please log in again.');
       }
 
+      console.log('📊 Fetching dashboard data...');
       const response = await fetch(`${API_BASE_URL}/api/user/dashboard`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -340,14 +341,7 @@ const Dashboard: React.FC = () => {
       }
 
       const data = await response.json();
-      console.log('Dashboard API response:', data);
-      
-      if (data.success === false && data.message?.includes('token')) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        throw new Error('Authentication failed. Please log in again.');
-      }
+      console.log('✅ Dashboard data received:', data);
       
       setDashboardData(data);
       setBusinessHours(data.businessHours || []);
@@ -366,15 +360,43 @@ const Dashboard: React.FC = () => {
           window.location.href = '/login';
         }, 2000);
       }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('Using mock data for development');
-        const mockData = getMockData();
-        setDashboardData(mockData);
-        setSchedule(mockData.schedule || []);
-      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to refresh just the rating data
+  const refreshProviderRating = async () => {
+    if (!dashboardData?.user.id) return;
+    
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) return;
+
+      console.log('🔄 Refreshing provider rating...');
+      const ratingResponse = await fetch(`${API_BASE_URL}/api/providers/${dashboardData.user.id}/rating`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (ratingResponse.ok) {
+        const ratingData = await ratingResponse.json();
+        if (ratingData.success && dashboardData) {
+          setDashboardData(prev => ({
+            ...prev!,
+            stats: {
+              ...prev!.stats,
+              averageRating: ratingData.data.averageRating || 0,
+              totalRatings: ratingData.data.totalRatings || 0
+            }
+          }));
+          console.log('✅ Rating refreshed:', ratingData.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error refreshing rating:', error);
     }
   };
 
@@ -397,154 +419,13 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
-  // Mock data for development/testing
-  const getMockData = (): DashboardData => ({
-    user: {
-      name: 'John Doe',
-      email: 'john@example.com',
-      id: '1',
-      country: 'NIGERIA',
-      phoneNumber: '+2341234567890'
-    },
-    businessHours: [
-      {
-        dayOfWeek: 'Monday',
-        startTime: '09:00',
-        endTime: '17:00',
-        isAvailable: true,
-        serviceTypes: ['House Cleaning'],
-        notes: ''
-      },
-      {
-        dayOfWeek: 'Tuesday',
-        startTime: '09:00',
-        endTime: '17:00',
-        isAvailable: true,
-        serviceTypes: ['Plumbing Repair'],
-        notes: ''
-      },
-      {
-        dayOfWeek: 'Wednesday',
-        startTime: '09:00',
-        endTime: '17:00',
-        isAvailable: true,
-        serviceTypes: ['General Maintenance'],
-        notes: ''
-      }
-    ],
-    recentJobs: [
-      {
-        id: 1,
-        title: 'House Cleaning',
-        client: 'Sarah Johnson',
-        category: 'cleaning',
-        payment: 15000,
-        status: 'completed',
-        location: 'Victoria Island',
-        date: 'Aug 25',
-        time: '2:00 PM'
-      },
-      {
-        id: 2,
-        title: 'Garden Maintenance',
-        client: 'Mike Wilson',
-        category: 'gardening',
-        payment: 25000,
-        status: 'upcoming',
-        location: 'Lekki',
-        date: 'Aug 28',
-        time: '10:00 AM'
-      }
-    ],
-    upcomingTasks: [
-      {
-        id: 1,
-        title: 'Plumbing Repair',
-        client: 'Alice Brown',
-        category: 'handyman',
-        time: '9:00 AM',
-        duration: '2 hours',
-        priority: 'high'
-      }
-    ],
-    bookings: [
-      {
-        _id: '1',
-        providerId: 'provider1',
-        providerName: 'John Doe',
-        providerEmail: 'john@example.com',
-        customerId: 'customer1',
-        customerName: 'Sarah Johnson',
-        customerEmail: 'sarah@example.com',
-        customerPhone: '+2341234567890',
-        serviceType: 'House Cleaning',
-        description: 'Full house cleaning service',
-        location: 'Victoria Island, Lagos',
-        timeframe: 'ASAP',
-        budget: '₦15,000',
-        specialRequests: 'Focus on kitchen and bathrooms',
-        bookingType: 'immediate',
-        status: 'completed',
-        ratingStatus: {
-          customerRated: false,
-          providerRated: false
-        },
-        ratingPrompted: true,
-        requestedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        _id: '2',
-        providerId: 'provider1',
-        providerName: 'John Doe',
-        providerEmail: 'john@example.com',
-        customerId: 'customer2',
-        customerName: 'Mike Wilson',
-        customerEmail: 'mike@example.com',
-        customerPhone: '+2340987654321',
-        serviceType: 'Garden Maintenance',
-        description: 'Lawn mowing and garden cleanup',
-        location: 'Lekki Phase 1, Lagos',
-        timeframe: 'Next week',
-        budget: '₦25,000',
-        specialRequests: '',
-        bookingType: 'long-term',
-        status: 'confirmed',
-        ratingStatus: {
-          customerRated: false,
-          providerRated: false
-        },
-        requestedAt: new Date().toISOString(),
-        acceptedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ],
-    schedule: [
-      {
-        id: '1',
-        title: 'House Cleaning',
-        client: 'Sarah Johnson',
-        phone: '+2341234567890',
-        location: 'Victoria Island, Lagos',
-        date: new Date().toISOString().split('T')[0],
-        time: '2:00 PM',
-        endTime: '4:00 PM',
-        duration: '2 hours',
-        payment: '₦15,000',
-        status: 'accepted',
-        notes: 'Focus on kitchen and bathrooms',
-        category: 'cleaning',
-        priority: 'medium'
-      }
-    ],
-    stats: {
-      totalEarnings: 350000,
-      jobsCompleted: 45,
-      averageRating: 4.8,
-      activeClients: 12,
-      
+  // Refresh ratings periodically (every 5 minutes)
+  useEffect(() => {
+    if (dashboardData?.user.id) {
+      const interval = setInterval(refreshProviderRating, 300000); // 5 minutes
+      return () => clearInterval(interval);
     }
-  });
+  }, [dashboardData?.user.id]);
 
   // Format amount in Naira
   const formatNaira = (amount: number) => {
@@ -669,78 +550,6 @@ const Dashboard: React.FC = () => {
     setShowBookingModal(true);
   };
 
-  // Function to add booking to schedule when accepted
-  const addBookingToSchedule = async (booking: Booking): Promise<void> => {
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-      
-      // Calculate end time based on service type
-      const calculateEndTime = (startTime: string, serviceType: string): string => {
-        const [time, modifier] = startTime.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        
-        if (modifier === 'PM' && hours !== 12) hours += 12;
-        if (modifier === 'AM' && hours === 12) hours = 0;
-        
-        // Add duration based on service type
-        let durationHours = 2; // default 2 hours
-        if (serviceType.includes('Cleaning')) durationHours = 3;
-        if (serviceType.includes('Maintenance')) durationHours = 4;
-        if (serviceType.includes('Repair')) durationHours = 2;
-        
-        const totalMinutes = hours * 60 + minutes + durationHours * 60;
-        let endHours = Math.floor(totalMinutes / 60) % 24;
-        const endMinutes = totalMinutes % 60;
-        
-        const endModifier = endHours >= 12 ? 'PM' : 'AM';
-        if (endHours > 12) endHours -= 12;
-        if (endHours === 0) endHours = 12;
-        
-        return `${endHours}:${endMinutes.toString().padStart(2, '0')} ${endModifier}`;
-      };
-
-      const scheduleData = {
-        title: booking.serviceType,
-        client: booking.customerName,
-        phone: booking.customerPhone,
-        location: booking.location,
-        date: new Date().toISOString().split('T')[0], // Use today's date or parse from booking
-        time: '10:00 AM', // Default time or parse from booking
-        endTime: calculateEndTime('10:00 AM', booking.serviceType),
-        duration: '2 hours',
-        payment: booking.budget,
-        status: 'accepted' as const,
-        notes: booking.specialRequests || booking.description,
-        category: booking.serviceType.toLowerCase().includes('clean') ? 'cleaning' : 'handyman',
-        priority: 'medium' as const
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/schedule`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(scheduleData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add booking to schedule');
-      }
-
-      const newScheduleEntry = await response.json();
-      setSchedule(prev => [...prev, newScheduleEntry.data]);
-      
-    } catch (err) {
-      console.error('Error adding booking to schedule:', err);
-      // Don't throw error here to avoid blocking the booking status update
-    }
-  };
-
   // Handle customer rating submission
   const handleCustomerRating = async (bookingId: string, rating: number, comment?: string) => {
     try {
@@ -818,159 +627,6 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Enhanced function to handle booking completion with rating prompts
-  const handleCompleteBooking = async (bookingId: string) => {
-    try {
-      setError(null);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      // First, update the booking status to completed
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'completed' }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Refresh dashboard data
-        await fetchDashboardData();
-        
-        // Find the completed booking
-        const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
-        if (completedBooking) {
-          // Show provider rating modal for customer
-          setRatingBooking(completedBooking);
-          setRatingType('customer');
-          setShowRatingModal(true);
-        }
-        
-        setError(null);
-        setShowBookingModal(false);
-        
-        alert('Booking marked as completed! Please rate the customer.');
-      } else {
-        throw new Error(result.message || 'Failed to update booking status');
-      }
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
-      setError(errorMessage);
-      console.error('Complete booking error:', err);
-      alert(`Error: ${errorMessage}`);
-    }
-  };
-
-  // Enhanced booking status update function
-  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
-    if (status === 'completed') {
-      await handleCompleteBooking(bookingId);
-    } else {
-      // Use the existing logic for other status updates
-      try {
-        setError(null);
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Authentication token not found');
-        }
-
-        const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          if (status === 'confirmed' && selectedBooking) {
-            await addBookingToSchedule(selectedBooking);
-            
-            // Send email notification to customer
-            try {
-              const bookingData = {
-                customerName: selectedBooking.customerName,
-                serviceType: selectedBooking.serviceType,
-                location: selectedBooking.location,
-                timeframe: selectedBooking.timeframe,
-                budget: selectedBooking.budget,
-                description: selectedBooking.description,
-                specialRequests: selectedBooking.specialRequests
-              };
-
-              const providerInfo = {
-                name: dashboardData?.user.name || 'Service Provider',
-                phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
-                email: dashboardData?.user.email || ''
-              };
-
-              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-accepted`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  customerEmail: selectedBooking.customerEmail,
-                  bookingData,
-                  providerInfo
-                }),
-              });
-
-              if (emailResponse.ok) {
-                console.log('✅ Booking acceptance email sent to customer');
-              } else {
-                console.log('⚠️ Failed to send booking acceptance email, but booking was accepted');
-              }
-            } catch (emailError) {
-              console.error('⚠️ Email notification failed (non-critical):', emailError);
-            }
-          }
-          
-          await fetchDashboardData();
-          setError(null);
-          setShowBookingModal(false);
-          
-          let successMessage = `Booking ${status} successfully!`;
-          if (status === 'confirmed') {
-            successMessage += ' Added to schedule and customer has been notified.';
-          }
-          alert(successMessage);
-        } else {
-          throw new Error(result.message || 'Failed to update booking status');
-        }
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
-        setError(errorMessage);
-        console.error('Booking status update error:', err);
-        alert(`Error: ${errorMessage}`);
-      }
-    }
-  };
-
   // Enhanced rating submission handler
   const handleRatingSubmit = async (rating: number, comment?: string) => {
     if (!ratingBooking) return;
@@ -979,56 +635,17 @@ const Dashboard: React.FC = () => {
       if (ratingType === 'customer') {
         // Provider is rating the customer
         await handleProviderRating(ratingBooking._id, rating);
-        
-        // After provider rates customer, trigger customer rating prompt via email
-        await triggerCustomerRatingPrompt(ratingBooking._id);
-        
       } else {
         // Customer is rating the provider
         await handleCustomerRating(ratingBooking._id, rating, comment);
       }
       
-      // Refresh data to update rating status
-      await fetchDashboardData();
+      // Refresh the provider rating after submission
+      await refreshProviderRating();
       
     } catch (error) {
       console.error('Rating submission error:', error);
       throw error;
-    }
-  };
-
-  // Function to trigger customer rating prompt (send email/notification)
-  const triggerCustomerRatingPrompt = async (bookingId: string) => {
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      // Update booking to indicate customer should be prompted to rate
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/rating-prompt`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        console.log('✅ Customer rating prompt triggered');
-        
-        // In a real implementation, this would send an email/notification to the customer
-        // For now, we'll just log it
-        const booking = ratingBooking;
-        if (booking) {
-          console.log(`📧 Rating prompt should be sent to: ${booking.customerEmail}`);
-          console.log(`🔗 Customer should be directed to rate provider: ${booking.providerName}`);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to trigger customer rating prompt:', error);
-      // Don't throw error here as it's non-critical
     }
   };
 
@@ -1101,9 +718,17 @@ const Dashboard: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-3 sm:gap-4">
                 <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl sm:rounded-2xl md:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
-                  <span className="text-white font-bold text-sm sm:text-lg md:text-xl">
-                    {getClientInitials(dashboardData.user.name)}
-                  </span>
+                  {dashboardData.user.profileImage ? (
+                    <img 
+                      src={dashboardData.user.profileImage} 
+                      alt={dashboardData.user.name}
+                      className="w-full h-full object-cover rounded-xl sm:rounded-2xl md:rounded-3xl"
+                    />
+                  ) : (
+                    <span className="text-white font-bold text-sm sm:text-lg md:text-xl">
+                      {getClientInitials(dashboardData.user.name)}
+                    </span>
+                  )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent leading-tight">
@@ -1117,7 +742,7 @@ const Dashboard: React.FC = () => {
                     </p>
                     <div className="flex items-center gap-1 px-2 py-1 bg-white/80 rounded-lg border">
                       <span className="text-sm">🇳🇬</span>
-                      <span className="text-xs font-medium text-gray-600"></span>
+                      <span className="text-xs font-medium text-gray-600">{dashboardData.user.country}</span>
                     </div>
                   </div>
                 </div>
@@ -1140,6 +765,7 @@ const Dashboard: React.FC = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          {/* Earnings Card */}
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
@@ -1160,6 +786,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Jobs Completed Card */}
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
@@ -1180,6 +807,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
+          {/* Average Rating Card - REAL RATING DATA */}
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-400 to-yellow-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
@@ -1191,14 +819,23 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="space-y-1">
               <p className="text-xs sm:text-sm font-medium text-gray-600">Average Rating</p>
-              <p className="text-xl sm:text-3xl font-bold text-gray-900">{dashboardData.stats.averageRating > 0 ? dashboardData.stats.averageRating.toFixed(1) : '0.0'} ⭐</p>
+              <p className="text-xl sm:text-3xl font-bold text-gray-900">
+                {dashboardData.stats.averageRating > 0 ? dashboardData.stats.averageRating.toFixed(1) : '0.0'} ⭐
+              </p>
               <div className="text-xs sm:text-sm text-gray-500">
-                <span className="hidden sm:inline">Based on {dashboardData.stats.totalRatings} reviews</span>
-                <span className="sm:hidden">reviews</span>
+                {dashboardData.stats.totalRatings > 0 ? (
+                  <span>
+                    <span className="hidden sm:inline">Based on {dashboardData.stats.totalRatings} reviews</span>
+                    <span className="sm:hidden">{dashboardData.stats.totalRatings} reviews</span>
+                  </span>
+                ) : (
+                  <span>No reviews yet</span>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Active Clients Card */}
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
@@ -1221,8 +858,9 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Recent Jobs */}
+          {/* Recent Jobs & Bookings */}
           <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+            {/* Recent Jobs */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
               <div className="p-4 sm:p-8 border-b border-gray-100">
                 <div className="flex items-center justify-between">
@@ -1244,88 +882,96 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="p-4 sm:p-8">
                 <div className="space-y-3 sm:space-y-4">
-                  {dashboardData.recentJobs.map((job) => (
-                    <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
-                      {/* Mobile Layout */}
-                      <div className="flex flex-col sm:hidden space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                              <span className="text-white font-bold text-xs">
+                  {dashboardData.recentJobs && dashboardData.recentJobs.length > 0 ? (
+                    dashboardData.recentJobs.map((job) => (
+                      <div key={job.id} className="group p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl sm:rounded-2xl hover:from-blue-50 hover:to-indigo-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                        {/* Mobile Layout */}
+                        <div className="flex flex-col sm:hidden space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                                <span className="text-white font-bold text-xs">
+                                  {getClientInitials(job.client)}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-base">{getCategoryIcon(job.category)}</span>
+                                  <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
+                                    {job.title}
+                                  </h4>
+                                </div>
+                                <p className="text-sm text-gray-600 font-medium">{job.client}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-600">{job.payment}</p>
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                                {job.status}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-xs text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              <span className="truncate max-w-[120px]">{job.location}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                <span>{job.time}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Desktop Layout */}
+                        <div className="hidden sm:flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                              <span className="text-white font-bold text-sm">
                                 {getClientInitials(job.client)}
                               </span>
                             </div>
                             <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-base">{getCategoryIcon(job.category)}</span>
-                                <h4 className="font-bold text-gray-900 text-sm group-hover:text-blue-600 transition-colors">
+                              <div className="flex items-center gap-3 mb-1">
+                                <span className="text-lg">{getCategoryIcon(job.category)}</span>
+                                <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
                                   {job.title}
                                 </h4>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
+                                  {job.status}
+                                </span>
                               </div>
-                              <p className="text-sm text-gray-600 font-medium">{job.client}</p>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span className="font-medium">{job.client}</span>
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-4 h-4" />
+                                  <span>{job.location}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className="text-lg font-bold text-green-600">{formatNaira(job.payment)}</p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                              {job.status}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-xs text-gray-600">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            <span className="truncate max-w-[120px]">{job.location}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
+                            <p className="text-2xl font-bold text-green-600 mb-1">{job.payment}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Calendar className="w-4 h-4" />
+                              <span>{job.date}</span>
+                              <Clock className="w-4 h-4" />
                               <span>{job.time}</span>
                             </div>
                           </div>
                         </div>
                       </div>
-
-                      {/* Desktop Layout */}
-                      <div className="hidden sm:flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-sm">
-                              {getClientInitials(job.client)}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 mb-1">
-                              <span className="text-lg">{getCategoryIcon(job.category)}</span>
-                              <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
-                                {job.title}
-                              </h4>
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getStatusColor(job.status)}`}>
-                                {job.status}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
-                              <span className="font-medium">{job.client}</span>
-                              <div className="flex items-center gap-1">
-                                <MapPin className="w-4 h-4" />
-                                <span>{job.location}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-green-600 mb-1">{formatNaira(job.payment)}</p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar className="w-4 h-4" />
-                            <span>{job.date}</span>
-                            <Clock className="w-4 h-4" />
-                            <span>{job.time}</span>
-                          </div>
-                        </div>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Activity className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="font-medium">No recent jobs</p>
+                      <p className="text-sm">Your completed jobs will appear here</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -1352,61 +998,62 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="p-4 sm:p-8">
                 <div className="space-y-4">
-                  {dashboardData.bookings && dashboardData.bookings.map((booking) => (
-                    <div key={booking._id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-xs sm:text-sm">
-                              {getClientInitials(booking.customerName)}
+                  {dashboardData.bookings && dashboardData.bookings.length > 0 ? (
+                    dashboardData.bookings.map((booking) => (
+                      <div key={booking._id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                              <span className="text-white font-bold text-xs sm:text-sm">
+                                {getClientInitials(booking.customerName)}
+                              </span>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.serviceType}</h4>
+                              <p className="text-gray-600 text-xs sm:text-sm">{booking.customerName}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-xs sm:text-sm text-gray-600">{formatDate(booking.requestedAt)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-xs sm:text-sm text-gray-600">{booking.location}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg sm:text-xl font-bold text-green-600">{booking.budget}</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
+                              {booking.status}
                             </span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.serviceType}</h4>
-                            <p className="text-gray-600 text-xs sm:text-sm">{booking.customerName}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
-                              <span className="text-xs sm:text-sm text-gray-600">{formatDate(booking.requestedAt)}</span>
+                            <div className="mt-2 flex justify-end gap-2">
+                              <button 
+                                onClick={() => handleViewBooking(booking)}
+                                className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                                title="View Details"
+                              >
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleContactCustomer(booking, 'email')}
+                                className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                title="Send Email"
+                              >
+                                <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleContactCustomer(booking, 'phone')}
+                                className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                                title="Call Customer"
+                              >
+                                <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
-                              <span className="text-xs sm:text-sm text-gray-600">{booking.location}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg sm:text-xl font-bold text-green-600">{booking.budget}</p>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
-                            {booking.status}
-                          </span>
-                          <div className="mt-2 flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleViewBooking(booking)}
-                              className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleContactCustomer(booking, 'email')}
-                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Send Email"
-                            >
-                              <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleContactCustomer(booking, 'phone')}
-                              className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
-                              title="Call Customer"
-                            >
-                              <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                  {(!dashboardData.bookings || dashboardData.bookings.length === 0) && (
+                    ))
+                  ) : (
                     <div className="text-center py-8 text-gray-500">
                       <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                       <p className="font-medium">No bookings yet</p>
@@ -1440,25 +1087,26 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="p-4 sm:p-6">
                 <div className="space-y-3 sm:space-y-4">
-                  {schedule.map((task) => (
-                    <div key={task.id} className={`relative p-3 sm:p-4 rounded-xl sm:rounded-2xl border-l-4 ${getPriorityColor(task.priority)} transition-all duration-200 hover:shadow-md`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base sm:text-lg">{getCategoryIcon(task.category)}</span>
-                        <h4 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight">{task.title}</h4>
-                      </div>
-                      <p className="text-gray-600 text-xs sm:text-sm mb-3">{task.client}</p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-blue-600">
-                          <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span>{task.time}</span>
+                  {schedule && schedule.length > 0 ? (
+                    schedule.map((task) => (
+                      <div key={task.id} className={`relative p-3 sm:p-4 rounded-xl sm:rounded-2xl border-l-4 ${getPriorityColor(task.priority)} transition-all duration-200 hover:shadow-md`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-base sm:text-lg">{getCategoryIcon(task.category)}</span>
+                          <h4 className="font-bold text-gray-900 text-xs sm:text-sm leading-tight">{task.title}</h4>
                         </div>
-                        <span className="text-xs bg-white/80 text-gray-600 px-2 py-1 rounded-lg">
-                          {task.duration}
-                        </span>
+                        <p className="text-gray-600 text-xs sm:text-sm mb-3">{task.client}</p>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-blue-600">
+                            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <span>{task.time}</span>
+                          </div>
+                          <span className="text-xs bg-white/80 text-gray-600 px-2 py-1 rounded-lg">
+                            {task.duration}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {schedule.length === 0 && (
+                    ))
+                  ) : (
                     <div className="text-center py-6 sm:py-8 text-gray-500">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4">
                         <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
@@ -1792,56 +1440,28 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Update Status
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
-                      className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'confirmed'}
-                    >
-                      Accept
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
-                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'completed'}
-                    >
-                      Complete & Rate
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
-                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'cancelled'}
-                    >
-                      Cancel
-                    </button>
+                {selectedBooking.status === 'completed' && (
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Rating Status:</strong><br />
+                      Provider Rated: {selectedBooking.ratingStatus?.providerRated ? '✅' : '❌'}<br />
+                      Customer Rated: {selectedBooking.ratingStatus?.customerRated ? '✅' : '❌'}
+                    </p>
+                    {!selectedBooking.ratingStatus?.providerRated && (
+                      <button
+                        onClick={() => {
+                          setRatingBooking(selectedBooking);
+                          setRatingType('customer');
+                          setShowRatingModal(true);
+                          setShowBookingModal(false);
+                        }}
+                        className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                      >
+                        Rate Customer
+                      </button>
+                    )}
                   </div>
-                  {selectedBooking.status === 'completed' && (
-                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Rating Status:</strong><br />
-                        Provider Rated: {selectedBooking.ratingStatus?.providerRated ? '✅' : '❌'}<br />
-                        Customer Rated: {selectedBooking.ratingStatus?.customerRated ? '✅' : '❌'}
-                      </p>
-                      {!selectedBooking.ratingStatus?.providerRated && (
-                        <button
-                          onClick={() => {
-                            setRatingBooking(selectedBooking);
-                            setRatingType('customer');
-                            setShowRatingModal(true);
-                            setShowBookingModal(false);
-                          }}
-                          className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
-                        >
-                          Rate Customer
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
