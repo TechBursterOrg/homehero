@@ -40,6 +40,8 @@ const StandaloneMapView: React.FC<MapViewProps> = ({
   const mapContainerRef = useRef<HTMLElement | null>(null);
   const mapInitializedRef = useRef(false);
   const containerIdRef = useRef(`map-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  const infoWindowsRef = useRef<google.maps.InfoWindow[]>([]);
+  const markersRef = useRef<google.maps.Marker[]>([]);
 
   // Handle view profile navigation
   const handleViewProfile = useCallback((provider: Provider) => {
@@ -48,6 +50,16 @@ const StandaloneMapView: React.FC<MapViewProps> = ({
       state: { provider } 
     });
   }, [navigate]);
+
+  // Close all info windows
+  const closeAllInfoWindows = useCallback(() => {
+    infoWindowsRef.current.forEach(window => {
+      if (window) {
+        window.close();
+      }
+    });
+    infoWindowsRef.current = [];
+  }, []);
 
   // Create and initialize map with guaranteed DOM insertion
   const initializeMap = useCallback(async () => {
@@ -240,6 +252,224 @@ const StandaloneMapView: React.FC<MapViewProps> = ({
     }
   }, [userLocation, providers.length, searchRadius]);
 
+  // Create markers for all providers
+  const createMarkers = useCallback(() => {
+    if (!window.google?.maps || !googleMapsService.getMap()) {
+      console.log('⚠️ Google Maps not ready for markers');
+      return;
+    }
+
+    try {
+      console.log('📍 Creating markers for', providers.length, 'providers');
+      
+      // Clear existing markers and info windows
+      markersRef.current.forEach(marker => {
+        if (marker) {
+          marker.setMap(null);
+        }
+      });
+      markersRef.current = [];
+      
+      closeAllInfoWindows();
+
+      const bounds = new window.google.maps.LatLngBounds();
+      let hasValidLocations = false;
+      let markersCreated = 0;
+
+      providers.forEach((provider) => {
+        if (provider.coordinates && provider.coordinates.length === 2) {
+          const position: LatLngLiteral = {
+            lat: provider.coordinates[0],
+            lng: provider.coordinates[1]
+          };
+
+          console.log(`📍 Creating marker for provider: ${provider.name} at`, position);
+
+          // Extend bounds
+          bounds.extend(position);
+          hasValidLocations = true;
+          markersCreated++;
+
+          // Create custom marker with profile picture
+          const profileImageUrl = provider.profileImage || provider.profilePicture || provider.avatar;
+          const fullImageUrl = profileImageUrl?.startsWith('http') 
+            ? profileImageUrl 
+            : profileImageUrl?.startsWith('/') 
+              ? `${API_BASE_URL}${profileImageUrl}`
+              : profileImageUrl;
+
+          // Create marker
+          const marker = new window.google.maps.Marker({
+            position: position,
+            map: googleMapsService.getMap(),
+            title: provider.name,
+            icon: {
+              url: `data:image/svg+xml;base64,${btoa(`
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="20" cy="20" r="18" fill="${provider.isAvailableNow ? '#10B981' : '#6B7280'}" stroke="white" stroke-width="3"/>
+                  <circle cx="20" cy="20" r="8" fill="white"/>
+                  ${selectedProvider?.id === provider.id ? `<circle cx="20" cy="20" r="4" fill="${provider.isAvailableNow ? '#10B981' : '#6B7280'}"/>` : ''}
+                </svg>
+              `)}`,
+              scaledSize: new window.google.maps.Size(40, 40),
+              anchor: new window.google.maps.Point(20, 20)
+            },
+            animation: selectedProvider?.id === provider.id ? window.google.maps.Animation.BOUNCE : undefined
+          });
+
+          markersRef.current.push(marker);
+
+          // Create info window with close functionality
+          const infoWindow = new window.google.maps.InfoWindow({
+            content: `
+              <div class="p-4 max-w-xs bg-white rounded-lg shadow-lg">
+                <div class="flex justify-between items-start mb-3">
+                  <h3 class="font-bold text-gray-900 text-lg">${provider.name}</h3>
+                  <button id="close-info-${provider.id}" class="text-gray-400 hover:text-gray-600 text-lg font-bold cursor-pointer" style="border: none; background: none; outline: none;">
+                    ×
+                  </button>
+                </div>
+                <div class="flex items-center space-x-3 mb-3">
+                  <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold overflow-hidden">
+                    ${fullImageUrl ? 
+                      `<img src="${fullImageUrl}" 
+                            alt="${provider.name}" 
+                            class="w-full h-full object-cover"
+                            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                      >` : 
+                      ''
+                    }
+                    <div class="absolute inset-0 flex items-center justify-center ${fullImageUrl ? 'hidden' : 'flex'}">
+                      ${provider.name.charAt(0)}
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <p class="text-sm text-gray-600">${provider.services?.slice(0, 2).join(', ') || 'Service Provider'}</p>
+                    <div class="flex items-center space-x-1 mt-1">
+                      <span class="text-yellow-500">★</span>
+                      <span class="text-sm font-medium">${(provider.rating || provider.averageRating || 0).toFixed(1)}</span>
+                      <span class="text-xs text-gray-500">(${provider.reviewCount || 0})</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm text-gray-600">Price Range</p>
+                    <p class="font-bold text-green-600">${provider.priceRange || 'Contact for pricing'}</p>
+                  </div>
+                  <button id="view-profile-${provider.id}" class="text-blue-600 hover:text-blue-700 text-sm font-medium cursor-pointer" style="border: none; background: none; outline: none;">
+                    View Profile
+                  </button>
+                </div>
+                ${provider.isAvailableNow ? `
+                  <div class="flex items-center space-x-1 mt-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-sm text-green-600 font-medium">Available Now</span>
+                  </div>
+                ` : ''}
+              </div>
+            `
+          });
+
+          infoWindowsRef.current.push(infoWindow);
+
+          // Add click listener to marker
+          marker.addListener('click', () => {
+            console.log('📍 Marker clicked for provider:', provider.name);
+            
+            // Close all other info windows
+            closeAllInfoWindows();
+            
+            // Select the provider
+            onProviderSelect(provider);
+            
+            // Center map on selected provider
+            googleMapsService.setMapCenter(position, 15);
+            
+            // Open info window
+            infoWindow.open(googleMapsService.getMap(), marker);
+            
+            // Add event listeners after the info window is opened
+            setTimeout(() => {
+              // Close button
+              const closeButton = document.getElementById(`close-info-${provider.id}`);
+              if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                  infoWindow.close();
+                });
+              }
+              
+              // View profile button
+              const viewProfileButton = document.getElementById(`view-profile-${provider.id}`);
+              if (viewProfileButton) {
+                viewProfileButton.addEventListener('click', () => {
+                  handleViewProfile(provider);
+                  infoWindow.close();
+                });
+              }
+            }, 100);
+          });
+        } else {
+          console.warn(`❌ Provider ${provider.name} missing coordinates:`, provider.coordinates);
+        }
+      });
+
+      console.log(`✅ Created ${markersCreated} markers out of ${providers.length} providers`);
+
+      // Fit bounds if we have locations
+      if (hasValidLocations) {
+        if (providers.length > 1) {
+          googleMapsService.fitBounds(bounds);
+        } else if (providers.length === 1) {
+          googleMapsService.setMapCenter({
+            lat: providers[0].coordinates![0],
+            lng: providers[0].coordinates![1]
+          }, 14);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating markers:', error);
+    }
+  }, [providers, selectedProvider, onProviderSelect, handleViewProfile, closeAllInfoWindows]);
+
+  // Update markers when providers change and map is ready
+  useEffect(() => {
+    if (!isGoogleMapsLoaded || !mapInitialized || !window.google?.maps) {
+      return;
+    }
+
+    if (providers.length === 0) {
+      markersRef.current.forEach(marker => {
+        if (marker) {
+          marker.setMap(null);
+        }
+      });
+      markersRef.current = [];
+      closeAllInfoWindows();
+      return;
+    }
+
+    createMarkers();
+  }, [isGoogleMapsLoaded, mapInitialized, providers, createMarkers, closeAllInfoWindows]);
+
+  // Handle profile navigation from info windows
+  useEffect(() => {
+    const handleProfileNavigation = (event: CustomEvent) => {
+      const providerId = event.detail;
+      const provider = providers.find(p => p.id === providerId || p._id === providerId);
+      if (provider) {
+        handleViewProfile(provider);
+      }
+    };
+
+    window.addEventListener('providerViewProfile', handleProfileNavigation as EventListener);
+    
+    return () => {
+      window.removeEventListener('providerViewProfile', handleProfileNavigation as EventListener);
+    };
+  }, [providers, handleViewProfile]);
+
   // Initialize when component mounts
   useEffect(() => {
     mountedRef.current = true;
@@ -265,135 +495,18 @@ const StandaloneMapView: React.FC<MapViewProps> = ({
         mapSection.remove();
       }
       
-      googleMapsService.clearMarkers();
-      googleMapsService.destroy();
-    };
-  }, [initializeMap]);
-
-  // Update markers when providers change and map is ready
-  useEffect(() => {
-    if (!isGoogleMapsLoaded || !mapInitialized || !window.google?.maps) {
-      return;
-    }
-
-    if (providers.length === 0) {
-      googleMapsService.clearMarkers();
-      return;
-    }
-
-    try {
-      console.log('📍 Creating markers for', providers.length, 'providers');
-      
-      googleMapsService.clearMarkers();
-
-      const bounds = new window.google.maps.LatLngBounds();
-      let hasValidLocations = false;
-
-      providers.forEach((provider) => {
-        if (provider.coordinates && provider.coordinates.length === 2) {
-          const position: LatLngLiteral = {
-            lat: provider.coordinates[0],
-            lng: provider.coordinates[1]
-          };
-
-          // Extend bounds
-          bounds.extend(position);
-          hasValidLocations = true;
-
-          // Create marker
-          const marker = googleMapsService.addProviderMarker(
-            provider,
-            selectedProvider?.id === provider.id,
-            onProviderSelect
-          );
-
-          // Add info window with profile picture
-          if (marker) {
-            const profileImageUrl = provider.profileImage || provider.profilePicture || provider.avatar;
-            const fullImageUrl = profileImageUrl?.startsWith('http') 
-              ? profileImageUrl 
-              : profileImageUrl?.startsWith('/') 
-                ? `${API_BASE_URL}${profileImageUrl}`
-                : profileImageUrl;
-
-            const infoWindow = new window.google.maps.InfoWindow({
-              content: `
-                <div class="p-4 max-w-xs">
-                  <div class="flex items-center space-x-3 mb-3">
-                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold overflow-hidden">
-                      ${fullImageUrl ? 
-                        `<img src="${fullImageUrl}" 
-                              alt="${provider.name}" 
-                              class="w-full h-full object-cover"
-                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                        >` : 
-                        ''
-                      }
-                      <div class="absolute inset-0 flex items-center justify-center ${fullImageUrl ? 'hidden' : 'flex'}">
-                        ${provider.name.charAt(0)}
-                      </div>
-                    </div>
-                    <div>
-                      <h3 class="font-bold text-gray-900">${provider.name}</h3>
-                      <p class="text-sm text-gray-600">${provider.services?.slice(0, 2).join(', ') || 'Service Provider'}</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-1">
-                      <span class="text-yellow-500">★</span>
-                      <span class="text-sm font-medium">${(provider.rating || provider.averageRating || 0).toFixed(1)}</span>
-                    </div>
-                    <button onclick="window.dispatchEvent(new CustomEvent('providerViewProfile', { detail: '${provider.id}' }))" 
-                            class="text-blue-600 hover:text-blue-700 text-sm font-medium">
-                      View Profile
-                    </button>
-                  </div>
-                </div>
-              `
-            });
-
-            marker.addListener('click', () => {
-              onProviderSelect(provider);
-              googleMapsService.setMapCenter(position, 15);
-              infoWindow.open(marker.getMap(), marker);
-            });
-          }
+      // Clean up markers and info windows
+      markersRef.current.forEach(marker => {
+        if (marker) {
+          marker.setMap(null);
         }
       });
-
-      // Fit bounds if we have locations
-      if (hasValidLocations) {
-        if (providers.length > 1) {
-          googleMapsService.fitBounds(bounds);
-        } else if (providers.length === 1) {
-          googleMapsService.setMapCenter({
-            lat: providers[0].coordinates![0],
-            lng: providers[0].coordinates![1]
-          }, 14);
-        }
-      }
-
-    } catch (error) {
-      console.error('Error creating markers:', error);
-    }
-  }, [isGoogleMapsLoaded, mapInitialized, providers, selectedProvider, onProviderSelect]);
-
-  // Handle profile navigation from info windows
-  useEffect(() => {
-    const handleProfileNavigation = (event: CustomEvent) => {
-      const providerId = event.detail;
-      const provider = providers.find(p => p.id === providerId || p._id === providerId);
-      if (provider) {
-        handleViewProfile(provider);
-      }
+      markersRef.current = [];
+      
+      closeAllInfoWindows();
+      googleMapsService.destroy();
     };
-
-    window.addEventListener('providerViewProfile', handleProfileNavigation as EventListener);
-    
-    return () => {
-      window.removeEventListener('providerViewProfile', handleProfileNavigation as EventListener);
-    };
-  }, [providers, handleViewProfile]);
+  }, [initializeMap, closeAllInfoWindows]);
 
   const handleRetry = () => {
     console.log('🔄 Retrying map initialization...');

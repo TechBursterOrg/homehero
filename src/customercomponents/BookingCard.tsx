@@ -432,6 +432,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </button>
             )}
 
+            {/* Rating Section - Mobile */}
             {booking.status === 'completed' && (
               <div className="flex items-center gap-2">
                 {isRated ? (
@@ -667,6 +668,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   </button>
                 )}
 
+                {/* Rating Section - Desktop */}
                 {booking.status === 'completed' && (
                   <div className="flex items-center gap-2">
                     {isRated ? (

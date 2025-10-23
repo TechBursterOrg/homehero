@@ -1,3 +1,4 @@
+// utils/googleMaps.ts
 export interface LatLngLiteral {
   lat: number;
   lng: number;
@@ -10,7 +11,6 @@ class GoogleMapsService {
   private static instance: GoogleMapsService;
   private isLoaded = false;
   private loadPromise: Promise<boolean> | null = null;
-  private isInitializing = false;
 
   public static getInstance(): GoogleMapsService {
     if (!GoogleMapsService.instance) {
@@ -98,6 +98,7 @@ class GoogleMapsService {
     return this.loadPromise;
   }
 
+  // ... rest of the GoogleMapsService methods remain the same
   initializeMap(container: HTMLElement, options: any = {}): google.maps.Map {
     if (!this.isLoaded || !window.google?.maps) {
       throw new Error('Google Maps not loaded. Call loadGoogleMaps() first.');

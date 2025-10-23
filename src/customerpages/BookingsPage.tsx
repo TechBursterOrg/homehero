@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, CheckCircle, Star, MoreVertical, ArrowRight, Plus, X } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
 import { bookings as mockBookings } from '../data/mockData';
+import RatingModal from '../customercomponents/RatingModal';
 
 // Define a more complete Booking type that matches your API response
 interface ApiBooking {
@@ -149,6 +150,8 @@ const BookingsPage: React.FC = () => {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<ApiBooking | null>(null);
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [selectedBookingForRating, setSelectedBookingForRating] = useState<ApiBooking | null>(null);
   const [rescheduleForm, setRescheduleForm] = useState<RescheduleFormData>({
     newDate: '',
     newTime: '',
@@ -315,7 +318,97 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const handleRateProvider = async (bookingId: string, rating: number, comment?: string) => {
+ const handleRateProvider = async (bookingId: string, rating: number, comment?: string) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
+    // Try different field name combinations
+    const requestBodyVariations = [
+      {
+        booking: bookingId,
+        rating: rating,
+        review: comment || ''
+      },
+      {
+        bookingId: bookingId,
+        rating: rating,
+        review: comment || ''
+      },
+      {
+        booking_id: bookingId,
+        rating_value: rating,
+        comment_text: comment || ''
+      },
+      {
+        booking: bookingId,
+        score: rating,
+        feedback: comment || ''
+      }
+    ];
+
+    let lastError;
+    
+    for (const requestBody of requestBodyVariations) {
+      try {
+        console.log('Trying request body:', requestBody);
+
+        const response = await fetch(`${API_BASE_URL}/api/ratings/customer`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        const responseText = await response.text();
+        console.log('Response for variation:', requestBody, response.status, responseText);
+
+        if (response.ok) {
+          const result = JSON.parse(responseText);
+          if (result.success) {
+            // Update the local state to reflect the rating
+            setBookings(prevBookings => 
+              prevBookings.map(booking => 
+                booking._id === bookingId 
+                  ? { 
+                      ...booking, 
+                      rating,
+                      ratingStatus: { 
+                        customerRated: true,
+                        providerRated: booking.ratingStatus?.providerRated || false
+                      } 
+                    }
+                  : booking
+              )
+            );
+            alert('Rating submitted successfully!');
+            return;
+          }
+        }
+      } catch (error) {
+        lastError = error;
+        console.log('Variation failed:', requestBody, error);
+        // Continue to next variation
+      }
+    }
+
+    throw lastError || new Error('All field name variations failed');
+
+  } catch (error) {
+    console.error('Error submitting rating:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+    setError(errorMessage);
+    alert(`Failed to submit rating: ${errorMessage}`);
+  }
+};
+
+  const handleProviderRating = async (bookingId: string, rating: number, comment?: string) => {
     try {
       const token = localStorage.getItem('authToken');
       
@@ -323,24 +416,47 @@ const BookingsPage: React.FC = () => {
         throw new Error('Authentication required');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/ratings/customer`, {
+      console.log('Sending provider rating request...', {
+        bookingId,
+        rating,
+        comment
+      });
+
+      const requestBody = {
+        bookingId,
+        rating,
+        comment: comment || ''
+      };
+
+      console.log('Request body:', requestBody);
+
+      const response = await fetch(`${API_BASE_URL}/api/ratings/provider`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          bookingId,
-          rating,
-          comment: comment || ''
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to submit rating');
-      }
+      console.log('Response status:', response.status);
 
-      const result = await response.json();
+      // First, try to get the response text to see what's coming back
+      const responseText = await response.text();
+      console.log('Raw response:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error(`Server returned invalid JSON: ${responseText}`);
+      }
+      
+      if (!response.ok) {
+        throw new Error(result.message || `HTTP error! status: ${response.status}`);
+      }
       
       if (result.success) {
         // Update the local state to reflect the rating
@@ -349,23 +465,24 @@ const BookingsPage: React.FC = () => {
             booking._id === bookingId 
               ? { 
                   ...booking, 
-                  rating,
                   ratingStatus: { 
-                    customerRated: true,
-                    providerRated: booking.ratingStatus?.providerRated || false
+                    customerRated: booking.ratingStatus?.customerRated || false,
+                    providerRated: true
                   } 
                 }
               : booking
           )
         );
         
-        alert('Rating submitted successfully!');
+        alert('Customer rated successfully!');
       } else {
         throw new Error(result.message || 'Failed to submit rating');
       }
     } catch (error) {
-      console.error('Error submitting rating:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred');
+      console.error('Error submitting provider rating:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred';
+      setError(errorMessage);
+      alert(`Failed to submit rating: ${errorMessage}`);
     }
   };
 
@@ -551,296 +668,260 @@ const BookingsPage: React.FC = () => {
   const cardBookings = filteredBookings.map(convertApiBookingToCardFormat);
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Header Section with Background */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-3xl p-8">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400 to-pink-600 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
-        </div>
-        
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Calendar className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Enhanced Header Section with Background */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-3xl p-8 mb-8">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+            <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-purple-400 to-pink-600 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+          </div>
+          
+          <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <Calendar className="w-6 h-6 text-white" />
+                </div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                  My Bookings
+                </h1>
               </div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
-                My Bookings
-              </h1>
-            </div>
-            <p className="text-gray-700 text-lg font-medium max-w-md">
-              Manage your service appointments and track your booking history
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button 
-              onClick={handleViewCalendar}
-              className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold"
-            >
-              <Calendar className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
-              <span>View Calendar</span>
-            </button>
-            
-            <button 
-              onClick={handleBookNewService}
-              className="group bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg"
-            >
-              <Plus className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-              <span>Book New Service</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* All Bookings */}
-        <div 
-          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
-            filter === 'all' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleFilterChange('all')}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
-          
-          <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <Calendar className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-300">{bookings.length}</p>
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-          
-          <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">All Bookings</h3>
-            <p className="text-xs text-gray-600">Total service appointments</p>
-          </div>
-        </div>
-
-        {/* Upcoming Bookings */}
-        <div 
-          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
-            filter === 'upcoming' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleFilterChange('upcoming')}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
-          
-          <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <CheckCircle className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-300">{upcomingBookings.length}</p>
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-          
-          <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Upcoming</h3>
-            <p className="text-xs text-gray-600">
-              {upcomingBookings.length > 0 ? 
-                `Next: ${new Date(upcomingBookings[0].requestedAt).toLocaleDateString()}` : 
-                'No upcoming bookings'}
-            </p>
-          </div>
-        </div>
-
-        {/* Completed Bookings */}
-        <div 
-          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
-            filter === 'completed' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleFilterChange('completed')}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400/10 to-green-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
-          
-          <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <CheckCircle className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors duration-300">{completedBookings.length}</p>
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-            </div>
-          </div>
-          
-          <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Completed</h3>
-            <p className="text-xs text-gray-600">100% success rate</p>
-          </div>
-        </div>
-
-        {/* Cancelled Bookings */}
-        <div 
-          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-sm border border-gray-100/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 overflow-hidden cursor-pointer ${
-            filter === 'cancelled' ? 'ring-2 ring-blue-500' : ''
-          }`}
-          onClick={() => handleFilterChange('cancelled')}
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-400/10 to-pink-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
-          
-          <div className="relative flex items-start justify-between mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:rotate-12 transition-all duration-500">
-              <CheckCircle className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-red-600 transition-colors duration-300">{cancelledBookings.length}</p>
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            </div>
-          </div>
-          
-          <div className="relative">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Cancelled</h3>
-            <p className="text-xs text-gray-600">Cancelled appointments</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Filter Buttons */}
-      <div className="flex flex-wrap gap-2 justify-center">
-        <button
-          onClick={() => handleFilterChange('all')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-            filter === 'all'
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          All Bookings
-        </button>
-        <button
-          onClick={() => handleFilterChange('upcoming')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-            filter === 'upcoming'
-              ? 'bg-green-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Upcoming
-        </button>
-        <button
-          onClick={() => handleFilterChange('completed')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-            filter === 'completed'
-              ? 'bg-emerald-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Completed
-        </button>
-        <button
-          onClick={() => handleFilterChange('cancelled')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-            filter === 'cancelled'
-              ? 'bg-red-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          Cancelled
-        </button>
-      </div>
-
-      {/* Enhanced Bookings List */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {filter === 'all' && 'All Bookings'}
-              {filter === 'upcoming' && 'Upcoming Bookings'}
-              {filter === 'completed' && 'Completed Bookings'}
-              {filter === 'cancelled' && 'Cancelled Bookings'}
-            </h2>
-            <p className="text-gray-600 mt-1">
-              {filter === 'all' && 'All your service appointments'}
-              {filter === 'upcoming' && 'Your upcoming service appointments'}
-              {filter === 'completed' && 'Completed service appointments'}
-              {filter === 'cancelled' && 'Cancelled service appointments'}
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select 
-                value={filter}
-                onChange={(e) => handleFilterChange(e.target.value as any)}
-                className="appearance-none bg-white border border-gray-200 rounded-2xl px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-              >
-                <option value="all">All Bookings</option>
-                <option value="upcoming">Upcoming</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <MoreVertical className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        {/* Bookings Cards with Enhanced Animation */}
-        <div className="space-y-4">
-          {cardBookings.length === 0 ? (
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
-              <p className="text-gray-600 mb-6">
-                {filter === 'all' 
-                  ? "You haven't made any service bookings yet."
-                  : `No ${filter} bookings found.`
-                }
+              <p className="text-gray-700 text-lg font-medium max-w-md">
+                Manage your service appointments and track your booking history
               </p>
-              {filter !== 'all' && (
-                <button 
-                  onClick={() => handleFilterChange('all')}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-2"
-                >
-                  View All Bookings
-                </button>
-              )}
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button 
+                onClick={handleViewCalendar}
+                className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold"
+              >
+                <Calendar className="w-5 h-5 group-hover:rotate-12 transition-transform duration-300" />
+                <span>View Calendar</span>
+              </button>
+              
               <button 
                 onClick={handleBookNewService}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="group bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg"
               >
-                Book Your First Service
+                <Plus className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                <span>Book New Service</span>
               </button>
             </div>
-          ) : (
-            cardBookings.map((booking, index) => (
-              <div
-                key={booking.id}
-                className="animate-in fade-in slide-in-from-bottom-4 duration-700"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <BookingCard
-                  booking={booking}
-                  onReschedule={(id) => handleBookingAction(id, 'reschedule')}
-                  onCancel={(id) => handleBookingAction(id, 'cancel')}
-                  onContact={(id, method) => handleBookingAction(id, `contact-${method}`)}
-                  onViewDetails={(id) => handleViewDetails(id)}
-                  onRateProvider={handleRateProvider}
-                />
-              </div>
-            ))
-          )}
+          </div>
         </div>
 
-        {/* Load More Button */}
-        {cardBookings.length > 0 && (
-          <div className="flex justify-center pt-8">
-            <button className="group bg-gradient-to-r from-gray-100 to-gray-200 hover:from-blue-50 hover:to-purple-50 text-gray-700 hover:text-blue-700 px-8 py-3 rounded-2xl border border-gray-200 hover:border-blue-200 transition-all duration-300 flex items-center space-x-3 font-semibold hover:shadow-lg">
-              <span>Load More Bookings</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
-            </button>
+        {/* Enhanced Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* All Bookings */}
+          <div 
+            className={`group relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer ${
+              filter === 'all' ? 'ring-2 ring-blue-500 shadow-lg' : ''
+            }`}
+            onClick={() => handleFilterChange('all')}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+            
+            <div className="relative flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-500">
+                <Calendar className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">{bookings.length}</p>
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse mt-1"></div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">All Bookings</h3>
+              <p className="text-xs text-gray-600">Total service appointments</p>
+            </div>
           </div>
-        )}
+
+          {/* Upcoming Bookings */}
+          <div 
+            className={`group relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer ${
+              filter === 'upcoming' ? 'ring-2 ring-green-500 shadow-lg' : ''
+            }`}
+            onClick={() => handleFilterChange('upcoming')}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+            
+            <div className="relative flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-500">
+                <CheckCircle className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">{upcomingBookings.length}</p>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mt-1"></div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">Upcoming</h3>
+              <p className="text-xs text-gray-600">
+                {upcomingBookings.length > 0 ? 
+                  `Next: ${new Date(upcomingBookings[0].requestedAt).toLocaleDateString()}` : 
+                  'No upcoming bookings'}
+              </p>
+            </div>
+          </div>
+
+          {/* Completed Bookings */}
+          <div 
+            className={`group relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer ${
+              filter === 'completed' ? 'ring-2 ring-emerald-500 shadow-lg' : ''
+            }`}
+            onClick={() => handleFilterChange('completed')}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-400/10 to-green-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+            
+            <div className="relative flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-500">
+                <CheckCircle className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">{completedBookings.length}</p>
+                <div className="w-2 h-2 bg-emerald-500 rounded-full mt-1"></div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">Completed</h3>
+              <p className="text-xs text-gray-600">Successfully completed services</p>
+            </div>
+          </div>
+
+          {/* Cancelled Bookings */}
+          <div 
+            className={`group relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 overflow-hidden cursor-pointer ${
+              filter === 'cancelled' ? 'ring-2 ring-red-500 shadow-lg' : ''
+            }`}
+            onClick={() => handleFilterChange('cancelled')}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-pink-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-red-400/10 to-pink-400/10 rounded-full transform translate-x-8 -translate-y-8"></div>
+            
+            <div className="relative flex items-start justify-between mb-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-all duration-500">
+                <CheckCircle className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-gray-900">{cancelledBookings.length}</p>
+                <div className="w-2 h-2 bg-red-500 rounded-full mt-1"></div>
+              </div>
+            </div>
+            
+            <div className="relative">
+              <h3 className="text-sm font-bold text-gray-900 mb-1">Cancelled</h3>
+              <p className="text-xs text-gray-600">Cancelled appointments</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Bookings List */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {filter === 'all' && 'All Bookings'}
+                  {filter === 'upcoming' && 'Upcoming Bookings'}
+                  {filter === 'completed' && 'Completed Bookings'}
+                  {filter === 'cancelled' && 'Cancelled Bookings'}
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  {filter === 'all' && 'All your service appointments'}
+                  {filter === 'upcoming' && 'Your upcoming service appointments'}
+                  {filter === 'completed' && 'Completed service appointments'}
+                  {filter === 'cancelled' && 'Cancelled service appointments'}
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  {(['all', 'upcoming', 'completed', 'cancelled'] as const).map((filterType) => (
+                    <button
+                      key={filterType}
+                      onClick={() => handleFilterChange(filterType)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
+                        filter === filterType
+                          ? 'bg-white text-gray-900 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* Bookings Cards with Enhanced Animation */}
+            <div className="space-y-4">
+              {cardBookings.length === 0 ? (
+                <div className="text-center py-12">
+                  <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No bookings found</h3>
+                  <p className="text-gray-600 mb-6">
+                    {filter === 'all' 
+                      ? "You haven't made any service bookings yet."
+                      : `No ${filter} bookings found.`
+                    }
+                  </p>
+                  {filter !== 'all' && (
+                    <button 
+                      onClick={() => handleFilterChange('all')}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors mr-2"
+                    >
+                      View All Bookings
+                    </button>
+                  )}
+                  <button 
+                    onClick={handleBookNewService}
+                    className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Book Your First Service
+                  </button>
+                </div>
+              ) : (
+                cardBookings.map((booking, index) => (
+                  <div
+                    key={booking.id}
+                    className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <BookingCard
+                      booking={booking}
+                      onReschedule={(id) => handleBookingAction(id, 'reschedule')}
+                      onCancel={(id) => handleBookingAction(id, 'cancel')}
+                      onContact={(id, method) => handleBookingAction(id, `contact-${method}`)}
+                      onViewDetails={(id) => handleViewDetails(id)}
+                      onRateProvider={handleRateProvider}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Load More Button */}
+            {cardBookings.length > 0 && (
+              <div className="flex justify-center pt-8">
+                <button className="group bg-gray-50 text-gray-700 hover:text-blue-700 px-8 py-3 rounded-xl border border-gray-200 hover:border-blue-200 transition-all duration-300 flex items-center space-x-3 font-medium hover:shadow-sm">
+                  <span>Load More Bookings</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Reschedule Modal */}
@@ -1204,7 +1285,8 @@ const BookingsPage: React.FC = () => {
                       <button
                         onClick={() => {
                           setShowDetailsModal(false);
-                          handleRateProvider(selectedBooking._id, 5); // Default 5 stars
+                          setSelectedBookingForRating(selectedBooking);
+                          setRatingModalOpen(true);
                         }}
                         className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium"
                       >
@@ -1217,6 +1299,24 @@ const BookingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Rating Modal */}
+      {ratingModalOpen && selectedBookingForRating && (
+        <RatingModal
+          isOpen={ratingModalOpen}
+          booking={selectedBookingForRating}
+          onClose={() => {
+            setRatingModalOpen(false);
+            setSelectedBookingForRating(null);
+          }}
+          onSubmit={async (rating, comment) => {
+            await handleRateProvider(selectedBookingForRating._id, rating, comment);
+            setRatingModalOpen(false);
+            setSelectedBookingForRating(null);
+          }}
+          type="provider"
+        />
       )}
     </div>
   );
