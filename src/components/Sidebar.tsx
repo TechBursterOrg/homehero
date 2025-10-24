@@ -237,7 +237,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         fixed lg:relative inset-y-0 left-0 z-50 w-64 bg-white shadow-xl flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-        border-r border-gray-200
+        border-r border-gray-200 overflow-y-auto
       `}>
         {/* Logo & Close Button */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
@@ -246,8 +246,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               <Home className="w-6 h-6 text-white" />
             </div>
             <div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                HomeHeroes
+              <span className="text-md font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+                Home Heroes
               </span>
               <p className="text-xs text-gray-500 mt-1">Service Provider</p>
             </div>
