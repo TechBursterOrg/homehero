@@ -1168,25 +1168,8 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-3">Unable to load providers</h3>
         <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">{error}</p>
-        <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
-          API: {API_BASE_URL}/api/providers
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={handleRetry}
-            disabled={loading}
-            className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 justify-center"
-          >
-            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
-            Try Again with Fallback
-          </button>
-          <button
-            onClick={handleShowSampleData}
-            className="bg-white border-2 border-gray-200 text-gray-700 px-8 py-4 rounded-2xl font-semibold hover:border-gray-300 hover:bg-gray-50 transition-all duration-300"
-          >
-            Show Sample Data
-          </button>
-        </div>
+        
+        
       </div>
     );
   }

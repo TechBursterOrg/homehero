@@ -282,22 +282,22 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-100">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-200px)] flex">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 lg:py-8">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-16px)] sm:h-[calc(100vh-80px)] lg:h-[calc(100vh-200px)] flex">
           {/* Conversations List */}
           <div className={`w-full lg:w-2/5 border-r border-gray-200 flex flex-col ${
             showChatArea ? 'hidden lg:flex' : 'flex'
           }`}>
-            <div className="p-6 border-b border-gray-200 bg-white/50">
+            <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white/50">
               <div className="space-y-4">
                 <div className="relative">
-                  <Search className="w-5 h-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search conversations..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                    className="w-full pl-9 sm:pl-12 pr-3 sm:pr-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -310,12 +310,12 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                 </div>
               ) : filteredConversations.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 px-4">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="font-medium">No conversations found</p>
-                  <p className="text-sm">Try adjusting your search</p>
+                  <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="font-medium text-sm sm:text-base">No conversations found</p>
+                  <p className="text-xs sm:text-sm">Try adjusting your search</p>
                 </div>
               ) : (
-                <div className="space-y-2 p-2">
+                <div className="space-y-1 sm:space-y-2 p-2">
                   {filteredConversations.map((conversation) => {
                     const otherParticipant = getOtherParticipant(conversation);
                     const participantType = getParticipantType(otherParticipant);
@@ -324,42 +324,42 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       <button
                         key={conversation._id}
                         onClick={() => handleSelectConversation(conversation)}
-                        className={`w-full p-4 rounded-2xl text-left transition-all duration-300 group ${
+                        className={`w-full p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left transition-all duration-300 group ${
                           selectedConversation?._id === conversation._id 
                             ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm' 
                             : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:shadow-sm'
                         }`}
                       >
-                        <div className="flex items-start space-x-4">
+                        <div className="flex items-start space-x-3 sm:space-x-4">
                           <div className="relative flex-shrink-0">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
+                            <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-bold text-base sm:text-lg ${
                               'bg-gradient-to-br from-blue-500 to-purple-600'
                             }`}>
                               {otherParticipant?.name?.charAt(0) || 'U'}
                             </div>
-                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
+                            <div className={`absolute -bottom-0.5 -right-0.5 sm:-bottom-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 rounded-full border-2 border-white ${
                               'bg-blue-500'
                             }`}></div>
                           </div>
                           
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                            <div className="flex items-center justify-between mb-1 sm:mb-2">
+                              <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                                <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate text-sm sm:text-base">
                                   {otherParticipant?.name || 'Unknown User'}
                                 </h4>
-                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                <span className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0 ${
                                   'bg-blue-100 text-blue-800'
                                 }`}>
                                   Customer
                                 </span>
                               </div>
-                              <span className="text-xs text-gray-500 flex-shrink-0">
+                              <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                                 {conversation.lastMessage && getLastMessageTime(conversation.lastMessage.timestamp)}
                               </span>
                             </div>
                             
-                            <p className="text-sm text-gray-600 truncate">
+                            <p className="text-xs sm:text-sm text-gray-600 truncate">
                               {conversation.lastMessage?.content || 'No messages yet'}
                             </p>
                           </div>
@@ -378,9 +378,9 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
           }`}>
             {selectedConversation ? (
               <>
-                <div className="p-6 border-b border-gray-200 bg-white/50">
+                <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white/50">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 min-w-0 flex-1">
+                    <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
                       <button
                         onClick={handleBackToList}
                         className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
@@ -389,7 +389,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       </button>
                       
                       <div className="relative flex-shrink-0">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-bold text-base sm:text-lg ${
                           'bg-gradient-to-br from-blue-500 to-purple-600'
                         }`}>
                           {getOtherParticipant(selectedConversation)?.name?.charAt(0) || 'U'}
@@ -397,17 +397,17 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       </div>
                       
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-gray-900 text-lg truncate">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <h3 className="font-bold text-gray-900 text-base sm:text-lg truncate">
                             {getOtherParticipant(selectedConversation)?.name || 'Unknown User'}
                           </h3>
-                          <span className={`text-xs px-2 py-1 rounded-full ${
+                          <span className={`text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full flex-shrink-0 ${
                             'bg-blue-100 text-blue-800'
                           }`}>
                             Customer
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                           <span className={`w-2 h-2 rounded-full ${
                             'bg-blue-500'
                           }`}></span>
@@ -416,28 +416,28 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button className="w-12 h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                        <Phone className="w-5 h-5" />
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <button className="w-9 h-9 sm:w-12 sm:h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-200">
+                        <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
-                      <button className="w-12 h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                        <Video className="w-5 h-5" />
+                      <button className="w-9 h-9 sm:w-12 sm:h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-200">
+                        <Video className="w-4 h-4 sm:w-5 sm:h-5" />
                       </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages Area - SIMPLE ALIGNMENT */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
                   ) : messages.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
-                      <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="font-medium">No messages yet</p>
-                      <p className="text-sm">Start a conversation by sending a message</p>
+                      <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+                      <p className="font-medium text-sm sm:text-base">No messages yet</p>
+                      <p className="text-xs sm:text-sm">Start a conversation by sending a message</p>
                     </div>
                   ) : (
                     messages.map((message) => {
@@ -451,7 +451,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                           key={message._id}
                           className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`max-w-md px-4 py-3 rounded-2xl shadow-sm relative ${messageStyle}`}>
+                          <div className={`max-w-[85%] sm:max-w-md px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm relative ${messageStyle}`}>
                             {/* Show sender label only for customer messages */}
                             {alignment === 'left' && (
                               <div className="flex items-center gap-2 mb-1">
@@ -461,8 +461,8 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                               </div>
                             )}
                             
-                            <p className="text-sm leading-relaxed">{message.content}</p>
-                            <div className={`flex items-center justify-end mt-2 text-xs gap-1 ${
+                            <p className="text-xs sm:text-sm leading-relaxed break-words">{message.content}</p>
+                            <div className={`flex items-center justify-end mt-1 sm:mt-2 text-xs gap-1 ${
                               alignment === 'right' ? 'text-white/80' : 'text-gray-500'
                             }`}>
                               <span>{formatTime(message.timestamp)}</span>
@@ -476,10 +476,10 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="p-6 border-t border-gray-200 bg-white/50">
-                  <div className="flex items-center space-x-4">
-                    <button className="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl flex items-center justify-center transition-all duration-200">
-                      <Paperclip className="w-5 h-5" />
+                <div className="p-3 sm:p-4 lg:p-6 border-t border-gray-200 bg-white/50">
+                  <div className="flex items-center space-x-2 sm:space-x-4">
+                    <button className="w-9 h-9 sm:w-12 sm:h-12 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-200 flex-shrink-0">
+                      <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                     
                     <div className="flex-1 relative">
@@ -489,7 +489,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                        className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                         disabled={sending}
                       />
                     </div>
@@ -497,23 +497,23 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                     <button
                       onClick={handleSendMessage}
                       disabled={!newMessage.trim() || sending}
-                      className={`w-12 h-12 rounded-2xl transition-all duration-200 flex items-center justify-center ${
+                      className={`w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl transition-all duration-200 flex items-center justify-center flex-shrink-0 ${
                         newMessage.trim() && !sending
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-110'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      <Send className="w-5 h-5" />
+                      <Send className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100">
+              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100 p-4">
                 <div className="text-center">
-                  <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">Select a Conversation</h3>
-                  <p className="text-gray-600">Choose a client to start messaging</p>
+                  <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">Select a Conversation</h3>
+                  <p className="text-sm sm:text-base text-gray-600">Choose a client to start messaging</p>
                 </div>
               </div>
             )}

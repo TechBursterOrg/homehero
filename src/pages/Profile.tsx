@@ -29,22 +29,83 @@ import {
 
 // Define types for better TypeScript support
 interface GalleryImage {
-  id: number;
-  url: string;
+  _id: string;
+  imageUrl: string;
+  fullImageUrl?: string;
   title: string;
   category: string;
   description: string;
-  date: string;
+  createdAt: string;
+  views: number;
+  likes: number;
+  featured: boolean;
+  userId?: {
+    _id: string;
+    name: string;
+    profileImage?: string;
+  };
+  tags?: string[];
+  filename?: string;
 }
 
-interface Review {
-  id: number;
-  client: string;
+interface Rating {
+  _id: string;
+  providerId: string;
+  customerId: {
+    _id: string;
+    name: string;
+    email: string;
+    profileImage?: string;
+  };
+  bookingId: string;
   rating: number;
-  date: string;
   comment: string;
-  service: string;
-  avatar: string;
+  serviceType: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Booking {
+  _id: string;
+  providerId: string;
+  providerName: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  serviceType: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  rating?: {
+    rating: number;
+    comment: string;
+    createdAt: string;
+  };
+  ratingStatus?: {
+    customerRated: boolean;
+    providerRated: boolean;
+  };
+  completedAt?: string;
+}
+
+interface DashboardData {
+  user: {
+    name: string;
+    email: string;
+    id: string;
+    country: string;
+    phoneNumber?: string;
+  };
+  stats: {
+    totalEarnings: number;
+    jobsCompleted: number;
+    averageRating: number;
+    activeClients: number;
+    totalRatings?: number;
+  };
+  bookings: Booking[];
+  recentJobs: any[];
+  upcomingTasks: any[];
+  businessHours: any[];
+  schedule: any[];
 }
 
 interface ProfileData {
@@ -53,11 +114,11 @@ interface ProfileData {
   email: string;
   phoneNumber: string;
   address: string;
-  location: string; // Main location field for display
+  location: string;
   city: string;
   state: string;
   country: string;
-  coordinates: [number, number]; // For map functionality
+  coordinates: [number, number];
   rating: number;
   totalReviews: number;
   joinedDate: string;
@@ -87,7 +148,7 @@ const Profile: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [profileData, setProfileData] = useState<ProfileData>({
-   name: '',
+    name: '',
     title: '',
     email: '',
     phoneNumber: '',
@@ -111,7 +172,6 @@ const Profile: React.FC = () => {
     profileImage: ''
   });
 
-  // FIXED: Added city, state, and country to editForm
   const [editForm, setEditForm] = useState({
     name: '',
     phoneNumber: '',
@@ -123,6 +183,12 @@ const Profile: React.FC = () => {
     hourlyRate: 0,
     experience: ''
   });
+
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [ratings, setRatings] = useState<Rating[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+  const [galleryLoading, setGalleryLoading] = useState(false);
 
   // Fetch profile data from backend
   const fetchProfileData = async () => {
@@ -143,7 +209,6 @@ const Profile: React.FC = () => {
         },
       });
 
-
       if (response.status === 401 || response.status === 403) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('token');
@@ -157,7 +222,7 @@ const Profile: React.FC = () => {
 
       const data = await response.json();
       
-      if (data.success === false && data.message.includes('token')) {
+      if (data.success === false && data.message?.includes('token')) {
         localStorage.removeItem('authToken');
         localStorage.removeItem('token');
         localStorage.removeItem('userData');
@@ -167,7 +232,6 @@ const Profile: React.FC = () => {
       if (data.success && data.data.user) {
         const user = data.data.user;
         
-        // FIXED: Properly map profile image fields
         const profileImageUrl = user.profileImage || user.profilePicture || '';
         
         setProfileData({
@@ -200,7 +264,6 @@ const Profile: React.FC = () => {
           profileImage: profileImageUrl
         });
 
-        // FIXED: Initialize editForm with all required fields including city, state, country
         setEditForm({
           name: user.name || '',
           phoneNumber: user.phoneNumber || '',
@@ -228,171 +291,122 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Save profile data to backend
- const saveProfileData = async () => {
+  // Fetch ratings directly from ratings API
+  const fetchRatingsData = async () => {
   try {
-    setSaving(true);
+    setRatingsLoading(true);
     const token = localStorage.getItem('authToken') || localStorage.getItem('token');
     
     if (!token) {
-      throw new Error('No authentication token found. Please log in again.');
+      console.log('No token found for ratings');
+      return;
     }
 
-    console.log('Sending to backend:', editForm); // DEBUG
-
-    // FIXED: Include all location fields in the request
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-      method: 'POST',
+    // Fetch provider ratings from the correct endpoint
+    const response = await fetch(`${API_BASE_URL}/api/ratings/provider`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...editForm,
-        // Explicitly include location fields to ensure they're sent
-        city: editForm.city,
-        state: editForm.state,
-        country: editForm.country
-      }),
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to update profile');
-    }
-
-    const data = await response.json();
-    
-    if (data.success) {
-      // FIXED: Update profile data with the form data AND preserve the existing profile image
-      setProfileData(prev => ({
-        ...prev,
-        name: editForm.name,
-        phoneNumber: editForm.phoneNumber,
-        address: editForm.address,
-        city: editForm.city,
-        state: editForm.state,
-        country: editForm.country,
-        location: `${editForm.city}, ${editForm.state}, ${editForm.country}`,
-        services: editForm.services,
-        hourlyRate: editForm.hourlyRate,
-        experience: editForm.experience
-        // Don't override profileImage here - it should be updated separately via image upload
-      }));
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Ratings API response:', data);
       
-      setIsEditing(false);
-    }
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
-    setError(errorMessage);
-  } finally {
-    setSaving(false);
-  }
-};
-
-  // FIXED: Upload profile image function
-  const uploadProfileImage = async (file: File) => {
-  try {
-    setUploadingImage(true);
-    setError(null); // Clear any existing errors
-    
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('No authentication token found. Please log in again.');
-    }
-
-    const formData = new FormData();
-    formData.append('profileImage', file);
-
-    const response = await fetch(`${API_BASE_URL}/api/auth/profile/image`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        // Don't set Content-Type when using FormData - browser sets it automatically
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.success && data.data.imageUrl) {
-      // Update the profile image in state immediately after successful upload
-      setProfileData(prev => ({
-        ...prev,
-        profileImage: data.data.imageUrl
-      }));
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new CustomEvent('profileUpdated', {
-        detail: {
-          profileImage: data.data.imageUrl,
-          name: profileData.name
+      if (data.success && data.data) {
+        // Handle different response structures
+        let ratingsData = [];
+        
+        if (Array.isArray(data.data)) {
+          ratingsData = data.data;
+        } else if (data.data.docs) {
+          ratingsData = data.data.docs;
+        } else if (data.data.ratings) {
+          ratingsData = data.data.ratings;
+        } else if (data.data.data) {
+          ratingsData = data.data.data;
         }
-      }));
-      
-      console.log('Profile image updated successfully:', data.data.imageUrl);
-      return data.data.imageUrl;
+        
+        console.log('Transformed ratings data:', ratingsData);
+        setRatings(ratingsData);
+        
+        // Update profile stats from ratings
+        if (ratingsData.length > 0) {
+          const averageRating = ratingsData.reduce((acc: number, rating: Rating) => acc + rating.rating, 0) / ratingsData.length;
+          setProfileData(prev => ({
+            ...prev,
+            rating: parseFloat(averageRating.toFixed(1)),
+            totalReviews: ratingsData.length
+          }));
+        }
+      }
     } else {
-      throw new Error('Image upload succeeded but no image URL returned');
+      console.log('Ratings API not available, status:', response.status);
+      // Fall back to showing empty state with dashboard stats
+      await fetchDashboardDataForRatings();
     }
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
-    console.error('Profile image upload error:', err);
-    setError(errorMessage);
-    throw err;
+    console.error('Ratings fetch error:', err);
+    // Fall back to dashboard method if ratings API fails
+    await fetchDashboardDataForRatings();
   } finally {
-    setUploadingImage(false);
+    setRatingsLoading(false);
   }
 };
 
-  // Handle camera button click
-  const handleCameraClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
 
-  // FIXED: Handle file selection
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file (JPG, PNG, GIF, etc.)');
-      return;
-    }
-    
-    // Validate file size (5MB limit)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image size should be less than 5MB');
-      return;
-    }
-    
-    try {
-      await uploadProfileImage(file);
-      // Success - the uploadProfileImage function already updates the state
-    } catch (error) {
-      console.error('File upload error:', error);
-      // Error is already set in uploadProfileImage function
-    }
-    
-    // Clear the file input so the same file can be selected again if needed
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const fetchGalleryImages = async () => {
+  // Fallback: Fetch dashboard data and extract ratings from completed bookings
+  const fetchDashboardDataForRatings = async () => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      if (!token) return;
+      if (!token) {
+        console.log('No token found for dashboard');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/user/dashboard?refresh=${Date.now()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Dashboard API response for ratings:', data);
+        
+        // Update profile data with stats from dashboard
+        if (data.stats) {
+          setProfileData(prev => ({
+            ...prev,
+            rating: data.stats.averageRating || 0,
+            totalReviews: data.stats.totalRatings || 0,
+            completedJobs: data.stats.jobsCompleted || 0
+          }));
+        }
+        
+        // Since we can't get actual ratings from bookings, we'll show a message
+        // that ratings will appear here when customers rate completed jobs
+        setRatings([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dashboard data for ratings:', err);
+      setRatings([]);
+    }
+  };
+
+  // Fetch gallery images from backend
+  const fetchGalleryImages = async () => {
+    try {
+      setGalleryLoading(true);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.log('No token found for gallery');
+        return;
+      }
 
       const response = await fetch(`${API_BASE_URL}/api/gallery`, {
         headers: {
@@ -403,48 +417,213 @@ const Profile: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('Gallery API response:', data);
+        
         if (data.success && data.data) {
-          setGalleryImages(data.data);
+          // Handle different response structures
+          let imagesData = [];
+          
+          if (Array.isArray(data.data)) {
+            imagesData = data.data;
+          } else if (data.data.docs) {
+            imagesData = data.data.docs;
+          } else if (data.data.images) {
+            imagesData = data.data.images;
+          } else if (data.data.data) {
+            imagesData = data.data.data;
+          }
+          
+          const imagesWithUrls = imagesData.map((image: GalleryImage) => {
+            let fullImageUrl = image.fullImageUrl || image.imageUrl;
+            
+            if (fullImageUrl && fullImageUrl.startsWith('/')) {
+              fullImageUrl = `${API_BASE_URL}${fullImageUrl}`;
+            }
+            
+            if (fullImageUrl && fullImageUrl.startsWith('http://') && window.location.protocol === 'https:') {
+              fullImageUrl = fullImageUrl.replace('http://', 'https://');
+            }
+            
+            return {
+              ...image,
+              fullImageUrl
+            };
+          });
+          
+          setGalleryImages(imagesWithUrls);
+        } else {
+          console.log('No gallery images found in response');
+          setGalleryImages([]);
         }
+      } else {
+        console.error('Failed to fetch gallery images:', response.status);
+        setGalleryImages([]);
       }
     } catch (err) {
       console.error('Gallery fetch error:', err);
+      setGalleryImages([]);
+    } finally {
+      setGalleryLoading(false);
     }
   };
 
-  // Fetch reviews from backend
-  const fetchReviews = async () => {
+  // Save profile data to backend
+  const saveProfileData = async () => {
     try {
+      setSaving(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      if (!token) return;
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
 
-      const response = await fetch(`${API_BASE_URL}/api/reviews`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          ...editForm,
+          city: editForm.city,
+          state: editForm.state,
+          country: editForm.country
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setReviews(data.data);
-        }
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setProfileData(prev => ({
+          ...prev,
+          name: editForm.name,
+          phoneNumber: editForm.phoneNumber,
+          address: editForm.address,
+          city: editForm.city,
+          state: editForm.state,
+          country: editForm.country,
+          location: `${editForm.city}, ${editForm.state}, ${editForm.country}`,
+          services: editForm.services,
+          hourlyRate: editForm.hourlyRate,
+          experience: editForm.experience
+        }));
+        
+        setIsEditing(false);
       }
     } catch (err) {
-      console.error('Reviews fetch error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update profile';
+      setError(errorMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Upload profile image function
+  const uploadProfileImage = async (file: File) => {
+    try {
+      setUploadingImage(true);
+      setError(null);
+      
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+
+      const formData = new FormData();
+      formData.append('profileImage', file);
+
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile/image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data.imageUrl) {
+        setProfileData(prev => ({
+          ...prev,
+          profileImage: data.data.imageUrl
+        }));
+        
+        window.dispatchEvent(new CustomEvent('profileUpdated', {
+          detail: {
+            profileImage: data.data.imageUrl,
+            name: profileData.name
+          }
+        }));
+        
+        return data.data.imageUrl;
+      } else {
+        throw new Error('Image upload succeeded but no image URL returned');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload image';
+      console.error('Profile image upload error:', err);
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle camera button click
+  const handleCameraClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (JPG, PNG, GIF, etc.)');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      return;
+    }
+    
+    try {
+      await uploadProfileImage(file);
+    } catch (error) {
+      console.error('File upload error:', error);
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   useEffect(() => {
     fetchProfileData();
-    fetchGalleryImages();
-    fetchReviews();
   }, []);
 
-  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  // Fetch ratings and gallery when tab changes
+  useEffect(() => {
+    if (activeTab === 'reviews') {
+      fetchRatingsData();
+    } else if (activeTab === 'gallery') {
+      fetchGalleryImages();
+    }
+  }, [activeTab]);
 
   const badges = [
     { name: 'Top Rated', icon: Star, color: 'from-yellow-400 to-orange-500', bgColor: 'from-yellow-50 to-orange-50' },
@@ -463,6 +642,24 @@ const Profile: React.FC = () => {
   const serviceOptions = [
     'House Cleaning',
     'Plumbing Repair',
+    'Barber',
+    'Hair Stylist',
+    'Cook/Chef',
+    'CCTV Installer',
+    'Solar Panel Technician',
+    'Generator Repairer',
+    'Carpenter',
+    'TV Repairer',
+    'Vulcanizer',
+    'Car Wash',
+    'AC/Fridge Technician',
+    'Welder',
+     'Pest Control',
+     'Inverter Technician',
+     'Auto Mechanic',
+     'Spa/Massage Therapist',
+     'Tailor',
+     'Nanny/Babysitter',
     'Garden Maintenance',
     'Electrical Work',
     'Painting',
@@ -474,7 +671,7 @@ const Profile: React.FC = () => {
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
-        className={`w-3 h-3 sm:w-4 sm:h-4 ${
+        className={`w-4 h-4 sm:w-5 sm:h-5 ${
           i < rating ? 'text-yellow-500 fill-current' : 'text-gray-300'
         }`}
       />
@@ -493,30 +690,24 @@ const Profile: React.FC = () => {
   ];
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  const target = e.target as HTMLImageElement;
-  console.error('Profile image failed to load:', target.src);
-  
-  // If this is already a placeholder, don't try again
-  if (target.src.includes('via.placeholder.com')) {
-    return;
-  }
-  
-  // Try different URL strategies
-  if (target.src.includes(API_BASE_URL)) {
-    // If API_BASE_URL version failed, try relative path
-    const relativePath = target.src.split(API_BASE_URL)[1];
-    target.src = relativePath;
-  } else if (target.src.startsWith('/')) {
-    // If relative path failed, try with API base URL but with HTTPS
-    target.src = `${API_BASE_URL}${target.src}`;
-  } else if (target.src.includes('http://') && window.location.protocol === 'https:') {
-    // If HTTP but page is HTTPS, try HTTPS version
-    target.src = target.src.replace('http://', 'https://');
-  } else {
-    // If all else fails, use placeholder
-    target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image';
-  }
-};
+    const target = e.target as HTMLImageElement;
+    console.error('Profile image failed to load:', target.src);
+    
+    if (target.src.includes('via.placeholder.com')) {
+      return;
+    }
+    
+    if (target.src.includes(API_BASE_URL)) {
+      const relativePath = target.src.split(API_BASE_URL)[1];
+      target.src = relativePath;
+    } else if (target.src.startsWith('/')) {
+      target.src = `${API_BASE_URL}${target.src}`;
+    } else if (target.src.includes('http://') && window.location.protocol === 'https:') {
+      target.src = target.src.replace('http://', 'https://');
+    } else {
+      target.src = 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image';
+    }
+  };
 
   const handleServiceToggle = (service: string) => {
     setEditForm(prev => {
@@ -526,6 +717,19 @@ const Profile: React.FC = () => {
       
       return { ...prev, services };
     });
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  const getClientInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
   if (loading) {
@@ -558,7 +762,6 @@ const Profile: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
@@ -569,7 +772,7 @@ const Profile: React.FC = () => {
       
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         
-        {/* Responsive Header */}
+        {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-col space-y-4 sm:space-y-6">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -632,24 +835,22 @@ const Profile: React.FC = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 sm:gap-6">
               <div className="relative mx-auto sm:mx-0">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl sm:rounded-3xl flex items-center justify-center border-2 sm:border-4 border-white shadow-xl overflow-hidden">
-                  {/* FIXED: Profile image display logic */}
                   {profileData.profileImage ? (
                     <img
-  src={profileData.profileImage?.startsWith('/') 
-    ? `${API_BASE_URL}${profileData.profileImage}`
-    : profileData.profileImage || 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image'
-  }
-  alt="Profile"
-  className="w-full h-full object-cover"
-  onError={handleImageError}
-  loading="lazy"
-/>
+                      src={profileData.profileImage?.startsWith('/') 
+                        ? `${API_BASE_URL}${profileData.profileImage}`
+                        : profileData.profileImage || 'https://via.placeholder.com/400x400/e2e8f0/64748b?text=Profile+Image'
+                      }
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={handleImageError}
+                      loading="lazy"
+                    />
                   ) : null}
                   <span className={`text-white font-bold text-lg sm:text-xl lg:text-4xl ${profileData.profileImage ? 'hidden' : ''}`}>
                     {profileData.name.split(' ').map(n => n[0]).join('') || 'U'}
                   </span>
                 </div>
-                {/* FIXED: Only show camera button when editing */}
                 {isEditing && (
                   <button 
                     onClick={handleCameraClick}
@@ -668,69 +869,68 @@ const Profile: React.FC = () => {
               <div className="flex-1 w-full">
                 <div className="space-y-2 sm:space-y-3 text-center sm:text-left">
                   {isEditing ? (
-  <div className="space-y-4">
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-      <input
-        type="text"
-        value={editForm.name}
-        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        placeholder="Full name"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
-      <input
-        type="text"
-        value={editForm.address}
-        onChange={(e) => setEditForm({...editForm, address: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        placeholder="Street address"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-      <input
-        type="text"
-        value={editForm.city}
-        onChange={(e) => setEditForm({...editForm, city: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        placeholder="City"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-      <input
-        type="text"
-        value={editForm.state}
-        onChange={(e) => setEditForm({...editForm, state: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        placeholder="State"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-      <input
-        type="text"
-        value={editForm.country}
-        onChange={(e) => setEditForm({...editForm, country: e.target.value})}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        placeholder="Country"
-      />
-    </div>
-  </div>
-) : (
-  // Display profile information
-  <div className="space-y-2">
-    <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
-    <p className="text-sm sm:text-lg lg:text-xl text-gray-600 font-medium">{profileData.title}</p>
-    <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
-      Located in {profileData.city}, {profileData.state}, {profileData.country}
-    </p>
-    <p className="text-sm text-gray-600">{profileData.address}</p>
-  </div>
-)}
+                    <div className="space-y-4 mt-12">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                        <input
+                          type="text"
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Full name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                        <input
+                          type="text"
+                          value={editForm.address}
+                          onChange={(e) => setEditForm({...editForm, address: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Street address"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+                        <input
+                          type="text"
+                          value={editForm.city}
+                          onChange={(e) => setEditForm({...editForm, city: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="City"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
+                        <input
+                          type="text"
+                          value={editForm.state}
+                          onChange={(e) => setEditForm({...editForm, state: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="State"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                        <input
+                          type="text"
+                          value={editForm.country}
+                          onChange={(e) => setEditForm({...editForm, country: e.target.value})}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          placeholder="Country"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">{profileData.name}</h2>
+                      <p className="text-sm sm:text-lg lg:text-xl text-gray-600 font-medium">{profileData.title}</p>
+                      <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                        Located in {profileData.city}, {profileData.state}, {profileData.country}
+                      </p>
+                      <p className="text-sm text-gray-600">{profileData.address}</p>
+                    </div>
+                  )}
 
                   <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-6 text-xs sm:text-sm text-gray-600">
                     <div className="flex items-center gap-1 sm:gap-2">
@@ -895,7 +1095,7 @@ const Profile: React.FC = () => {
                           </p>
                           {profileData.hourlyRate > 0 && (
                             <p className="font-semibold text-blue-600">
-                              Rate: ₦{profileData.hourlyRate}
+                              Rate: ₦{profileData.hourlyRate}/hour
                             </p>
                           )}
                           {profileData.experience && (
@@ -908,14 +1108,30 @@ const Profile: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Skills & Expertise */}
+            {activeTab === 'services' && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900">Services Offered</h3>
+                      <p className="text-gray-600 text-sm sm:text-base">Professional services with competitive pricing</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Services Offered Section */}
                 <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-emerald-200">
                   <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center">
                       <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">Services Offered</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Services</h3>
                   </div>
                   {isEditing ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
@@ -943,70 +1159,6 @@ const Profile: React.FC = () => {
                       {profileData.services.length === 0 && (
                         <p className="text-gray-500 col-span-full text-center py-4">No services added yet</p>
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'services' && (
-              <div className="space-y-4 sm:space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl sm:rounded-2xl flex items-center justify-center">
-                      <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900">Services Offered</h3>
-                      <p className="text-gray-600 text-sm sm:text-base">Professional services with competitive pricing</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  {profileData.services.map((service, index) => (
-                    <div key={index} className="group bg-gradient-to-br from-white to-blue-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-200 hover:shadow-lg hover:border-blue-300 transition-all duration-300">
-                      <div className="flex items-start justify-between mb-3 sm:mb-4">
-                        <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                          <span className="text-xl sm:text-2xl flex-shrink-0">💼</span>
-                          <div className="min-w-0">
-                            <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors text-sm sm:text-base">
-                              {service}
-                            </h4>
-                            <p className="text-xs sm:text-sm text-gray-600">Experience: {profileData.experience || 'Several years'}</p>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-sm sm:text-lg font-bold text-emerald-600">
-                            ${profileData.hourlyRate || 25}/hr
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs sm:text-sm">
-                          <span className="text-gray-600">Popularity</span>
-                          <span className="font-semibold text-gray-900">N/A</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2">
-                          <div 
-                            className="bg-gradient-to-r from-blue-500 to-emerald-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
-                            style={{ width: `0%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {profileData.services.length === 0 && (
-                    <div className="col-span-full text-center py-12">
-                      <Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 text-lg">No services added yet</p>
-                      <button 
-                        onClick={() => setIsEditing(true)}
-                        className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        Add services in edit mode
-                      </button>
                     </div>
                   )}
                 </div>
@@ -1044,55 +1196,67 @@ const Profile: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Image Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {filteredImages.map((image) => (
-                    <div
-                      key={image.id}
-                      className="group relative bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer"
-                      onClick={() => {
-                        setSelectedImage(image);
-                        setIsGalleryModalOpen(true);
-                      }}
-                    >
-                      <div className="aspect-square bg-gray-100">
-                        <img
-                          src={image.url}
-                          alt={image.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          onError={handleImageError}
-                        />
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-                          <h4 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2">
-                            {image.title}
-                          </h4>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-300 capitalize">{image.category}</span>
-                            <Eye className="w-4 h-4 text-white" />
+                {galleryLoading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-500">Loading gallery...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Image Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                      {filteredImages.map((image) => (
+                        <div
+                          key={image._id}
+                          className="group relative bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-sm border border-gray-200 hover:shadow-xl hover:scale-105 transition-all duration-300 cursor-pointer"
+                          onClick={() => {
+                            setSelectedImage(image);
+                            setIsGalleryModalOpen(true);
+                          }}
+                        >
+                          <div className="aspect-square bg-gray-100">
+                            <img
+                              src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
+                              alt={image.title}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
+                              }}
+                            />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
+                              <h4 className="text-white font-semibold text-xs sm:text-sm mb-1 line-clamp-2">
+                                {image.title}
+                              </h4>
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-gray-300 capitalize">{image.category}</span>
+                                <Eye className="w-4 h-4 text-white" />
+                              </div>
+                            </div>
+                          </div>
+                          {/* Category Badge */}
+                          <div className="absolute top-2 left-2">
+                            <span className={`px-2 py-1 rounded-lg text-xs font-medium text-white shadow-lg ${
+                              image.category === 'cleaning' ? 'bg-blue-500' :
+                              image.category === 'handyman' ? 'bg-orange-500' :
+                              'bg-green-500'
+                            }`}>
+                              {image.category}
+                            </span>
                           </div>
                         </div>
-                      </div>
-                      {/* Category Badge */}
-                      <div className="absolute top-2 left-2">
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium text-white shadow-lg ${
-                          image.category === 'cleaning' ? 'bg-blue-500' :
-                          image.category === 'handyman' ? 'bg-orange-500' :
-                          'bg-green-500'
-                        }`}>
-                          {image.category}
-                        </span>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                {filteredImages.length === 0 && (
-                  <div className="text-center py-12">
-                    <Images className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">No images found for this category</p>
-                  </div>
+                    {filteredImages.length === 0 && (
+                      <div className="text-center py-12">
+                        <Images className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500 text-lg">No images found for this category</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1105,46 +1269,64 @@ const Profile: React.FC = () => {
                       <Star className="w-4 h-4 sm:w-5 sm:h-5 text-white fill-current" />
                     </div>
                     <div>
-                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900">Customer Reviews</h3>
+                      <h3 className="text-lg sm:text-2xl font-bold text-gray-900">Customer Reviews & Ratings</h3>
                       <p className="text-gray-600 text-sm sm:text-base">What clients say about my work</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-yellow-50 to-orange-50 px-3 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-yellow-200">
                     <Star className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-500 fill-current" />
                     <span className="font-bold text-lg sm:text-2xl text-gray-900">{profileData.rating}</span>
-                    <span className="text-gray-600 text-sm sm:text-base">({profileData.totalReviews} reviews)</span>
+                    <span className="text-gray-600 text-sm sm:text-base">({profileData.totalReviews} ratings)</span>
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:gap-6">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="group bg-gradient-to-br from-white to-yellow-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-200 hover:shadow-lg hover:border-yellow-300 transition-all duration-300">
-                      <div className="flex gap-3 sm:gap-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
-                          <span className="text-white font-bold text-xs sm:text-sm">{review.avatar}</span>
-                        </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-2 sm:mb-3 gap-2">
-                            <div className="min-w-0">
-                              <h4 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">{review.client}</h4>
-                              <p className="text-xs sm:text-sm text-blue-600 font-medium">{review.service}</p>
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              <div className="flex items-center gap-1 mb-1 justify-end sm:justify-start">
-                                {renderStars(review.rating)}
-                              </div>
-                              <p className="text-xs sm:text-sm text-gray-500">{review.date}</p>
-                            </div>
+                {ratingsLoading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
+                    <p className="text-gray-500">Loading ratings...</p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:gap-6">
+                    {ratings.map((rating) => (
+                      <div key={rating._id} className="group bg-gradient-to-br from-white to-yellow-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-gray-200 hover:shadow-lg hover:border-yellow-300 transition-all duration-300">
+                        <div className="flex gap-3 sm:gap-4">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+                            <span className="text-white font-bold text-xs sm:text-sm">
+                              {getClientInitials(rating.customerId.name)}
+                            </span>
                           </div>
-                          <div className="bg-white/70 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl">
-                            <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{review.comment}</p>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-2 sm:mb-3 gap-2">
+                              <div className="min-w-0">
+                                <h4 className="font-bold text-gray-900 mb-1 text-sm sm:text-base">{rating.customerId.name}</h4>
+                                <p className="text-xs sm:text-sm text-blue-600 font-medium">{rating.serviceType}</p>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <div className="flex items-center gap-1 mb-1 justify-end sm:justify-start">
+                                  {renderStars(rating.rating)}
+                                  <span className="text-sm font-bold text-gray-900 ml-1">{rating.rating}.0</span>
+                                </div>
+                                <p className="text-xs sm:text-sm text-gray-500">{formatDate(rating.createdAt)}</p>
+                              </div>
+                            </div>
+                            <div className="bg-white/70 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl">
+                              <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{rating.comment}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                    
+                    {ratings.length === 0 && (
+                      <div className="text-center py-12">
+                        <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <p className="text-gray-500 text-lg">No ratings yet</p>
+                        <p className="text-gray-400 text-sm">Customer ratings will appear here once they rate your completed services</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1152,109 +1334,112 @@ const Profile: React.FC = () => {
 
         {/* Gallery Modal */}
         {isGalleryModalOpen && selectedImage && (
-  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-      <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-            <Images className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Work Gallery</h3>
-        </div>
-        <button
-          onClick={() => {
-            setIsGalleryModalOpen(false);
-            setSelectedImage(null);
-          }}
-          className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
-        >
-          <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
-        </button>
-      </div>
-      <div className="p-4 sm:p-6 max-h-[calc(95vh-80px)] overflow-y-auto">
-        <div className="grid lg:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="aspect-video bg-gray-100 rounded-xl sm:rounded-2xl overflow-hidden">
-              <img
-                src={selectedImage.url} // FIXED: Changed 'image.url' to 'selectedImage.url'
-                alt={selectedImage.title} // FIXED: Changed 'image.title' to 'selectedImage.title'
-                className="w-full h-full object-cover"
-                onError={handleImageError}
-              />
-            </div>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {galleryImages.map((img) => ( // FIXED: Renamed 'image' to 'img' to avoid conflict
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                    <Images className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">Work Gallery</h3>
+                </div>
                 <button
-                  key={img.id}
-                  onClick={() => setSelectedImage(img)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
-                    selectedImage.id === img.id ? 'border-purple-500' : 'border-transparent hover:border-gray-300'
-                  }`}
+                  onClick={() => {
+                    setIsGalleryModalOpen(false);
+                    setSelectedImage(null);
+                  }}
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-gray-200 rounded-xl flex items-center justify-center transition-colors"
                 >
-                  <img
-                    src={img.url}
-                    alt={img.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = 'https://via.placeholder.com/64x64/e2e8f0/64748b?text=Img';
-                    }}
-                  />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                 </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-4 sm:space-y-6">
-            <div>
-              <h4 className="text-xl sm:text-2xl font-bold text-gray-900">{selectedImage.title}</h4>
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`px-3 py-1 rounded-lg text-sm font-medium text-white ${
-                  selectedImage.category === 'cleaning' ? 'bg-blue-500' :
-                  selectedImage.category === 'handyman' ? 'bg-orange-500' :
-                  'bg-green-500'
-                }`}>
-                  {selectedImage.category}
-                </span>
-                <span className="text-sm text-gray-600">{selectedImage.date}</span>
               </div>
-              <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Award className="w-5 h-5 text-purple-600" />
-                <span className="font-semibold text-purple-900">Project Highlights</span>
-              </div>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Completed on time and within budget
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Used eco-friendly materials and methods
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  Customer satisfaction: 100%
-                </li>
-              </ul>
-            </div>
+              <div className="p-4 sm:p-6 max-h-[calc(95vh-80px)] overflow-y-auto">
+                <div className="grid lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="aspect-video bg-gray-100 rounded-xl sm:rounded-2xl overflow-hidden">
+                      <img
+                        src={selectedImage.fullImageUrl || `${API_BASE_URL}${selectedImage.imageUrl}`}
+                        alt={selectedImage.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://via.placeholder.com/800x600/e2e8f0/64748b?text=Image+Not+Found';
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {galleryImages.map((img) => (
+                        <button
+                          key={img._id}
+                          onClick={() => setSelectedImage(img)}
+                          className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${
+                            selectedImage._id === img._id ? 'border-purple-500' : 'border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <img
+                            src={img.fullImageUrl || `${API_BASE_URL}${img.imageUrl}`}
+                            alt={img.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://via.placeholder.com/64x64/e2e8f0/64748b?text=Img';
+                            }}
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-4 sm:space-y-6">
+                    <div>
+                      <h4 className="text-xl sm:text-2xl font-bold text-gray-900">{selectedImage.title}</h4>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className={`px-3 py-1 rounded-lg text-sm font-medium text-white ${
+                          selectedImage.category === 'cleaning' ? 'bg-blue-500' :
+                          selectedImage.category === 'handyman' ? 'bg-orange-500' :
+                          'bg-green-500'
+                        }`}>
+                          {selectedImage.category}
+                        </span>
+                        <span className="text-sm text-gray-600">{formatDate(selectedImage.createdAt)}</span>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
+                    </div>
+                    
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border border-purple-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Award className="w-5 h-5 text-purple-600" />
+                        <span className="font-semibold text-purple-900">Project Highlights</span>
+                      </div>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Completed on time and within budget
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Used eco-friendly materials and methods
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                          Customer satisfaction: 100%
+                        </li>
+                      </ul>
+                    </div>
 
-            <div className="flex gap-3">
-              <button className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
-                Similar Service
-              </button>
-              <button className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-                Share
-              </button>
+                    <div className="flex gap-3">
+                      <button className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-200">
+                        Similar Service
+                      </button>
+                      <button className="px-6 py-3 border border-gray-300 rounded-xl font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        Share
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+        )}
       </div>
     </div>
   );

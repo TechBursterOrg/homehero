@@ -53,7 +53,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, serviceType, onClick
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-emerald-400 to-green-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm">
-                <span className="text-white font-bold text-xs sm:text-sm">$</span>
+                <span className="text-white font-bold text-xs sm:text-sm">₦</span>
               </div>
               <div>
                 <p className="text-lg sm:text-xl font-bold text-emerald-600">

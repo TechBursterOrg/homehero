@@ -8,12 +8,52 @@ export const currencyConfig = {
 
 // Pricing for different services in Nigeria (in Naira)
 const servicePricing = {
+  // Original services
   houseCleaning: { low: 2000, high: 5000 },
   plumbing: { low: 8000, high: 15000 },
   electrical: { low: 10000, high: 20000 },
   gardenCare: { low: 1500, high: 4000 },
   handyman: { low: 3000, high: 8000 },
-  painting: { low: 5000, high: 12000 }
+  painting: { low: 5000, high: 12000 },
+
+  // 🏠 Home Maintenance & Repair - NEW
+  acRepair: { low: 12000, high: 35000 },
+  generatorRepair: { low: 15000, high: 50000 },
+  carpentry: { low: 7000, high: 25000 },
+  tiling: { low: 8000, high: 30000 },
+  masonry: { low: 10000, high: 40000 },
+  welding: { low: 6000, high: 20000 },
+  pestControl: { low: 12000, high: 25000 },
+
+  // 🚗 Auto & Mechanical Services - NEW
+  autoMechanic: { low: 10000, high: 80000 },
+  panelBeater: { low: 15000, high: 100000 },
+  autoElectrician: { low: 8000, high: 35000 },
+  vulcanizer: { low: 500, high: 3000 },
+  carWash: { low: 1500, high: 5000 },
+
+  // 💇🏾‍♂️ Beauty & Personal Care - NEW
+  barber: { low: 1000, high: 3000 },
+  hairStylist: { low: 2000, high: 15000 },
+  makeupArtist: { low: 5000, high: 25000 },
+  nailTechnician: { low: 2000, high: 8000 },
+  massageTherapist: { low: 4000, high: 12000 },
+  tailor: { low: 1500, high: 10000 },
+
+  // 🧹 Domestic & Household Help - NEW
+  nanny: { low: 15000, high: 40000 },
+  cook: { low: 10000, high: 35000 },
+  laundry: { low: 2000, high: 6000 },
+  gardener: { low: 2500, high: 8000 },
+  securityGuard: { low: 20000, high: 60000 },
+
+  // 🔌 Smart Home & Modern Needs - NEW
+  cctvInstaller: { low: 15000, high: 50000 },
+  solarTechnician: { low: 25000, high: 150000 },
+  inverterTechnician: { low: 8000, high: 30000 },
+  itSupport: { low: 5000, high: 25000 },
+  interiorDesigner: { low: 20000, high: 100000 },
+  tvRepair: { low: 6000, high: 25000 }
 } as const;
 
 // Fixed pricing for specific services/bookings (Customer pays these amounts in Naira)
@@ -51,6 +91,7 @@ const formatPrice = (price: number): string => {
 // Generate services with Naira pricing
 export const getServices = (): Service[] => {
   return [
+    // Previous services (unchanged)
     {
       id: '1',
       name: 'House Cleaning',
@@ -75,6 +116,57 @@ export const getServices = (): Service[] => {
       averagePrice: formatPriceRange(servicePricing.electrical.low, servicePricing.electrical.high),
       providers: 76
     },
+
+    {
+      id: '19',
+      name: 'Barber',
+      description: 'Men\'s grooming and haircuts',
+      icon: '✂️',
+      averagePrice: formatPriceRange(servicePricing.barber.low, servicePricing.barber.high),
+      providers: 156
+    },
+    {
+      id: '20',
+      name: 'Hair Stylist',
+      description: 'Women\'s hair care and styling',
+      icon: '💇',
+      averagePrice: formatPriceRange(servicePricing.hairStylist.low, servicePricing.hairStylist.high),
+      providers: 134
+    },
+
+    {
+      id: '8',
+      name: 'Generator Repairer',
+      description: 'Essential due to frequent power outages',
+      icon: '🔌',
+      averagePrice: formatPriceRange(servicePricing.generatorRepair.low, servicePricing.generatorRepair.high),
+      providers: 32
+    },
+    {
+      id: '9',
+      name: 'Carpenter',
+      description: 'Furniture making and repairs',
+      icon: '🪵',
+      averagePrice: formatPriceRange(servicePricing.carpentry.low, servicePricing.carpentry.high),
+      providers: 67
+    },
+
+    {
+      id: '17',
+      name: 'Vulcanizer',
+      description: 'Tyre repair and inflation',
+      icon: '🛞',
+      averagePrice: formatPriceRange(servicePricing.vulcanizer.low, servicePricing.vulcanizer.high),
+      providers: 88
+    },
+    {
+      id: '18',
+      name: 'Car Wash',
+      description: 'Professional vehicle cleaning services',
+      icon: '🧼',
+      averagePrice: formatPriceRange(servicePricing.carWash.low, servicePricing.carWash.high),
+      providers: 203
+    },
     {
       id: '4',
       name: 'Garden Care',
@@ -98,6 +190,203 @@ export const getServices = (): Service[] => {
       icon: '🎨',
       averagePrice: formatPriceRange(servicePricing.painting.low, servicePricing.painting.high),
       providers: 68
+    },
+
+    // 🏠 Home Maintenance & Repair - NEW
+    {
+      id: '7',
+      name: 'AC/Fridge Technician',
+      description: 'Installation and repair of cooling systems',
+      icon: '❄️',
+      averagePrice: formatPriceRange(servicePricing.acRepair.low, servicePricing.acRepair.high),
+      providers: 45
+    },
+    
+    {
+      id: '10',
+      name: 'Tiler',
+      description: 'Floor and wall tiling for homes and offices',
+      icon: '🧱',
+      averagePrice: formatPriceRange(servicePricing.tiling.low, servicePricing.tiling.high),
+      providers: 53
+    },
+    {
+      id: '11',
+      name: 'Mason/Bricklayer',
+      description: 'Building and structural repairs',
+      icon: '🧱',
+      averagePrice: formatPriceRange(servicePricing.masonry.low, servicePricing.masonry.high),
+      providers: 41
+    },
+    {
+      id: '12',
+      name: 'Welder',
+      description: 'Gates, burglar proofs, and metal works',
+      icon: '🔥',
+      averagePrice: formatPriceRange(servicePricing.welding.low, servicePricing.welding.high),
+      providers: 48
+    },
+    {
+      id: '13',
+      name: 'Pest Control',
+      description: 'Fumigation and pest management',
+      icon: '🐜',
+      averagePrice: formatPriceRange(servicePricing.pestControl.low, servicePricing.pestControl.high),
+      providers: 39
+    },
+
+    // 🚗 Auto & Mechanical Services - NEW
+    {
+      id: '14',
+      name: 'Auto Mechanic',
+      description: 'Car repair and maintenance',
+      icon: '🚗',
+      averagePrice: formatPriceRange(servicePricing.autoMechanic.low, servicePricing.autoMechanic.high),
+      providers: 112
+    },
+    {
+      id: '15',
+      name: 'Panel Beater',
+      description: 'Body repairs for cars',
+      icon: '🔨',
+      averagePrice: formatPriceRange(servicePricing.panelBeater.low, servicePricing.panelBeater.high),
+      providers: 34
+    },
+    {
+      id: '16',
+      name: 'Auto Electrician',
+      description: 'Vehicle wiring and electrical diagnostics',
+      icon: '⚡',
+      averagePrice: formatPriceRange(servicePricing.autoElectrician.low, servicePricing.autoElectrician.high),
+      providers: 28
+    },
+    
+
+    // 💇🏾‍♂️ Beauty & Personal Care - NEW
+    
+    {
+      id: '21',
+      name: 'Makeup Artist',
+      description: 'Events and personal makeup services',
+      icon: '💄',
+      averagePrice: formatPriceRange(servicePricing.makeupArtist.low, servicePricing.makeupArtist.high),
+      providers: 92
+    },
+    {
+      id: '22',
+      name: 'Nail Technician',
+      description: 'Manicure, pedicure, nail art',
+      icon: '💅',
+      averagePrice: formatPriceRange(servicePricing.nailTechnician.low, servicePricing.nailTechnician.high),
+      providers: 78
+    },
+    {
+      id: '23',
+      name: 'Spa/Massage Therapist',
+      description: 'Body massage and skincare',
+      icon: '🧖',
+      averagePrice: formatPriceRange(servicePricing.massageTherapist.low, servicePricing.massageTherapist.high),
+      providers: 65
+    },
+    {
+      id: '24',
+      name: 'Tailor',
+      description: 'Clothing design and alterations',
+      icon: '🧵',
+      averagePrice: formatPriceRange(servicePricing.tailor.low, servicePricing.tailor.high),
+      providers: 117
+    },
+
+    // 🧹 Domestic & Household Help - NEW
+    {
+      id: '25',
+      name: 'Nanny/Babysitter',
+      description: 'Childcare services',
+      icon: '👶',
+      averagePrice: formatPriceRange(servicePricing.nanny.low, servicePricing.nanny.high),
+      providers: 143
+    },
+    {
+      id: '26',
+      name: 'Cook/Chef',
+      description: 'Home or event cooking',
+      icon: '👨‍🍳',
+      averagePrice: formatPriceRange(servicePricing.cook.low, servicePricing.cook.high),
+      providers: 96
+    },
+    {
+      id: '27',
+      name: 'Laundry Worker',
+      description: 'Washing and ironing clothes',
+      icon: '👕',
+      averagePrice: formatPriceRange(servicePricing.laundry.low, servicePricing.laundry.high),
+      providers: 124
+    },
+    {
+      id: '28',
+      name: 'Gardener',
+      description: 'Lawn care and flower maintenance',
+      icon: '🌿',
+      averagePrice: formatPriceRange(servicePricing.gardener.low, servicePricing.gardener.high),
+      providers: 87
+    },
+    {
+      id: '29',
+      name: 'Security Guard',
+      description: 'Home and compound security',
+      icon: '🛡️',
+      averagePrice: formatPriceRange(servicePricing.securityGuard.low, servicePricing.securityGuard.high),
+      providers: 112
+    },
+
+    // 🔌 Smart Home & Modern Needs - NEW
+    {
+      id: '30',
+      name: 'CCTV Installer',
+      description: 'Security camera installation',
+      icon: '📹',
+      averagePrice: formatPriceRange(servicePricing.cctvInstaller.low, servicePricing.cctvInstaller.high),
+      providers: 41
+    },
+    {
+      id: '31',
+      name: 'Solar Panel Technician',
+      description: 'Solar panel installation and repair',
+      icon: '☀️',
+      averagePrice: formatPriceRange(servicePricing.solarTechnician.low, servicePricing.solarTechnician.high),
+      providers: 29
+    },
+    {
+      id: '32',
+      name: 'Inverter Technician',
+      description: 'Inverter repair and maintenance',
+      icon: '🔋',
+      averagePrice: formatPriceRange(servicePricing.inverterTechnician.low, servicePricing.inverterTechnician.high),
+      providers: 36
+    },
+    {
+      id: '33',
+      name: 'IT Support',
+      description: 'Computer repair and IT services',
+      icon: '💻',
+      averagePrice: formatPriceRange(servicePricing.itSupport.low, servicePricing.itSupport.high),
+      providers: 54
+    },
+    {
+      id: '34',
+      name: 'Interior Designer',
+      description: 'Home and office decoration',
+      icon: '🛋️',
+      averagePrice: formatPriceRange(servicePricing.interiorDesigner.low, servicePricing.interiorDesigner.high),
+      providers: 47
+    },
+    {
+      id: '35',
+      name: 'TV Repairer',
+      description: 'Television repair and maintenance',
+      icon: '📺',
+      averagePrice: formatPriceRange(servicePricing.tvRepair.low, servicePricing.tvRepair.high),
+      providers: 31
     }
   ];
 };

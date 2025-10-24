@@ -1,3 +1,4 @@
+// customercomponents/WorkingMapView.tsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { googleMapsService, LatLngLiteral } from '../utils/googleMaps';
 import {
@@ -33,7 +34,7 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? "https://backendhomeheroes.onrender.com" 
   : "http://localhost:3001";
 
-const MapView: React.FC<MapViewProps> = ({
+const WorkingMapView: React.FC<MapViewProps> = ({
   providers,
   userLocation,
   selectedProvider,
@@ -45,17 +46,16 @@ const MapView: React.FC<MapViewProps> = ({
   onCustomerDetected,
   onCustomerArrived
 }) => {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [mapInitialized, setMapInitialized] = useState(false);
-  const [containerId] = useState(() => `map-container-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
   const navigate = useNavigate();
 
   // Use refs for stable values
   const mountedRef = useRef(true);
-  const initAttemptedRef = useRef(false);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInitializedRef = useRef(false);
 
   // Profile Avatar Component
   const ProfileAvatar = useCallback(({ provider, className }: { provider: Provider; className: string }) => {
@@ -113,86 +113,19 @@ const MapView: React.FC<MapViewProps> = ({
     });
   }, [navigate]);
 
-  // Get map container using guaranteed methods
-  const getMapContainer = useCallback(() => {
-    // Method 1: Try the ref
-    if (mapContainerRef.current) {
-      console.log('✅ Found container via ref');
-      return mapContainerRef.current;
-    }
-    
-    // Method 2: Try by the unique ID we set
-    const containerById = document.getElementById(containerId);
-    if (containerById) {
-      console.log('✅ Found container via unique ID:', containerId);
-      return containerById;
-    }
-    
-    // Method 3: Try any map container
-    const anyMapContainer = document.querySelector('[id^="map-container-"]');
-    if (anyMapContainer) {
-      console.log('✅ Found container via generic selector');
-      return anyMapContainer as HTMLDivElement;
-    }
-    
-    // Method 4: Try by class
-    const containerByClass = document.querySelector('.map-container');
-    if (containerByClass) {
-      console.log('✅ Found container via class');
-      return containerByClass as HTMLDivElement;
-    }
-    
-    console.log('❌ No container found via any method');
-    return null;
-  }, [containerId]);
-
-  // Initialize map
+  // Create and initialize map
   const initializeMap = useCallback(async () => {
-    if (!mountedRef.current || initAttemptedRef.current) {
+    if (!mountedRef.current || mapInitializedRef.current) {
       return;
     }
-
-    initAttemptedRef.current = true;
 
     try {
       console.log('🗺️ Starting map initialization...');
       setIsLoading(true);
       setLoadError('');
 
-      // Wait a bit to ensure DOM is fully rendered
-      console.log('⏳ Waiting for DOM to be ready...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Get container using multiple methods
-      const container = getMapContainer();
-      console.log('🔍 Container search result:', !!container);
-      
-      if (!container) {
-        // Last resort: create a container dynamically
-        console.log('🆘 Creating container dynamically as last resort');
-        const dynamicContainer = document.createElement('div');
-        dynamicContainer.id = 'dynamic-map-container';
-        dynamicContainer.className = 'w-full h-full';
-        dynamicContainer.style.minHeight = '384px';
-        
-        // Try to find where to insert it
-        const mapArea = document.querySelector('.lg\\:col-span-2') || document.querySelector('[class*="col-span-2"]');
-        if (mapArea) {
-          const existingMap = mapArea.querySelector('#dynamic-map-container') || mapArea.querySelector('[id^="map-container-"]');
-          if (existingMap) {
-            existingMap.remove();
-          }
-          mapArea.appendChild(dynamicContainer);
-          console.log('✅ Dynamically created and inserted container');
-          return dynamicContainer;
-        } else {
-          throw new Error('Cannot find map area to insert container');
-        }
-      }
-
-      console.log('✅ Container ready, loading Google Maps...');
-
-      // Load Google Maps
+      // Load Google Maps first
+      console.log('📥 Loading Google Maps API...');
       const loaded = await googleMapsService.loadGoogleMaps();
       
       if (!mountedRef.current) return;
@@ -201,32 +134,61 @@ const MapView: React.FC<MapViewProps> = ({
         throw new Error('Failed to load Google Maps. Please check your internet connection.');
       }
 
-      console.log('✅ Google Maps loaded, initializing map...');
+      console.log('✅ Google Maps loaded, creating map container...');
 
-      // Wait a bit more to ensure everything is ready
+      // Wait for DOM to be ready
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Find or create the map container area
+      const mapArea = document.querySelector('[data-map-area]') as HTMLElement;
+      if (!mapArea) {
+        throw new Error('Map area not found in DOM');
+      }
+
+      // Clear any existing map containers
+      const existingMaps = mapArea.querySelectorAll('.google-map-container');
+      existingMaps.forEach(map => map.remove());
+
+      // Create a new map container
+      const mapContainer = document.createElement('div');
+      mapContainer.className = 'google-map-container w-full h-full';
+      mapContainer.style.minHeight = '384px';
+      mapContainer.style.backgroundColor = '#f3f4f6';
+      
+      // Add loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'w-full h-full flex items-center justify-center';
+      loadingDiv.innerHTML = `
+        <div class="text-center">
+          <div class="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p class="text-gray-500 text-sm">Loading map...</p>
+        </div>
+      `;
+      mapContainer.appendChild(loadingDiv);
+      
+      // Add to DOM
+      mapArea.appendChild(mapContainer);
+      mapContainerRef.current = mapContainer;
+
+      console.log('✅ Map container created, initializing map...');
+
+      // Wait a bit for the container to be rendered
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Re-check container after Google Maps load
-      const finalContainer = getMapContainer();
-      if (!finalContainer) {
-        throw new Error('Map container lost during initialization');
-      }
-
-      if (!finalContainer.offsetParent) {
-        console.warn('Container dimensions:', finalContainer.offsetWidth, 'x', finalContainer.offsetHeight);
-        throw new Error('Map container is not visible. Please ensure the map area is displayed.');
-      }
-
       // Initialize the map
-      googleMapsService.initializeMap(finalContainer, {
+      googleMapsService.initializeMap(mapContainer, {
         zoom: 10,
         center: userLocation ? 
           { lat: userLocation[0], lng: userLocation[1] } : 
           { lat: 6.5244, lng: 3.3792 }
       });
 
+      // Remove loading indicator
+      loadingDiv.remove();
+
       if (!mountedRef.current) return;
 
+      mapInitializedRef.current = true;
       setIsGoogleMapsLoaded(true);
       setMapInitialized(true);
       setIsLoading(false);
@@ -237,38 +199,37 @@ const MapView: React.FC<MapViewProps> = ({
       if (mountedRef.current) {
         setLoadError(error instanceof Error ? error.message : 'Failed to initialize map');
         setIsLoading(false);
-        initAttemptedRef.current = false; // Allow retry
       }
     }
-  }, [userLocation, getMapContainer]);
+  }, [userLocation]);
 
   // Initialize when component mounts
   useEffect(() => {
     mountedRef.current = true;
-    initAttemptedRef.current = false;
+    mapInitializedRef.current = false;
     
-    console.log('🚀 MapView mounted with container ID:', containerId);
+    console.log('🚀 WorkingMapView mounted');
     
     // Start initialization
     const initTimeout = setTimeout(() => {
-      if (mountedRef.current && !initAttemptedRef.current) {
+      if (mountedRef.current && !mapInitializedRef.current) {
         initializeMap();
       }
     }, 500);
 
     return () => {
-      console.log('🧹 MapView unmounting...');
+      console.log('🧹 WorkingMapView unmounting...');
       mountedRef.current = false;
       clearTimeout(initTimeout);
-      googleMapsService.clearMarkers();
       
-      // Clean up dynamically created container
-      const dynamicContainer = document.getElementById('dynamic-map-container');
-      if (dynamicContainer) {
-        dynamicContainer.remove();
+      // Clean up
+      if (mapContainerRef.current) {
+        mapContainerRef.current.remove();
       }
+      googleMapsService.clearMarkers();
+      googleMapsService.destroy();
     };
-  }, [initializeMap, containerId]);
+  }, [initializeMap]);
 
   // Update markers when providers change and map is ready
   useEffect(() => {
@@ -417,7 +378,7 @@ const MapView: React.FC<MapViewProps> = ({
     setIsLoading(true);
     setMapInitialized(false);
     setIsGoogleMapsLoaded(false);
-    initAttemptedRef.current = false;
+    mapInitializedRef.current = false;
     googleMapsService.reset();
     
     setTimeout(() => {
@@ -517,7 +478,7 @@ const MapView: React.FC<MapViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Map Container - Using unique ID for maximum reliability */}
+        {/* Map Container Area - This is where the map will be injected */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <div className="p-4 border-b">
@@ -530,15 +491,15 @@ const MapView: React.FC<MapViewProps> = ({
               </p>
             </div>
             <div className="relative h-96">
-              {/* Map container with unique ID and ref */}
+              {/* This div will be replaced by the actual map container */}
               <div 
-                ref={mapContainerRef}
-                id={containerId}
-                className="map-container w-full h-full bg-gray-100"
+                data-map-area
+                className="w-full h-full"
                 style={{ minHeight: '384px' }}
               >
+                {/* Map will be injected here by initializeMap */}
                 {!mapInitialized && (
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
                     <div className="text-center">
                       <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                       <p className="text-gray-500 text-sm">Preparing map...</p>
@@ -713,4 +674,4 @@ const MapView: React.FC<MapViewProps> = ({
   );
 };
 
-export default MapView;
+export default WorkingMapView;

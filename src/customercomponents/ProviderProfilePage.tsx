@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useLocation, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Star,
   MapPin,
@@ -17,7 +17,10 @@ import {
   Eye,
   X,
   DollarSign,
-  User,
+  Image,
+  ThumbsUp,
+  Clock4,
+  TrendingUp,
 } from "lucide-react";
 
 interface ProviderProfile {
@@ -41,37 +44,47 @@ interface ProviderProfile {
   isTopRated?: boolean;
   responseTime?: string;
   joinedDate?: string;
+  onTimeDelivery?: number;
+  responseRate?: number;
+  totalEarnings?: number;
+  activeClients?: number;
+  galleryCount?: number;
 }
 
 interface GalleryImage {
-  id: string;
-  url: string;
+  _id: string;
+  imageUrl: string;
   title: string;
   description?: string;
   category: string;
-  uploadDate: string;
+  createdAt: string;
+  views?: number;
+  likes?: number;
+  featured?: boolean;
 }
 
 interface Review {
-  id: string;
-  customerName: string;
+  _id: string;
+  customerId: {
+    _id: string;
+    name: string;
+    profileImage?: string;
+  };
   rating: number;
   comment: string;
-  date: string;
-  service: string;
-  customerAvatar?: string;
+  serviceType: string;
+  createdAt: string;
+  helpful?: number;
+  verified?: boolean;
 }
 
-interface BookingFormData {
-  serviceType: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  budget: string;
-  contactPhone: string;
-  contactEmail: string;
-  specialRequests: string;
+interface PerformanceStats {
+  completedJobs: number;
+  onTimeDelivery: number;
+  responseRate: number;
+  repeatClients: number;
+  totalEarnings: number;
+  activeClients: number;
 }
 
 const API_BASE_URL =
@@ -87,7 +100,7 @@ const getFullImageUrl = (url: string | undefined): string | undefined => {
   return `${API_BASE_URL}/uploads/${url}`;
 };
 
-// BookingModal Component
+// BookingModal Component (same as your original)
 const BookingModal: React.FC<{
   isOpen: boolean;
   provider: ProviderProfile;
@@ -103,7 +116,7 @@ const BookingModal: React.FC<{
   serviceType: "immediate" | "long-term";
 }> = ({ isOpen, provider, currentUser, onClose, onConfirm, serviceType }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<BookingFormData>({
+  const [formData, setFormData] = useState({
     serviceType: provider.services[0] || "",
     description: "",
     date: "",
@@ -189,7 +202,7 @@ const BookingModal: React.FC<{
     ));
   };
 
-  const rating = provider.averageRating || 4.5;
+  const rating = provider.averageRating || 0;
   const reviewCount = provider.reviewCount || 0;
   const locationText = `${provider.city}, ${provider.state}`;
 
@@ -374,7 +387,6 @@ const BookingModal: React.FC<{
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      <User className="w-4 h-4 inline mr-1" />
                       Your Name
                     </label>
                     <input
@@ -505,7 +517,6 @@ const BookingModal: React.FC<{
 
 const ProviderProfilePage: React.FC = () => {
   const { providerId } = useParams<{ providerId: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -520,116 +531,275 @@ const ProviderProfilePage: React.FC = () => {
   const [bookingServiceType, setBookingServiceType] = useState<
     "immediate" | "long-term"
   >("immediate");
+  const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
-  // Mock current user - replace with actual user data from your auth context
-  const currentUser = {
+  // Get current user from localStorage or context
+  const [currentUser, setCurrentUser] = useState({
     id: "current-user-id",
     name: "John Doe",
     email: "john.doe@example.com",
     phoneNumber: "+234 123 456 7890",
     address: "Lagos, Nigeria",
+  });
+
+  // Fetch provider profile data with REAL data
+  const fetchProviderProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (providerId) {
+        console.log('🔄 Fetching provider profile for:', providerId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/providers/${providerId}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch provider profile");
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log('✅ Provider profile data:', data.data);
+          setProvider(data.data);
+        } else {
+          throw new Error(data.message || "Failed to load provider profile");
+        }
+      }
+    } catch (err) {
+      console.error('❌ Error fetching provider profile:', err);
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Get provider data from location state or fetch from API
-  useEffect(() => {
-    const fetchProviderProfile = async () => {
-      try {
-        setLoading(true);
+  // Fetch REAL performance statistics - NO FALLBACK DATA
+  const fetchPerformanceStats = async () => {
+    if (!providerId) return;
 
-        // First check if provider data was passed via navigation state
-        if (location.state?.provider) {
-          setProvider(location.state.provider);
-          setLoading(false);
-          return;
+    try {
+      setStatsLoading(true);
+      console.log('📊 Fetching REAL performance stats for provider:', providerId);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/providers/${providerId}/stats`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ REAL Performance stats:', data);
+        
+        if (data.success && data.data) {
+          // Only set if we have real data
+          setPerformanceStats(data.data);
+        } else {
+          console.log('❌ No real performance stats available');
+          setPerformanceStats(null); // Don't show fake stats
         }
-
-        // If not, fetch from API
-        if (providerId) {
-          const response = await fetch(
-            `${API_BASE_URL}/api/providers/${providerId}`
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch provider profile");
-          }
-
-          const data = await response.json();
-
-          if (data.success) {
-            setProvider(data.data);
-          } else {
-            throw new Error(data.message || "Failed to load provider profile");
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
+      } else {
+        console.log('❌ Performance stats fetch failed:', response.status);
+        setPerformanceStats(null); // Don't show fake stats
       }
-    };
+    } catch (error) {
+      console.error("❌ Error fetching performance stats:", error);
+      setPerformanceStats(null); // Don't show fake stats
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
-    fetchProviderProfile();
-  }, [providerId, location.state]);
-
-  // Fetch gallery images
+  // Fetch REAL gallery images with better error handling
   const fetchGalleryImages = async () => {
     if (!providerId) return;
 
     try {
       setGalleryLoading(true);
-      const response = await fetch(
-        `${API_BASE_URL}/api/providers/${providerId}/gallery`
-      );
+      console.log('🔄 Fetching REAL gallery for provider:', providerId);
+      
+      // Try multiple endpoints
+      const endpoints = [
+        `${API_BASE_URL}/api/providers/${providerId}/gallery`,
+        `${API_BASE_URL}/api/gallery?userId=${providerId}`,
+        `${API_BASE_URL}/api/gallery/provider/${providerId}`
+      ];
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setGalleryImages(data.data);
-        } else {
-          setGalleryImages(getSampleGalleryImages());
+      let galleryData = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔄 Trying gallery endpoint: ${endpoint}`);
+          const response = await fetch(endpoint);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ Gallery response from ${endpoint}:`, data);
+            
+            if (data.success) {
+              // Handle different response formats
+              galleryData = data.data?.docs || data.data?.images || data.data || data.images || [];
+              break;
+            }
+          }
+        } catch (endpointError) {
+          console.log(`❌ Gallery endpoint failed: ${endpoint}`, endpointError);
+          continue;
         }
+      }
+
+      if (galleryData && Array.isArray(galleryData)) {
+        console.log('✅ Setting gallery images:', galleryData.length);
+        setGalleryImages(galleryData);
       } else {
-        setGalleryImages(getSampleGalleryImages());
+        console.log('❌ No gallery images found');
+        setGalleryImages([]);
       }
     } catch (error) {
-      console.error("Error fetching gallery:", error);
-      setGalleryImages(getSampleGalleryImages());
+      console.error("❌ Error fetching gallery:", error);
+      setGalleryImages([]);
     } finally {
       setGalleryLoading(false);
     }
   };
 
-  // Fetch reviews
+  // Fetch REAL reviews with proper data mapping
   const fetchReviews = async () => {
     if (!providerId) return;
 
     try {
       setReviewsLoading(true);
+      console.log('📝 Fetching REAL reviews for provider:', providerId);
+      
       const response = await fetch(
         `${API_BASE_URL}/api/providers/${providerId}/reviews`
       );
 
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ REAL Reviews response:', data);
+        
         if (data.success) {
-          setReviews(data.data);
+          const reviewsData = data.data?.reviews || data.data?.docs || data.data || [];
+          
+          console.log('📊 Raw reviews data:', reviewsData);
+
+          // Transform the API response to match our Review interface with REAL data
+          const transformedReviews = reviewsData.map((review: any) => {
+            console.log('🔍 Processing review:', review);
+            
+            // Get REAL customer data - check multiple possible field structures
+            const customerName = 
+              review.customerId?.name ||
+              review.customerName || 
+              review.userId?.name ||
+              review.customer?.name ||
+              'Customer';
+
+            const customerProfileImage = 
+              review.customerId?.profileImage ||
+              review.customerProfileImage ||
+              review.userId?.profileImage ||
+              review.customer?.profileImage ||
+              null;
+
+            const customerId = 
+              review.customerId?._id ||
+              review.customerId?.id ||
+              review.userId?._id ||
+              review.customer?._id ||
+              'unknown';
+
+            // Get REAL rating - check multiple possible field structures
+            const rating = 
+              review.rating ||
+              review.providerRating ||
+              review.overallRating ||
+              review.score ||
+              0;
+
+            // Get REAL comment
+            const comment = 
+              review.comment ||
+              review.providerComment ||
+              review.reviewText ||
+              review.feedback ||
+              '';
+
+            // Get REAL service type
+            const serviceType = 
+              review.serviceType ||
+              review.bookingId?.serviceType ||
+              review.service?.type ||
+              'General Service';
+
+            return {
+              _id: review._id || review.id || `review-${Date.now()}-${Math.random()}`,
+              customerId: {
+                _id: customerId,
+                name: customerName,
+                profileImage: customerProfileImage
+              },
+              rating: Math.max(1, Math.min(5, rating)), // Ensure rating is between 1-5
+              comment: comment,
+              serviceType: serviceType,
+              createdAt: review.createdAt || review.ratedAt || review.date || new Date().toISOString(),
+              helpful: review.helpful || review.likes || review.helpfulCount || 0,
+              verified: review.verified || false
+            };
+          }).filter((review: Review) => review.rating > 0); // Only include reviews with actual ratings
+
+          console.log('✅ Transformed REAL reviews:', transformedReviews);
+          setReviews(transformedReviews);
         } else {
-          setReviews(getSampleReviews());
+          console.log('❌ Reviews API error:', data.message);
+          setReviews([]);
         }
       } else {
-        setReviews(getSampleReviews());
+        console.log('❌ Reviews fetch failed:', response.status);
+        setReviews([]);
       }
     } catch (error) {
-      console.error("Error fetching reviews:", error);
-      setReviews(getSampleReviews());
+      console.error("❌ Error fetching reviews:", error);
+      setReviews([]);
     } finally {
       setReviewsLoading(false);
     }
   };
 
-  // Load gallery and reviews when provider data is available
+  // Load current user data
+  useEffect(() => {
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        setCurrentUser(prev => ({
+          ...prev,
+          id: user._id || user.id,
+          name: user.name || prev.name,
+          email: user.email || prev.email,
+          phoneNumber: user.phoneNumber || prev.phoneNumber,
+          address: user.address || prev.address,
+        }));
+      } catch (err) {
+        console.error('Error parsing user data:', err);
+      }
+    }
+  }, []);
+
+  // Load provider data and related data
+  useEffect(() => {
+    if (providerId) {
+      fetchProviderProfile();
+    }
+  }, [providerId]);
+
+  // Load additional data when provider is available
   useEffect(() => {
     if (provider) {
+      console.log('🔄 Provider loaded, fetching additional data...');
+      fetchPerformanceStats();
       fetchGalleryImages();
       fetchReviews();
     }
@@ -646,18 +816,19 @@ const ProviderProfilePage: React.FC = () => {
 
   const handleBookingConfirm = async (bookingData: any) => {
     try {
-      console.log("Booking data:", bookingData);
-
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
       const response = await fetch(`${API_BASE_URL}/api/bookings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(bookingData),
       });
 
       if (response.ok) {
-        const result = await response.json();
+        await response.json();
         alert(
           "Booking request submitted successfully! The provider will be notified."
         );
@@ -671,62 +842,28 @@ const ProviderProfilePage: React.FC = () => {
     }
   };
 
-  // FIXED: Enhanced handleSendMessage function with proper event handling
   const handleSendMessage = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (provider) {
-      console.log('🔄 Message button clicked, navigating to messages with provider:', provider);
-      
-      // Create conversation data to pass to messages page
-      const conversationData = {
-        id: `conv-${provider._id}`, // Generate conversation ID
-        providerId: provider._id,
-        providerName: provider.name,
-        providerService: provider.services[0] || 'General Service',
-        providerAvatar: provider.profileImage,
-        isOnline: provider.isAvailableNow || false,
-        unreadCount: 0,
-        lastMessage: {
-          id: 'initial',
-          senderId: 'system',
-          content: 'Start a conversation with this provider',
-          timestamp: new Date(),
-          status: 'sent' as const
-        }
-      };
-
-      // Navigate to messages page with provider data to start conversation
       navigate('/customer/messages', { 
         state: { 
           provider,
-          conversation: conversationData,
           startNewConversation: true
         }
       });
     }
   };
 
-  const renderStars = (rating: number) => {
-    return [...Array(5)].map((_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 sm:w-5 sm:h-5 ${
-          i < Math.floor(rating)
-            ? "text-yellow-400 fill-current"
-            : "text-gray-300"
-        }`}
-      />
-    ));
-  };
-
-  const renderReviewStars = (rating: number, size = "w-4 h-4") => {
+  // Helper functions for rendering
+  const renderStars = (rating: number, size = "w-4 h-4") => {
+    const normalizedRating = Math.min(Math.max(rating, 0), 5); // Ensure rating is between 0-5
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
         className={`${size} ${
-          i < Math.floor(rating)
+          i < Math.floor(normalizedRating)
             ? "text-yellow-400 fill-current"
             : "text-gray-300"
         }`}
@@ -734,64 +871,9 @@ const ProviderProfilePage: React.FC = () => {
     ));
   };
 
-  // Sample data functions
-  const getSampleGalleryImages = (): GalleryImage[] => [
-    {
-      id: "1",
-      url: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=500&h=400&fit=crop",
-      title: "Kitchen Renovation",
-      description: "Complete kitchen remodeling with modern fixtures",
-      category: "Renovation",
-      uploadDate: "2024-01-15",
-    },
-    {
-      id: "2",
-      url: "https://images.unsplash.com/photo-1484154218962-a197022b5858?w=500&h=400&fit=crop",
-      title: "Bathroom Upgrade",
-      description: "Luxury bathroom upgrade with premium tiles",
-      category: "Plumbing",
-      uploadDate: "2024-01-10",
-    },
-    {
-      id: "3",
-      url: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=500&h=400&fit=crop",
-      title: "Living Room Painting",
-      description: "Professional painting with eco-friendly materials",
-      category: "Painting",
-      uploadDate: "2024-01-05",
-    },
-    {
-      id: "4",
-      url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=500&h=400&fit=crop",
-      title: "Furniture Assembly",
-      description: "Expert furniture assembly and setup",
-      category: "Assembly",
-      uploadDate: "2024-01-02",
-    },
-    {
-      id: "5",
-      url: "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&h=400&fit=crop",
-      title: "Garden Maintenance",
-      description: "Professional garden care and maintenance",
-      category: "Gardening",
-      uploadDate: "2023-12-28",
-    },
-    {
-      id: "6",
-      url: "https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=500&h=400&fit=crop",
-      title: "Home Cleaning",
-      description: "Deep cleaning and sanitization",
-      category: "Cleaning",
-      uploadDate: "2023-12-25",
-    },
-  ];
-
-  const handleImageError = (
-    e: React.SyntheticEvent<HTMLImageElement, Event>
-  ) => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
     console.error("Image failed to load:", target.src);
-
     target.style.display = "none";
     const parent = target.parentElement;
     if (parent) {
@@ -802,65 +884,30 @@ const ProviderProfilePage: React.FC = () => {
     }
   };
 
-  const handleImageLoad = (
-    e: React.SyntheticEvent<HTMLImageElement, Event>
-  ) => {
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     console.log("Image loaded successfully:", e.currentTarget.src);
   };
-
-  const getSampleReviews = (): Review[] => [
-    {
-      id: "1",
-      customerName: "Sarah Johnson",
-      rating: 5,
-      comment:
-        "Excellent work! The kitchen renovation exceeded my expectations. Professional and timely completion.",
-      date: "2024-01-20",
-      service: "Kitchen Renovation",
-      customerAvatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop&crop=face",
-    },
-    {
-      id: "2",
-      customerName: "Michael Brown",
-      rating: 4,
-      comment:
-        "Good quality painting work. Clean and efficient service. Would recommend for home projects.",
-      date: "2024-01-18",
-      service: "House Painting",
-      customerAvatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face",
-    },
-    {
-      id: "3",
-      customerName: "Emily Davis",
-      rating: 5,
-      comment:
-        "Outstanding plumbing service! Fixed the issue quickly and explained everything clearly.",
-      date: "2024-01-15",
-      service: "Plumbing Repair",
-      customerAvatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
-    },
-    {
-      id: "4",
-      customerName: "Robert Wilson",
-      rating: 4,
-      comment:
-        "Professional and reliable. The garden looks amazing after the maintenance work.",
-      date: "2024-01-12",
-      service: "Garden Maintenance",
-      customerAvatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face",
-    },
-  ];
 
   const tabs = [
     { id: "overview", name: "Overview" },
     { id: "services", name: "Services" },
-    { id: "gallery", name: "Gallery" },
-    { id: "reviews", name: "Reviews" },
+    { id: "gallery", name: `Gallery ${galleryImages.length > 0 ? `(${galleryImages.length})` : ''}` },
+    { id: "reviews", name: `Reviews ${reviews.length > 0 ? `(${reviews.length})` : ''}` },
   ];
+
+  // Calculate rating breakdown from real reviews
+  const calculateRatingBreakdown = () => {
+    const breakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach(review => {
+      if (review.rating >= 1 && review.rating <= 5) {
+        breakdown[review.rating as keyof typeof breakdown]++;
+      }
+    });
+    return breakdown;
+  };
+
+  const ratingBreakdown = calculateRatingBreakdown();
+  const totalReviews = reviews.length;
 
   if (loading) {
     return (
@@ -968,7 +1015,7 @@ const ProviderProfilePage: React.FC = () => {
 
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-4">
                   <div className="flex items-center justify-center sm:justify-start gap-2">
-                    {renderStars(provider.averageRating)}
+                    {renderStars(provider.averageRating, "w-4 h-4 sm:w-5 sm:h-5")}
                     <span className="font-bold text-gray-900">
                       {provider.averageRating.toFixed(1)}
                     </span>
@@ -1013,7 +1060,6 @@ const ProviderProfilePage: React.FC = () => {
               >
                 Book Now
               </button>
-              {/* FIXED: Message button with enhanced functionality */}
               <button
                 onClick={handleSendMessage}
                 className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none hover:border-blue-300 hover:text-blue-600"
@@ -1057,27 +1103,13 @@ const ProviderProfilePage: React.FC = () => {
           </div>
 
           <div className="p-4 sm:p-6">
-            {/* Overview Tab */}
+            {/* Overview Tab with REAL Data */}
             {activeTab === "overview" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-                {/* Services */}
+                {/* Services and Details */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Services Offered */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                      Services Offered
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {provider.services.map((service, index) => (
-                        <div
-                          key={index}
-                          className="bg-blue-50 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
-                        >
-                          {service}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  
 
                   {/* Experience and Pricing */}
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
@@ -1103,30 +1135,60 @@ const ProviderProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Stats and Contact */}
+                {/* Stats and Contact with REAL Data */}
                 <div className="space-y-6">
-                  {/* Stats */}
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                      Performance Stats
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Completed Jobs</span>
-                        <span className="font-bold text-gray-900">
-                          {provider.completedJobs}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Response Rate</span>
-                        <span className="font-bold text-green-600">98%</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">On-time Delivery</span>
-                        <span className="font-bold text-green-600">95%</span>
+                  {/* Performance Stats - Only show if we have real data */}
+                  {performanceStats && (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+                        Performance Stats
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                            <span className="text-gray-600">Completed Jobs</span>
+                          </div>
+                          <span className="font-bold text-gray-900">
+                            {performanceStats.completedJobs}
+                          </span>
+                        </div>
+                        {performanceStats.onTimeDelivery > 0 && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock4 className="w-4 h-4 text-blue-600" />
+                              <span className="text-gray-600">On-time Delivery</span>
+                            </div>
+                            <span className="font-bold text-green-600">
+                              {performanceStats.onTimeDelivery}%
+                            </span>
+                          </div>
+                        )}
+                        {performanceStats.responseRate > 0 && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-purple-600" />
+                              <span className="text-gray-600">Response Rate</span>
+                            </div>
+                            <span className="font-bold text-green-600">
+                              {performanceStats.responseRate}%
+                            </span>
+                          </div>
+                        )}
+                        {performanceStats.totalEarnings > 0 && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="w-4 h-4 text-amber-600" />
+                              <span className="text-gray-600">Total Earnings</span>
+                            </div>
+                            <span className="font-bold text-gray-900">
+                              ₦{performanceStats.totalEarnings.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Contact Info */}
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
@@ -1169,7 +1231,8 @@ const ProviderProfilePage: React.FC = () => {
                   All Services
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                  {provider.services.map((service, index) => (
+                 
+                  {/* {provider.services.map((service, index) => (
                     <div
                       key={index}
                       className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6"
@@ -1195,12 +1258,27 @@ const ProviderProfilePage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  ))} */}
                 </div>
+                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+                      Services Offered
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {provider.services.map((service, index) => (
+                        <div
+                          key={index}
+                          className="bg-blue-50 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
+                        >
+                          {service}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
               </div>
             )}
 
-            {/* Gallery Tab */}
+            {/* Gallery Tab with REAL Data */}
             {activeTab === "gallery" && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
@@ -1225,26 +1303,23 @@ const ProviderProfilePage: React.FC = () => {
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                     {galleryImages.map((image) => (
                       <div
-                        key={image.id}
+                        key={image._id}
                         className="group relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-lg transition-all duration-300"
                         onClick={() => setSelectedImage(image)}
                       >
                         <div className="aspect-square bg-gray-100 relative">
                           <img
-                            src={getFullImageUrl(image.url)}
+                            src={getFullImageUrl(image.imageUrl)}
                             alt={image.title}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              console.error(
-                                "Gallery image failed to load:",
-                                target.src
-                              );
-                              target.style.display = "none";
-                              // You could add a fallback image here
-                            }}
+                            onError={handleImageError}
                             onLoad={handleImageLoad}
                           />
+                          {image.featured && (
+                            <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-medium">
+                              Featured
+                            </div>
+                          )}
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -1254,16 +1329,46 @@ const ProviderProfilePage: React.FC = () => {
                             <p className="text-gray-300 text-xs line-clamp-2">
                               {image.description}
                             </p>
+                            <div className="flex items-center justify-between mt-2">
+                              <span className="text-gray-300 text-xs capitalize">
+                                {image.category}
+                              </span>
+                              {(image.likes || image.views) && (
+                                <div className="flex items-center gap-2">
+                                  {image.likes && (
+                                    <div className="flex items-center gap-1">
+                                      <ThumbsUp className="w-3 h-3" />
+                                      <span className="text-xs">{image.likes}</span>
+                                    </div>
+                                  )}
+                                  {image.views && (
+                                    <div className="flex items-center gap-1">
+                                      <Eye className="w-3 h-3" />
+                                      <span className="text-xs">{image.views}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+
+                {galleryImages.length === 0 && !galleryLoading && (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Image className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500">No gallery images available</p>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Reviews Tab */}
+            {/* Reviews Tab with REAL Data */}
             {activeTab === "reviews" && (
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1277,16 +1382,44 @@ const ProviderProfilePage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl w-fit">
                     <div className="flex items-center gap-1">
-                      {renderReviewStars(
-                        provider.averageRating,
-                        "w-4 h-4 sm:w-5 sm:h-5"
-                      )}
+                      {renderStars(provider.averageRating, "w-4 h-4 sm:w-5 sm:h-5")}
                     </div>
                     <span className="font-bold text-gray-900 text-sm sm:text-base">
                       {provider.averageRating.toFixed(1)}
                     </span>
                   </div>
                 </div>
+
+                {/* Rating Breakdown */}
+                {totalReviews > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                    <h4 className="font-semibold text-gray-900 mb-4">Rating Breakdown</h4>
+                    <div className="space-y-2">
+                      {[5, 4, 3, 2, 1].map((rating) => {
+                        const count = ratingBreakdown[rating as keyof typeof ratingBreakdown];
+                        const percentage = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+                        
+                        return (
+                          <div key={rating} className="flex items-center gap-3">
+                            <div className="flex items-center gap-1 w-16">
+                              <span className="text-sm text-gray-600 w-4">{rating}</span>
+                              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                            </div>
+                            <div className="flex-1 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-yellow-400 h-2 rounded-full"
+                                style={{ width: `${percentage}%` }}
+                              ></div>
+                            </div>
+                            <span className="text-sm text-gray-600 w-12 text-right">
+                              {count} ({percentage.toFixed(0)}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {reviewsLoading ? (
                   <div className="space-y-4">
@@ -1313,45 +1446,65 @@ const ProviderProfilePage: React.FC = () => {
                   <div className="space-y-4">
                     {reviews.map((review) => (
                       <div
-                        key={review.id}
+                        key={review._id}
                         className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6"
                       >
                         <div className="flex items-start gap-3 sm:gap-4 mb-4">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base overflow-hidden flex-shrink-0">
-                            {review.customerAvatar ? (
+                            {review.customerId?.profileImage ? (
                               <img
-                                src={review.customerAvatar}
-                                alt={review.customerName}
+                                src={getFullImageUrl(review.customerId.profileImage)}
+                                alt={review.customerId?.name || 'Customer'}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              review.customerName.charAt(0).toUpperCase()
+                              (review.customerId?.name || 'C').charAt(0).toUpperCase()
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2 mb-2">
-                              <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">
-                                {review.customerName}
-                              </h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-gray-900 text-sm sm:text-base truncate">
+                                  {review.customerId?.name || 'Anonymous Customer'}
+                                </h4>
+                                {review.verified && (
+                                  <Shield className="w-4 h-4 text-blue-500" />
+                                )}
+                              </div>
                               <span className="text-xs sm:text-sm text-gray-500">
-                                {review.date}
+                                {new Date(review.createdAt).toLocaleDateString()}
                               </span>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
                               <div className="flex items-center gap-1">
-                                {renderReviewStars(review.rating)}
+                                {renderStars(review.rating)}
                               </div>
                               <span className="text-xs sm:text-sm text-blue-600 font-medium">
-                                {review.service}
+                                {review.serviceType || 'General Service'}
                               </span>
                             </div>
                           </div>
                         </div>
-                        <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                        <p className="text-gray-700 leading-relaxed text-sm sm:text-base mb-3">
                           {review.comment}
                         </p>
+                        {review.helpful && review.helpful > 0 && (
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <ThumbsUp className="w-3 h-3" />
+                            <span>{review.helpful} people found this helpful</span>
+                          </div>
+                        )}
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {reviews.length === 0 && !reviewsLoading && (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Star className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500">No reviews yet</p>
                   </div>
                 )}
               </div>
@@ -1380,20 +1533,34 @@ const ProviderProfilePage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden">
                     <img
-                      src={getFullImageUrl(selectedImage.url)}
+                      src={getFullImageUrl(selectedImage.imageUrl)}
                       alt={selectedImage.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        console.error(
-                          "Modal image failed to load:",
-                          target.src
-                        );
-                        // You could set a fallback image here
-                        target.src =
-                          "https://via.placeholder.com/800x600?text=Image+Not+Found";
+                        console.error("Modal image failed to load:", target.src);
+                        target.src = "https://via.placeholder.com/800x600?text=Image+Not+Found";
                       }}
                     />
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center gap-4">
+                      {selectedImage.views && (
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-4 h-4" />
+                          <span>{selectedImage.views} views</span>
+                        </div>
+                      )}
+                      {selectedImage.likes && (
+                        <div className="flex items-center gap-1">
+                          <ThumbsUp className="w-4 h-4" />
+                          <span>{selectedImage.likes} likes</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-gray-500">
+                      {new Date(selectedImage.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
                 <div className="space-y-4">
@@ -1417,12 +1584,10 @@ const ProviderProfilePage: React.FC = () => {
                     </div>
                     <div className="bg-green-50 p-3 sm:p-4 rounded-xl">
                       <p className="text-xs sm:text-sm text-gray-600">
-                        Upload Date
+                        Status
                       </p>
                       <p className="font-semibold text-gray-900 text-sm sm:text-base">
-                        {new Date(
-                          selectedImage.uploadDate
-                        ).toLocaleDateString()}
+                        {selectedImage.featured ? 'Featured' : 'Standard'}
                       </p>
                     </div>
                   </div>
