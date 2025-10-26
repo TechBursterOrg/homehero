@@ -1,6 +1,6 @@
 // LocationSearch.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Navigation, X as XIcon, Search, Wifi, WifiOff } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Navigation, X as XIcon } from 'lucide-react';
 
 interface LocationData {
   address: string;
@@ -18,12 +18,16 @@ interface LocationSearchProps {
   onLocationSelect: (location: LocationData) => void;
   currentLocation: string;
   onCurrentLocationDetect: () => void;
+  serviceType?: string;
+  onFindNow?: () => void;
 }
 
 const LocationSearch: React.FC<LocationSearchProps> = ({
   onLocationSelect,
   currentLocation,
   onCurrentLocationDetect,
+  serviceType,
+  onFindNow
 }) => {
   const [searchQuery, setSearchQuery] = useState(currentLocation);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
@@ -32,11 +36,10 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<LocationSuggestion | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
-  const [googleMapsStatus, setGoogleMapsStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Comprehensive Nigerian locations data - your primary data source
+  // Nigerian states and major cities with detailed Lagos areas
   const nigerianLocations: LocationSuggestion[] = [
     // States
     { id: 'abia', address: 'Abia State, Nigeria', coordinates: [5.4527, 7.5248], type: 'state' },
@@ -84,17 +87,12 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
     { id: 'ibadan', address: 'Ibadan, Nigeria', coordinates: [7.3775, 3.9470], type: 'city' },
     { id: 'port-harcourt', address: 'Port Harcourt, Nigeria', coordinates: [4.8156, 7.0498], type: 'city' },
     { id: 'benin-city', address: 'Benin City, Nigeria', coordinates: [6.3350, 5.6037], type: 'city' },
-    { id: 'ilorin', address: 'Ilorin, Nigeria', coordinates: [8.4966, 4.5421], type: 'city' },
-    { id: 'owerri', address: 'Owerri, Nigeria', coordinates: [5.4836, 7.0333], type: 'city' },
-    { id: 'jos', address: 'Jos, Nigeria', coordinates: [9.8965, 8.8583], type: 'city' },
-    { id: 'calabar', address: 'Calabar, Nigeria', coordinates: [4.9786, 8.3374], type: 'city' },
-    { id: 'warri', address: 'Warri, Nigeria', coordinates: [5.5167, 5.7500], type: 'city' },
     
     // Lagos Areas
     { id: 'ikeja', address: 'Ikeja, Lagos, Nigeria', coordinates: [6.6059, 3.3491], type: 'area' },
     { id: 'lekki', address: 'Lekki, Lagos, Nigeria', coordinates: [6.4654, 3.5665], type: 'area' },
     { id: 'ajah', address: 'Ajah, Lagos, Nigeria', coordinates: [6.4730, 3.5770], type: 'area' },
-    { id: 'victoria-island', address: 'Victoria Island, Lagos, Nigeria', coordinates: [6.4281, 3.4210], type: 'area' },
+    { id: 'victoria-island', address: 'Victoria Island, Lagos, Nigeria', coordinates: [6.4281, 3.4210], type: 'island' },
     { id: 'ikoyi', address: 'Ikoyi, Lagos, Nigeria', coordinates: [6.4522, 3.4358], type: 'area' },
     { id: 'surulere', address: 'Surulere, Lagos, Nigeria', coordinates: [6.5010, 3.3580], type: 'area' },
     { id: 'yaba', address: 'Yaba, Lagos, Nigeria', coordinates: [6.5098, 3.3711], type: 'area' },
@@ -122,121 +120,79 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
     { id: 'ketu', address: 'Ketu, Lagos, Nigeria', coordinates: [6.5911, 3.3870], type: 'area' },
     { id: 'oshodi-oloosa', address: 'Oshodi Oloosa, Lagos, Nigeria', coordinates: [6.5565, 3.3385], type: 'area' },
     { id: 'iyana-ipaja', address: 'Iyana Ipaja, Lagos, Nigeria', coordinates: [6.6450, 3.3150], type: 'area' },
-    { id: 'ipaja', address: 'Ipaja, Lagos, Nigeria', coordinates: [6.6200, 3.3100], type: 'area' },
-    { id: 'ayobo', address: 'Ayobo, Lagos, Nigeria', coordinates: [6.6583, 3.3275], type: 'area' },
-    { id: 'dopemu', address: 'Dopemu, Lagos, Nigeria', coordinates: [6.6333, 3.3300], type: 'area' },
-    { id: 'alagbado', address: 'Alagbado, Lagos, Nigeria', coordinates: [6.6417, 3.3050], type: 'area' },
-    { id: 'abule-egba', address: 'Abule Egba, Lagos, Nigeria', coordinates: [6.6350, 3.3200], type: 'area' },
-    { id: 'meiran', address: 'Meiran, Lagos, Nigeria', coordinates: [6.6400, 3.3000], type: 'area' },
-    { id: 'ijaiye', address: 'Ijaiye, Lagos, Nigeria', coordinates: [6.6250, 3.3150], type: 'area' },
-    { id: 'ojokoro', address: 'Ojokoro, Lagos, Nigeria', coordinates: [6.6500, 3.2800], type: 'area' },
-    { id: 'command', address: 'Command, Lagos, Nigeria', coordinates: [6.6150, 3.2650], type: 'area' },
-    { id: 'idimu', address: 'Idimu, Lagos, Nigeria', coordinates: [6.5783, 3.2800], type: 'area' },
-    { id: 'ejigbo', address: 'Ejigbo, Lagos, Nigeria', coordinates: [6.5583, 3.3083], type: 'area' },
-    { id: 'igando', address: 'Igando, Lagos, Nigeria', coordinates: [6.5500, 3.2400], type: 'area' },
-    { id: 'iyana-oba', address: 'Iyana Oba, Lagos, Nigeria', coordinates: [6.5650, 3.2500], type: 'area' },
-    { id: 'shasha', address: 'Shasha, Lagos, Nigeria', coordinates: [6.6100, 3.3250], type: 'area' },
-    { id: 'mangoro', address: 'Mangoro, Lagos, Nigeria', coordinates: [6.5850, 3.3200], type: 'area' },
-    { id: 'isheri', address: 'Isheri, Lagos, Nigeria', coordinates: [6.6600, 3.3800], type: 'area' },
-    { id: 'magodo', address: 'Magodo, Lagos, Nigeria', coordinates: [6.5944, 3.3833], type: 'area' },
-    { id: 'omole', address: 'Omole Phase 1, Lagos, Nigeria', coordinates: [6.6200, 3.3600], type: 'area' },
-    { id: 'gbagada', address: 'Gbagada, Lagos, Nigeria', coordinates: [6.5583, 3.3833], type: 'area' },
-    { id: 'palmgroove', address: 'Palm Grove, Lagos, Nigeria', coordinates: [6.5417, 3.3700], type: 'area' },
-    { id: 'onipanu', address: 'Onipanu, Lagos, Nigeria', coordinates: [6.5250, 3.3750], type: 'area' },
-    { id: 'fadeyi', address: 'Fadeyi, Lagos, Nigeria', coordinates: [6.5200, 3.3650], type: 'area' },
-    { id: 'ojuelegba', address: 'Ojuelegba, Lagos, Nigeria', coordinates: [6.5050, 3.3600], type: 'area' },
-    { id: 'lawanson', address: 'Lawanson, Lagos, Nigeria', coordinates: [6.5100, 3.3500], type: 'area' },
-    { id: 'itire', address: 'Itire, Lagos, Nigeria', coordinates: [6.5150, 3.3400], type: 'area' },
-    { id: 'papa-ajao', address: 'Papa Ajao, Lagos, Nigeria', coordinates: [6.5350, 3.3300], type: 'area' },
-    { id: 'shogunle', address: 'Shogunle, Lagos, Nigeria', coordinates: [6.5450, 3.3400], type: 'area' },
-    { id: 'ilupeju', address: 'Ilupeju, Lagos, Nigeria', coordinates: [6.5500, 3.3600], type: 'area' },
-    { id: 'lagos-island', address: 'Lagos Island, Lagos, Nigeria', coordinates: [6.4533, 3.3958], type: 'area' },
-    { id: 'eko-atlantic', address: 'Eko Atlantic, Lagos, Nigeria', coordinates: [6.4150, 3.4000], type: 'area' },
-    { id: 'banana-island', address: 'Banana Island, Lagos, Nigeria', coordinates: [6.4400, 3.4300], type: 'area' },
-
-    // Landmarks
-    { id: 'lekki-conservation', address: 'Lekki Conservation Centre, Lagos', coordinates: [6.4436, 3.5369], type: 'landmark' },
-    { id: 'nike-art', address: 'Nike Art Gallery, Lagos', coordinates: [6.4300, 3.4500], type: 'landmark' },
-    { id: 'national-theatre', address: 'National Theatre, Lagos', coordinates: [6.4678, 3.3678], type: 'landmark' },
-    { id: 'third-mainland', address: 'Third Mainland Bridge, Lagos', coordinates: [6.5000, 3.4000], type: 'landmark' },
+{ id: 'ipaja', address: 'Ipaja, Lagos, Nigeria', coordinates: [6.6200, 3.3100], type: 'area' },
+{ id: 'ayobo', address: 'Ayobo, Lagos, Nigeria', coordinates: [6.6583, 3.3275], type: 'area' },
+{ id: 'dopemu', address: 'Dopemu, Lagos, Nigeria', coordinates: [6.6333, 3.3300], type: 'area' },
+{ id: 'alagbado', address: 'Alagbado, Lagos, Nigeria', coordinates: [6.6417, 3.3050], type: 'area' },
+{ id: 'abule-egba', address: 'Abule Egba, Lagos, Nigeria', coordinates: [6.6350, 3.3200], type: 'area' },
+{ id: 'meiran', address: 'Meiran, Lagos, Nigeria', coordinates: [6.6400, 3.3000], type: 'area' },
+{ id: 'ijaiye', address: 'Ijaiye, Lagos, Nigeria', coordinates: [6.6250, 3.3150], type: 'area' },
+{ id: 'ojokoro', address: 'Ojokoro, Lagos, Nigeria', coordinates: [6.6500, 3.2800], type: 'area' },
+{ id: 'command', address: 'Command, Lagos, Nigeria', coordinates: [6.6150, 3.2650], type: 'area' },
+{ id: 'idimu', address: 'Idimu, Lagos, Nigeria', coordinates: [6.5783, 3.2800], type: 'area' },
+{ id: 'ejigbo', address: 'Ejigbo, Lagos, Nigeria', coordinates: [6.5583, 3.3083], type: 'area' },
+{ id: 'igando', address: 'Igando, Lagos, Nigeria', coordinates: [6.5500, 3.2400], type: 'area' },
+{ id: 'iyana-oba', address: 'Iyana Oba, Lagos, Nigeria', coordinates: [6.5650, 3.2500], type: 'area' },
+{ id: 'shasha', address: 'Shasha, Lagos, Nigeria', coordinates: [6.6100, 3.3250], type: 'area' },
+{ id: 'mangoro', address: 'Mangoro, Lagos, Nigeria', coordinates: [6.5850, 3.3200], type: 'area' },
+{ id: 'isheri', address: 'Isheri, Lagos, Nigeria', coordinates: [6.6600, 3.3800], type: 'area' },
+{ id: 'magodo', address: 'Magodo, Lagos, Nigeria', coordinates: [6.5944, 3.3833], type: 'area' },
+{ id: 'omole', address: 'Omole Phase 1, Lagos, Nigeria', coordinates: [6.6200, 3.3600], type: 'area' },
+{ id: 'gbagada', address: 'Gbagada, Lagos, Nigeria', coordinates: [6.5583, 3.3833], type: 'area' },
+{ id: 'palmgroove', address: 'Palm Grove, Lagos, Nigeria', coordinates: [6.5417, 3.3700], type: 'area' },
+{ id: 'onipanu', address: 'Onipanu, Lagos, Nigeria', coordinates: [6.5250, 3.3750], type: 'area' },
+{ id: 'fadeyi', address: 'Fadeyi, Lagos, Nigeria', coordinates: [6.5200, 3.3650], type: 'area' },
+{ id: 'ojuelegba', address: 'Ojuelegba, Lagos, Nigeria', coordinates: [6.5050, 3.3600], type: 'area' },
+{ id: 'lawanson', address: 'Lawanson, Lagos, Nigeria', coordinates: [6.5100, 3.3500], type: 'area' },
+{ id: 'itire', address: 'Itire, Lagos, Nigeria', coordinates: [6.5150, 3.3400], type: 'area' },
+{ id: 'papa-ajao', address: 'Papa Ajao, Lagos, Nigeria', coordinates: [6.5350, 3.3300], type: 'area' },
+{ id: 'shogunle', address: 'Shogunle, Lagos, Nigeria', coordinates: [6.5450, 3.3400], type: 'area' },
+{ id: 'ilupeju', address: 'Ilupeju, Lagos, Nigeria', coordinates: [6.5500, 3.3600], type: 'area' },
+{ id: 'lagos-island', address: 'Lagos Island, Lagos, Nigeria', coordinates: [6.4533, 3.3958], type: 'island' },
+{ id: 'eko-atlantic', address: 'Eko Atlantic, Lagos, Nigeria', coordinates: [6.4150, 3.4000], type: 'area' },
+{ id: 'banana-island', address: 'Banana Island, Lagos, Nigeria', coordinates: [6.4400, 3.4300], type: 'island' }
+    
   ];
-
-  // Simple Google Maps check - don't try to load it, just check if it's available
-  useEffect(() => {
-    const checkGoogleMaps = () => {
-      if (window.google?.maps?.places) {
-        setGoogleMapsStatus('ready');
-        console.log('✅ Google Maps Places is available');
-      } else {
-        setGoogleMapsStatus('error');
-        console.log('ℹ️ Google Maps not available, using local Nigerian data');
-      }
-    };
-
-    // Check after a short delay
-    const timer = setTimeout(checkGoogleMaps, 1000);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     setSearchQuery(currentLocation);
   }, [currentLocation]);
 
-  // Fast search using local Nigerian data
-  const searchLocations = useCallback((query: string) => {
-    if (query.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-
-    setIsSearching(true);
-
-    // Use comprehensive local Nigerian data for fast, reliable searches
-    const searchTerm = query.toLowerCase();
-    const localResults = nigerianLocations.filter(location =>
-      location.address.toLowerCase().includes(searchTerm)
-    ).slice(0, 15);
-
-    setSuggestions(localResults);
-    setIsSearching(false);
-  }, []);
-
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      searchLocations(searchQuery);
-    }, 200); // Faster response with local data
-
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, searchLocations]);
+    if (searchQuery.length > 2) {
+      const filtered = nigerianLocations.filter(location =>
+        location.address.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery]);
 
   const handleLocationSelect = (suggestion: LocationSuggestion) => {
-    setIsSelecting(true);
     setSearchQuery(suggestion.address);
     setShowSuggestions(false);
-
     onLocationSelect({
       address: suggestion.address,
       coordinates: suggestion.coordinates
     });
-
-    setSelectedLocation(suggestion);
-
-    setTimeout(() => {
-      setIsSelecting(false);
-    }, 100);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     
+    // Only reset selected location if the value is different and we're not selecting
     if (selectedLocation && value !== selectedLocation.address && !isSelecting) {
       setSelectedLocation(null);
     }
   };
 
   const handleInputFocus = () => {
-    if (searchQuery.length > 1 && !selectedLocation && !isSelecting) {
+    // Only show suggestions if we have a query, no selected location, and not currently selecting
+    if (searchQuery.length > 2 && !selectedLocation && !isSelecting) {
       setShowSuggestions(true);
     }
   };
@@ -246,152 +202,142 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
       if (!isSelecting) {
         setShowSuggestions(false);
       }
-    }, 200);
+    }, 150);
   };
 
   const handleClearLocation = () => {
-    setIsSelecting(true);
-    setSearchQuery('');
-    setSelectedLocation(null);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    
-    onLocationSelect({
-      address: '',
-      coordinates: [0, 0]
-    });
-    
-    setTimeout(() => {
-      setIsSelecting(false);
-    }, 100);
-  };
+  setIsSelecting(true);
+  setSearchQuery('');
+  setSelectedLocation(null);
+  setSuggestions([]);
+  setShowSuggestions(false);
+  setIsSearching(false);
+  
+  // Send empty location data
+  onLocationSelect({
+    address: '',
+    coordinates: [0, 0]
+  });
+  
+  setTimeout(() => {
+    setIsSelecting(false);
+  }, 100);
+};
 
-  const handleCurrentLocation = () => {
+
+  const handleCurrentLocation = async () => {
     if ('geolocation' in navigator) {
-      setIsDetectingLocation(true);
-      
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          
-          // Find the closest Nigerian location to provide a meaningful address
-          let closestLocation = nigerianLocations[0];
-          let minDistance = Number.MAX_VALUE;
-          
-          for (const location of nigerianLocations) {
-            const [lat, lng] = location.coordinates;
-            const distance = Math.sqrt(Math.pow(lat - latitude, 2) + Math.pow(lng - longitude, 2));
-            
-            if (distance < minDistance) {
-              minDistance = distance;
-              closestLocation = location;
-            }
-          }
-          
-          const address = `Near ${closestLocation.address}`;
-          
-          setSearchQuery(address);
-          onLocationSelect({
-            address,
-            coordinates: [latitude, longitude]
+      try {
+        setIsDetectingLocation(true);
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000
           });
-          onCurrentLocationDetect();
-          setIsDetectingLocation(false);
-        },
-        (error) => {
-          console.error('Geolocation error:', error);
-          alert('Unable to detect your location. Please search for your area manually.');
-          setIsDetectingLocation(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
+        });
+
+        // Find closest known location
+        const { latitude, longitude } = position.coords;
+        let closestLocation = nigerianLocations[0];
+        let minDistance = Number.MAX_VALUE;
+        
+        for (const location of nigerianLocations) {
+          const [lat, lng] = location.coordinates;
+          const distance = Math.sqrt(Math.pow(lat - latitude, 2) + Math.pow(lng - longitude, 2));
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestLocation = location;
+          }
         }
-      );
+        
+        setSearchQuery(closestLocation.address);
+        onLocationSelect({
+          address: closestLocation.address,
+          coordinates: closestLocation.coordinates
+        });
+        onCurrentLocationDetect();
+        
+      } catch (error) {
+        alert('Unable to detect your location. Please enter your address manually.');
+      } finally {
+        setIsDetectingLocation(false);
+      }
     } else {
-      alert('Geolocation is not supported by your browser. Please search for your area manually.');
+      alert('Geolocation is not supported by your browser.');
     }
   };
 
   const getLocationIcon = (type: string) => {
     switch (type) {
-      case 'city': return '🏙️';
-      case 'state': return '🗺️';
-      case 'landmark': return '🏛️';
-      case 'island': return '🏝️';
-      case 'area': return '📍';
-      default: return '📍';
+      case 'city':
+        return '🏙️';
+      case 'state':
+        return '🗺️';
+      case 'landmark':
+        return '🏛️';
+      case 'island':
+        return '🏝️';
+      case 'area':
+        return '📍';
+      default:
+        return '📍';
     }
   };
 
-  const getStatusIcon = () => {
-    switch (googleMapsStatus) {
-      case 'ready':
-        return <Wifi className="w-3 h-3" />;
-      case 'error':
-        return <WifiOff className="w-3 h-3" />;
-      case 'loading':
-      default:
-        return <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />;
-    }
-  };
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        if (!isSelecting) {
+          setShowSuggestions(false);
+        }
+      }
+    };
 
-  const getStatusText = () => {
-    switch (googleMapsStatus) {
-      case 'ready':
-        return 'Enhanced search available';
-      case 'error':
-        return 'Using local Nigerian data';
-      case 'loading':
-      default:
-        return 'Checking services...';
-    }
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSelecting]);
 
   return (
     <div className="relative">
       <div className="relative">
-        <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Enter your area, city, or landmark in Nigeria..."
-          value={searchQuery}
-          onChange={handleInputChange}
-          onFocus={handleInputFocus}
-          onBlur={handleInputBlur}
-          className="w-full pl-14 sm:pl-16 pr-14 sm:pr-16 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 placeholder:text-center focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
-        />
+  <MapPin className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+  <input
+    ref={inputRef}
+    type="text"
+    placeholder="Enter your location in ..."
+    value={searchQuery}
+    onChange={handleInputChange}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+    className="w-full pl-14 sm:pl-16 pr-14 sm:pr-16 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 placeholder:text-center focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
+  />
 
-        {searchQuery && (
-          <button
-            onClick={handleClearLocation}
-            className="absolute right-12 top-6 p-1 text-gray-400 hover:text-red-600 transition-colors"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
-        )}
+  {searchQuery && (
+    <button
+      onClick={handleClearLocation}
+      className="absolute right-12 top-6 p-1 text-gray-400 hover:text-red-600 transition-colors"
+    >
+      <XIcon className="w-4 h-4" />
+    </button>
+  )}
 
-        <button
-          onClick={handleCurrentLocation}
-          disabled={isDetectingLocation}
-          className="absolute right-3 top-3 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
-          title="Use current location"
-        >
-          {isDetectingLocation ? (
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <Navigation className="w-5 h-5 mt-2" />
-          )}
-        </button>
-      </div>
-
-      {/* Status indicator */}
-      <div className="absolute -top-2 -right-2 flex items-center space-x-1 bg-gray-100 px-2 py-1 rounded-full">
-        {getStatusIcon()}
-        <span className="text-xs text-gray-600 hidden sm:inline">{getStatusText()}</span>
-      </div>
+  <button
+    onClick={handleCurrentLocation}
+    disabled={isDetectingLocation}
+    className="absolute right-3 top-3 p-1 text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+    title="Use current location"
+  >
+    {isDetectingLocation ? (
+      <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+    ) : (
+      <Navigation className="w-5 h-5 mt-2" />
+    )}
+  </button>
+</div>
 
       {showSuggestions && suggestions.length > 0 && (
         <div ref={dropdownRef} className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-64 overflow-y-auto z-50">
@@ -409,15 +355,6 @@ const LocationSearch: React.FC<LocationSearchProps> = ({
               </div>
             </button>
           ))}
-        </div>
-      )}
-
-      {isSearching && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50">
-          <div className="flex items-center space-x-3 text-gray-600">
-            <Search className="w-4 h-4" />
-            <span className="text-sm">Searching Nigerian locations...</span>
-          </div>
         </div>
       )}
     </div>

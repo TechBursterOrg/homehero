@@ -676,74 +676,121 @@ const Dashboard: React.FC = () => {
   };
 
   const handleCompleteBooking = async (bookingId: string) => {
-    try {
-      setError(null);
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  try {
+    setError(null);
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    console.log('🔄 Starting booking completion process for:', bookingId);
+
+    // First, update the booking status to completed
+    const statusResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: 'completed' }),
+    });
+
+    if (!statusResponse.ok) {
+      const errorData = await statusResponse.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${statusResponse.status}`);
+    }
+
+    const statusResult = await statusResponse.json();
+    
+    if (statusResult.success) {
+      console.log('✅ Booking status updated to completed');
       
-      if (!token) {
-        throw new Error('Authentication token not found');
-      }
-
-      console.log('🔄 Starting booking completion process for:', bookingId);
-
-      const statusResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-        method: 'PATCH',
+      // Remove from schedule
+      await removeBookingFromSchedule(bookingId);
+      
+      // Now update the provider dashboard with earnings and stats
+      const completeResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: 'completed' }),
       });
 
-      if (!statusResponse.ok) {
-        const errorData = await statusResponse.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${statusResponse.status}`);
-      }
-
-      const statusResult = await statusResponse.json();
-      
-      if (statusResult.success) {
-        console.log('✅ Booking status updated to completed');
-        
-        const completeResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!completeResponse.ok) {
-          console.warn('⚠️ Failed to update dashboard, but booking was completed');
-        } else {
-          const completeResult = await completeResponse.json();
-          console.log('✅ Dashboard updated with earnings:', completeResult.data);
-        }
-
-        const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
-        if (completedBooking) {
-          setRatingBooking(completedBooking);
-          setRatingType('customer');
-          setShowRatingModal(true);
-        }
-        
-        await fetchDashboardData();
-        
-        setError(null);
-        setShowBookingModal(false);
-        
-        alert('Booking marked as completed! Earnings added to your dashboard. Please rate the customer.');
+      if (!completeResponse.ok) {
+        console.warn('⚠️ Failed to update dashboard, but booking was completed');
       } else {
-        throw new Error(statusResult.message || 'Failed to update booking status');
+        const completeResult = await completeResponse.json();
+        console.log('✅ Dashboard updated with earnings:', completeResult.data);
+      }
+
+      // Find the completed booking
+      const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
+      if (completedBooking) {
+        // Show provider rating modal for customer
+        setRatingBooking(completedBooking);
+        setRatingType('customer');
+        setShowRatingModal(true);
       }
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
-      setError(errorMessage);
-      console.error('❌ Complete booking error:', err);
-      alert(`Error: ${errorMessage}`);
+      // Refresh dashboard data to show updated stats
+      await fetchDashboardData();
+      
+      setError(null);
+      setShowBookingModal(false);
+      
+      alert('Booking marked as completed! Removed from schedule. Earnings added to your dashboard. Please rate the customer.');
+    } else {
+      throw new Error(statusResult.message || 'Failed to update booking status');
     }
-  };
+    
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
+    setError(errorMessage);
+    console.error('❌ Complete booking error:', err);
+    alert(`Error: ${errorMessage}`);
+  }
+};
+
+
+const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
+  try {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+    
+    console.log('🗑️ Removing booking from schedule:', bookingId);
+
+    const response = await fetch(`${API_BASE_URL}/api/schedule/booking/${bookingId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.warn('⚠️ Failed to remove from schedule (non-critical):', errorData.message);
+      // Don't throw error - schedule removal is secondary
+    } else {
+      const result = await response.json();
+      console.log('✅ Booking removed from schedule:', result);
+      
+      // Update local schedule state
+      setSchedule(prev => prev.filter(entry => entry.bookingId !== bookingId));
+    }
+    
+  } catch (err) {
+    console.error('❌ Error removing booking from schedule:', err);
+    // Don't throw error - schedule removal is non-critical
+  }
+};
+
+
 
   const updateProviderDashboard = async (bookingId: string) => {
     try {

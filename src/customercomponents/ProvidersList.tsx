@@ -99,6 +99,7 @@ const usePrevious = <T,>(value: T): T | undefined => {
   });
   return ref.current;
 };
+
 const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   provider,
   serviceType,
@@ -112,6 +113,13 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   const [showCallOptions, setShowCallOptions] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [providerStats, setProviderStats] = useState<{
+    averageRating: number;
+    reviewCount: number;
+    completedJobs: number;
+  } | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  
   const callButtonRef = useRef<HTMLButtonElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -127,6 +135,78 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   };
 
   const providerPhone = phoneNumbers[provider.id] || provider.phoneNumber || '+234 000 000 0000';
+
+  // Fetch provider stats including rating and completed jobs
+  const fetchProviderStats = useCallback(async () => {
+    const providerId = provider._id || provider.id;
+    if (!providerId) return;
+
+    try {
+      setLoadingStats(true);
+      console.log('📊 Fetching provider stats for:', providerId);
+      
+      // Try multiple endpoints for stats
+      const endpoints = [
+        `${API_BASE_URL}/api/providers/${providerId}/stats`,
+        `${API_BASE_URL}/api/providers/${providerId}/rating`,
+        `${API_BASE_URL}/api/providers/${providerId}`
+      ];
+
+      let statsData = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`🔄 Trying stats endpoint: ${endpoint}`);
+          const response = await fetch(endpoint);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`✅ Stats response from ${endpoint}:`, data);
+            
+            if (data.success && data.data) {
+              // Extract stats from different response formats
+              statsData = {
+                averageRating: data.data.averageRating || data.data.rating || provider.averageRating || provider.rating || 0,
+                reviewCount: data.data.reviewCount || data.data.totalReviews || provider.reviewCount || 0,
+                completedJobs: data.data.completedJobs || data.data.jobsCompleted || provider.completedJobs || 0
+              };
+              break;
+            }
+          }
+        } catch (endpointError) {
+          console.log(`❌ Stats endpoint failed: ${endpoint}`, endpointError);
+          continue;
+        }
+      }
+
+      if (statsData) {
+        console.log('✅ Setting provider stats:', statsData);
+        setProviderStats(statsData);
+      } else {
+        // Fallback to provider data if no stats endpoint works
+        console.log('📋 Using fallback stats from provider data');
+        setProviderStats({
+          averageRating: provider.averageRating || provider.rating || 0,
+          reviewCount: provider.reviewCount || 0,
+          completedJobs: provider.completedJobs || 0
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching provider stats:', error);
+      // Fallback to provider data
+      setProviderStats({
+        averageRating: provider.averageRating || provider.rating || 0,
+        reviewCount: provider.reviewCount || 0,
+        completedJobs: provider.completedJobs || 0
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  }, [provider]);
+
+  useEffect(() => {
+    fetchProviderStats();
+  }, [fetchProviderStats]);
 
   // Handle card click to navigate to provider profile
   const handleCardClick = useCallback(() => {
@@ -161,11 +241,12 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   }, [isFavoriting, onToggleFavorite, provider.id]);
 
   const renderStars = useCallback((rating: number) => {
+    const normalizedRating = Math.min(Math.max(rating, 0), 5); // Ensure rating is between 0-5
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
         className={`w-3 h-3 sm:w-4 sm:h-4 transition-colors ${
-          i < Math.floor(rating) ? 'text-amber-400 fill-current' : 'text-gray-300'
+          i < Math.floor(normalizedRating) ? 'text-amber-400 fill-current' : 'text-gray-300'
         }`}
       />
     ));
@@ -224,11 +305,11 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     return `₦${(hourlyRate/1000000).toFixed(1)}M`;
   }, []);
 
-  // Calculate derived values with proper fallbacks
-  const rating = provider.averageRating || provider.rating || 4.0;
-  const reviewCount = provider.reviewCount || 0;
+  // Calculate derived values with proper fallbacks - USING REAL STATS
+  const rating = providerStats?.averageRating || provider.averageRating || provider.rating || 4.0;
+  const reviewCount = providerStats?.reviewCount || provider.reviewCount || 0;
   const priceRange = provider.priceRange || formatPriceRange(provider.hourlyRate || 0);
-  const completedJobs = provider.completedJobs || 0;
+  const completedJobs = providerStats?.completedJobs || provider.completedJobs || 0;
   const responseTime = provider.responseTime || 'Contact for availability';
   const locationText = provider.location || `${provider.city || ''}, ${provider.state || ''}`.trim() || 'Location not specified';
 

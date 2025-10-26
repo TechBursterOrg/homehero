@@ -1,4 +1,3 @@
-// HeroSection.tsx (updated)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Search,
@@ -105,7 +104,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
           }
         } catch (error) {
           console.error('Error fetching service suggestions:', error);
-          setServiceSuggestions(['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'Carpentry']);
+          setServiceSuggestions(['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'Carpentry', 'Barbing']);
           setShowServiceSuggestions(true);
         }
       } else {

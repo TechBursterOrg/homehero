@@ -441,6 +441,35 @@ const BookingModal: React.FC<{
                   rows={2}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
                 />
+
+                <div className="flex flex-col sm:flex-row justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-6 py-3 text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Submitting...
+                  </div>
+                ) : (
+                  `${
+                    serviceType === "immediate"
+                      ? "Book Now"
+                      : "Send Quote Request"
+                  }`
+                )}
+              </button>
+            </div>
               </div>
 
               {/* Booking Summary */}
@@ -480,34 +509,7 @@ const BookingModal: React.FC<{
 
           {/* Footer */}
           <div className="bg-gray-50/80 backdrop-blur-sm border-t border-gray-200/50 p-6 mt-auto">
-            <div className="flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-6 py-3 text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 font-medium disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Submitting...
-                  </div>
-                ) : (
-                  `${
-                    serviceType === "immediate"
-                      ? "Book Now"
-                      : "Send Quote Request"
-                  }`
-                )}
-              </button>
-            </div>
+            
           </div>
         </form>
       </div>
@@ -1125,7 +1127,7 @@ const ProviderProfilePage: React.FC = () => {
                       </div>
                       <div>
                         <h4 className="font-semibold text-gray-700 mb-2">
-                          Hourly Rate
+                          Rate
                         </h4>
                         <p className="text-xl sm:text-2xl font-bold text-green-600">
                           ₦{provider.hourlyRate}
