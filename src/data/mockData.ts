@@ -33,7 +33,7 @@ const servicePricing = {
   carWash: { low: 1500, high: 5000 },
 
   // 💇🏾‍♂️ Beauty & Personal Care - NEW
-  barber: { low: 1000, high: 3000 },
+  // barber: { low: 1000, high: 3000 },
   hairStylist: { low: 2000, high: 15000 },
   makeupArtist: { low: 5000, high: 25000 },
   nailTechnician: { low: 2000, high: 8000 },
@@ -117,14 +117,14 @@ export const getServices = (): Service[] => {
       providers: 76
     },
 
-    {
-      id: '19',
-      name: 'Barber',
-      description: 'Men\'s grooming and haircuts',
-      icon: '✂️',
-      averagePrice: formatPriceRange(servicePricing.barber.low, servicePricing.barber.high),
-      providers: 156
-    },
+    // {
+    //   id: '19',
+    //   name: 'Barber',
+    //   description: 'Men\'s grooming and haircuts',
+    //   icon: '✂️',
+    //   averagePrice: formatPriceRange(servicePricing.barber.low, servicePricing.barber.high),
+    //   providers: 156
+    // },
     {
       id: '20',
       name: 'Hair Stylist',

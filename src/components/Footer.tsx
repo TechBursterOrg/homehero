@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Home, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import logo from '../../public/homeheroes.jpeg';
 
 const Footer: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -53,7 +55,7 @@ const Footer: React.FC = () => {
                 placeholder="Enter your email address"
                 className="flex-1 px-4 py-3 rounded-lg bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-600"
               />
-              <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-300 font-medium flex items-center justify-center group transform hover:scale-105">
+              <button className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-all duration-300 font-medium flex items-center justify-center group transform hover:scale-105">
                 Subscribe
                 <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
               </button>
@@ -66,12 +68,16 @@ const Footer: React.FC = () => {
           {/* Company Info */}
           <div className={`lg:col-span-2 transition-all duration-1000 delay-200 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <div className="flex items-center space-x-2 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-lg flex items-center justify-center hover:scale-110 transition-transform duration-300">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-green-400 bg-clip-text text-transparent">
-                HomeHero
-              </span>
+              <Link to="/" className="flex items-center space-x-2">
+            <img 
+              src={logo} 
+              alt="HomeHeroes Logo" 
+              className="w-10 h-10 object-contain rounded-lg"
+            />
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              HomeHeroes
+            </span>
+          </Link>
             </div>
             <p className="text-gray-400 mb-6 leading-relaxed">
               Connecting homeowners with trusted service providers for all your home needs. Creating opportunities for skilled professionals to earn flexible income.

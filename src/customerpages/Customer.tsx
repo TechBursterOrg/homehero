@@ -962,6 +962,7 @@ const CustomerContent: React.FC = () => {
                       onMessage={handleProviderMessage}
                       onCall={handleProviderCall}
                       searchRadius={searchRadius}
+                      searchQuery={searchQuery}
                       onCustomerDetected={handleCustomerDetected}
                       onCustomerArrived={handleCustomerArrived}
                     />
@@ -978,6 +979,7 @@ const CustomerContent: React.FC = () => {
                       currentUser={profileData}
                       favorites={favorites}
                       searchRadius={searchParams.searchRadius}
+                      userLocation={userLocation}
                     />
                   )}
                 </div>

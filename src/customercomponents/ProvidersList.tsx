@@ -74,6 +74,7 @@ interface ProvidersListProps {
   currentUser?: any;
   favorites?: string[];
   searchRadius?: number;
+  userLocation?: [number, number] | null; // Add user location prop
 }
 
 interface ProviderCardItemProps {
@@ -98,6 +99,26 @@ const usePrevious = <T,>(value: T): T | undefined => {
     ref.current = value;
   });
   return ref.current;
+};
+
+// Calculate distance between two coordinates using Haversine formula
+const calculateDistance = (
+  lat1: number, 
+  lon1: number, 
+  lat2: number, 
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distanceKm = R * c;
+  const distanceMiles = distanceKm * 0.621371; // Convert to miles
+  return distanceMiles;
 };
 
 const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
@@ -313,6 +334,13 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   const responseTime = provider.responseTime || 'Contact for availability';
   const locationText = provider.location || `${provider.city || ''}, ${provider.state || ''}`.trim() || 'Location not specified';
 
+  // Format distance for display
+  const formatDistance = useCallback((distance: number | undefined) => {
+    if (!distance) return '';
+    if (distance < 1) return `${(distance * 5280).toFixed(0)} ft`; // Convert to feet
+    return `${distance.toFixed(1)} mi`;
+  }, []);
+
   // Profile Avatar Component - Fixed to handle backend URLs properly
   const ProfileAvatar = useCallback(({ className }: { className: string }) => {
     // Get the profile image URL from various possible fields
@@ -486,6 +514,11 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-400" />
                     <span className="truncate">{locationText}</span>
+                    {provider.distance && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                        {formatDistance(provider.distance)}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-gray-400" />
@@ -716,6 +749,11 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-gray-400" />
           <span className="truncate">{locationText}</span>
+          {provider.distance && (
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+              {formatDistance(provider.distance)}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-gray-400" />
@@ -816,7 +854,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
 });
 
 
-const getSampleProviders = (location: string, searchQuery: string): Provider[] => {
+const getSampleProviders = (location: string, searchQuery: string, userLocation?: [number, number] | null): Provider[] => {
   const sampleProviders: Provider[] = [
     {
       id: '1',
@@ -835,7 +873,8 @@ const getSampleProviders = (location: string, searchQuery: string): Provider[] =
       isVerified: true,
       isTopRated: true,
       responseTime: 'within 30 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face'
+      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
+      coordinates: [6.5244, 3.3792] // Lagos coordinates
     },
     {
       id: '2', 
@@ -854,7 +893,8 @@ const getSampleProviders = (location: string, searchQuery: string): Provider[] =
       isVerified: true,
       isTopRated: false,
       responseTime: 'within 2 hours',
-      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face'
+      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
+      coordinates: [9.0765, 7.3986] // Abuja coordinates
     },
     {
       id: '3',
@@ -873,11 +913,27 @@ const getSampleProviders = (location: string, searchQuery: string): Provider[] =
       isVerified: true,
       isTopRated: true,
       responseTime: 'within 45 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face'
+      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
+      coordinates: [12.0022, 8.5920] // Kano coordinates
     }
   ];
 
-  return sampleProviders.filter(provider => {
+  // Calculate distances if user location is available
+  let providersWithDistance = sampleProviders;
+  if (userLocation) {
+    providersWithDistance = sampleProviders.map(provider => {
+      if (provider.coordinates) {
+        const distance = calculateDistance(
+          userLocation[0], userLocation[1],
+          provider.coordinates[0], provider.coordinates[1]
+        );
+        return { ...provider, distance };
+      }
+      return provider;
+    });
+  }
+
+  return providersWithDistance.filter(provider => {
     const matchesLocation = !location || 
       provider.city.toLowerCase().includes(location.toLowerCase()) ||
       provider.state.toLowerCase().includes(location.toLowerCase());
@@ -901,19 +957,36 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   onToggleFavorite,
   authToken,
   favorites = [],
-  searchRadius
+  searchRadius,
+  userLocation // Add user location prop
 }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('rating');
+  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('distance'); // Default to distance
   const [showFilters, setShowFilters] = useState(false);
 
   // FIXED: Use ref to track previous parameters and prevent duplicate API calls
   const prevParamsRef = useRef<string>('');
   const isInitialMountRef = useRef(true);
+
+  // Calculate distances for providers
+  const calculateProviderDistances = useCallback((providers: Provider[]): Provider[] => {
+    if (!userLocation) return providers;
+    
+    return providers.map(provider => {
+      if (provider.coordinates && provider.coordinates.length === 2) {
+        const distance = calculateDistance(
+          userLocation[0], userLocation[1],
+          provider.coordinates[0], provider.coordinates[1]
+        );
+        return { ...provider, distance };
+      }
+      return provider;
+    });
+  }, [userLocation]);
 
   // FIXED: Memoized fetchProviders function with duplicate prevention
   const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
@@ -1119,15 +1192,20 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           completedJobs: provider.completedJobs || 0,
           isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
           isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
-          phoneNumber: provider.phoneNumber || provider.phone
+          phoneNumber: provider.phoneNumber || provider.phone,
+          // Coordinates for distance calculation
+          coordinates: provider.coordinates || [6.5244, 3.3792] // Default to Lagos
         };
         
         console.log(`✅ Transformed provider:`, transformed);
         return transformed;
       });
       
-      console.log(`🎉 Successfully transformed ${transformedProviders.length} providers`);
-      setProviders(transformedProviders);
+      // Calculate distances for all providers
+      const providersWithDistances = calculateProviderDistances(transformedProviders);
+      
+      console.log(`🎉 Successfully transformed ${providersWithDistances.length} providers with distances`);
+      setProviders(providersWithDistances);
       
     } catch (err: unknown) {
       console.error('💥 Error in fetchProviders:', err);
@@ -1137,7 +1215,8 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       // Only show sample data on explicit retry or if no real attempt was made
       if (shouldUseFallback) {
         console.log('🔄 Fallback: Using sample data due to API error during retry');
-        setProviders(getSampleProviders(location, searchQuery));
+        const sampleProviders = getSampleProviders(location, searchQuery, userLocation);
+        setProviders(sampleProviders);
       } else {
         console.log('❌ Setting empty providers array due to API error');
         setProviders([]);
@@ -1146,7 +1225,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [serviceType, searchQuery, location, authToken, searchRadius]);
+  }, [serviceType, searchQuery, location, authToken, searchRadius, userLocation, calculateProviderDistances]);
 
   const handleRetry = useCallback(() => {
     console.log('🔄 User triggered retry');
@@ -1159,24 +1238,30 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   const handleShowSampleData = useCallback(() => {
     console.log('📋 User requested sample data');
     setError(null);
-    setProviders(getSampleProviders(location, searchQuery));
-  }, [location, searchQuery]);
+    const sampleProviders = getSampleProviders(location, searchQuery, userLocation);
+    setProviders(sampleProviders);
+  }, [location, searchQuery, userLocation]);
 
   // Sort providers - Memoized to prevent unnecessary recalculations
   const sortedProviders = React.useMemo(() => {
     return [...providers].sort((a, b) => {
-      const ratingA = a.averageRating || a.rating || 0;
-      const ratingB = b.averageRating || b.rating || 0;
-      
       switch (sortBy) {
         case 'rating':
+          const ratingA = a.averageRating || a.rating || 0;
+          const ratingB = b.averageRating || b.rating || 0;
           return ratingB - ratingA;
         case 'price':
           return (a.hourlyRate || 0) - (b.hourlyRate || 0);
         case 'distance':
-          return (a.distance || 0) - (b.distance || 0);
+          // Sort by distance (closest first), providers without distance go last
+          if (a.distance === undefined && b.distance === undefined) return 0;
+          if (a.distance === undefined) return 1;
+          if (b.distance === undefined) return -1;
+          return a.distance - b.distance;
         default:
-          return ratingB - ratingA;
+          const defaultRatingA = a.averageRating || a.rating || 0;
+          const defaultRatingB = b.averageRating || b.rating || 0;
+          return defaultRatingB - defaultRatingA;
       }
     });
   }, [providers, sortBy]);
@@ -1291,6 +1376,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-gray-900">
               {sortedProviders.length} Provider{sortedProviders.length !== 1 ? 's' : ''} Found
+              {userLocation && ' • Showing closest first'}
             </h2>
             <p className="text-sm text-gray-600">
               {searchQuery && `for "${searchQuery}"`}
@@ -1311,9 +1397,9 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
                 onChange={(e) => setSortBy(e.target.value as 'rating' | 'price' | 'distance')}
                 className="appearance-none bg-white border border-gray-200 rounded-xl px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
               >
+                <option value="distance">Sort by Distance</option>
                 <option value="rating">Sort by Rating</option>
                 <option value="price">Sort by Price</option>
-                <option value="distance">Sort by Distance</option>
               </select>
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>

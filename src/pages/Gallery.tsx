@@ -55,8 +55,52 @@ interface Category {
   color: string;
 }
 
-// Use the correct API base URL - point to your render backend
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backendhomeheroes.onrender.com';
+// IMPORTANT: Use the correct API base URL for your environment
+const getApiBaseUrl = () => {
+  // Use environment variable if available, otherwise detect based on current host
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // If we're in development, use localhost:3001
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  
+  // Otherwise use the current origin (for production)
+  return window.location.origin;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Axios interceptor for auth tokens
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Axios interceptor for response errors
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Clear invalid tokens and redirect to login
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('token');
+      localStorage.removeItem('userData');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
 
 const GalleryPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
@@ -92,13 +136,7 @@ const GalleryPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        setError('Please log in to view gallery');
-        setLoading(false);
-        return;
-      }
+      console.log('🔍 Fetching gallery images from:', `${API_BASE_URL}/api/gallery`);
       
       const params: any = { 
         page: 1, 
@@ -115,10 +153,10 @@ const GalleryPage: React.FC = () => {
       
       const response = await axios.get(`${API_BASE_URL}/api/gallery`, { 
         params,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        timeout: 10000 // 10 second timeout
       });
+      
+      console.log('📦 Gallery response:', response.data);
       
       if (response.data.success) {
         // Ensure all images have proper URLs
@@ -143,19 +181,23 @@ const GalleryPage: React.FC = () => {
         });
         
         setGalleryImages(imagesWithUrls || []);
+        console.log('✅ Loaded images:', imagesWithUrls.length);
       } else {
-        setError('Failed to fetch gallery images');
+        setError('Failed to fetch gallery images: ' + (response.data.message || 'Unknown error'));
       }
     } catch (error: any) {
-      console.error('Error fetching gallery images:', error);
-      if (error.response?.status === 401 || error.response?.status === 403) {
+      console.error('❌ Error fetching gallery images:', error);
+      
+      if (error.code === 'ECONNABORTED') {
+        setError('Request timeout. Please check if the server is running.');
+      } else if (error.response?.status === 401 || error.response?.status === 403) {
         setError('Your session has expired. Please log in again.');
-        // Clear invalid tokens
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
       } else if (error.response?.status === 404) {
-        setError('Gallery endpoint not found. Please try again later.');
+        setError('Gallery endpoint not found. Please check the server configuration.');
+      } else if (error.response?.status === 500) {
+        setError('Server error. Please try again later.');
+      } else if (error.request) {
+        setError('Cannot connect to server. Please check if the backend is running on ' + API_BASE_URL);
       } else {
         setError('Failed to load gallery. Please check your connection and try again.');
       }
@@ -185,7 +227,7 @@ const GalleryPage: React.FC = () => {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>, image: GalleryImage) => {
     const target = e.target as HTMLImageElement;
-    console.error('Image failed to load:', target.src);
+    console.error('❌ Image failed to load:', target.src);
     
     // If this is already a placeholder, don't try again
     if (target.src.includes('via.placeholder.com')) {
@@ -199,7 +241,7 @@ const GalleryPage: React.FC = () => {
       target.src = relativePath;
     } else if (target.src.startsWith('/')) {
       // If relative path failed, try with API base URL but with HTTPS
-      target.src = `https://backendhomeheroes.onrender.com${target.src}`;
+      target.src = `${API_BASE_URL}${target.src}`;
     } else {
       // If all else fails, use placeholder
       target.src = 'https://via.placeholder.com/400x300/e2e8f0/64748b?text=Image+Not+Found';
@@ -232,7 +274,22 @@ const GalleryPage: React.FC = () => {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file (JPEG, PNG, GIF, etc.)');
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        return;
+      }
+      
+      setSelectedFile(file);
+      setError(null);
     }
   };
 
@@ -244,33 +301,49 @@ const GalleryPage: React.FC = () => {
       return;
     }
 
+    if (!uploadForm.title.trim()) {
+      setError('Please enter a title for the image');
+      return;
+    }
+
     try {
       setUploading(true);
       setError(null);
       
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        setError('Please log in to upload images');
-        setUploading(false);
-        return;
-      }
+      console.log('📤 Starting upload to:', `${API_BASE_URL}/api/gallery/upload`);
+      console.log('📁 File details:', {
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type
+      });
 
       const formData = new FormData();
       formData.append('image', selectedFile);
-      formData.append('title', uploadForm.title);
-      formData.append('description', uploadForm.description);
+      formData.append('title', uploadForm.title.trim());
+      formData.append('description', uploadForm.description.trim());
       formData.append('category', uploadForm.category);
       formData.append('tags', uploadForm.tags);
       formData.append('featured', uploadForm.featured.toString());
 
+      // Log FormData contents for debugging
+      for (const [key, value] of formData.entries()) {
+        console.log(`📋 FormData: ${key} =`, value);
+      }
+
       const response = await axios.post(`${API_BASE_URL}/api/gallery/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
         },
-        timeout: 30000
+        timeout: 30000, // 30 second timeout for uploads
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📊 Upload progress: ${percentCompleted}%`);
+          }
+        }
       });
+
+      console.log('✅ Upload response:', response.data);
 
       if (response.data.success) {
         setShowUploadModal(false);
@@ -282,35 +355,37 @@ const GalleryPage: React.FC = () => {
           featured: false
         });
         setSelectedFile(null);
-        fetchGalleryImages();
+        fetchGalleryImages(); // Refresh the gallery
       } else {
         setError(response.data.message || 'Failed to upload image');
       }
     } catch (error: any) {
-      console.error('Error uploading image:', error);
+      console.error('❌ Error uploading image:', error);
       
       if (error.code === 'ECONNABORTED') {
         setError('Upload timeout. Please try again with a smaller file.');
       } else if (error.response) {
+        console.error('📡 Server response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+        
         if (error.response.status === 401 || error.response.status === 403) {
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
           setError('Your session has expired. Please log in again.');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
         } else if (error.response.status === 413) {
           setError('File too large. Maximum size is 5MB.');
         } else if (error.response.status === 400) {
           setError(error.response.data.message || 'Invalid form data. Please check your upload.');
+        } else if (error.response.status === 500) {
+          setError('Server error during upload: ' + (error.response.data.message || 'Internal server error'));
         } else {
-          setError(error.response.data.message || `Server error: ${error.response.status}`);
+          setError(`Upload failed: ${error.response.status} - ${error.response.data.message || 'Unknown error'}`);
         }
       } else if (error.request) {
-        setError('No response from server. Please check your connection.');
+        setError('No response from server. Please check if the backend is running on ' + API_BASE_URL);
       } else {
-        setError('Failed to upload image. Please try again.');
+        setError('Failed to upload image: ' + error.message);
       }
     } finally {
       setUploading(false);
@@ -321,18 +396,7 @@ const GalleryPage: React.FC = () => {
     e.stopPropagation();
     
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        setError('Please log in to like images');
-        return;
-      }
-
-      await axios.post(`${API_BASE_URL}/api/gallery/${image._id}/like`, {}, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await axios.post(`${API_BASE_URL}/api/gallery/${image._id}/like`, {});
       
       setGalleryImages(prev => prev.map(img => 
         img._id === image._id ? { ...img, likes: (img.likes || 0) + 1 } : img
@@ -343,15 +407,7 @@ const GalleryPage: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Error liking image:', error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        setError('Your session has expired. Please log in again.');
-      } else {
-        setError('Failed to like image. Please try again.');
-      }
+      setError('Failed to like image. Please try again.');
     }
   };
 
@@ -366,7 +422,7 @@ const GalleryPage: React.FC = () => {
           url: window.location.href,
         });
       } else {
-        navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(window.location.href);
         alert('Link copied to clipboard!');
       }
     } catch (error) {
@@ -374,7 +430,6 @@ const GalleryPage: React.FC = () => {
     }
   };
 
-  // Delete handlers
   const handleDeleteClick = (image: GalleryImage, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeleteConfirm({ show: true, image });
@@ -384,18 +439,7 @@ const GalleryPage: React.FC = () => {
     if (e) e.stopPropagation();
     
     try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
-      if (!token) {
-        setError('Please log in to delete images');
-        return;
-      }
-
-      const response = await axios.delete(`${API_BASE_URL}/api/gallery/${image._id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await axios.delete(`${API_BASE_URL}/api/gallery/${image._id}`);
 
       if (response.data.success) {
         setGalleryImages(prev => prev.filter(img => img._id !== image._id));
@@ -411,12 +455,7 @@ const GalleryPage: React.FC = () => {
     } catch (error: any) {
       console.error('Error deleting image:', error);
       
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('token');
-        localStorage.removeItem('userData');
-        setError('Your session has expired. Please log in again.');
-      } else if (error.response?.status === 403) {
+      if (error.response?.status === 403) {
         setError('You can only delete your own images');
       } else {
         setError('Failed to delete image. Please try again.');
@@ -440,12 +479,18 @@ const GalleryPage: React.FC = () => {
     setSearchTerm('');
   };
 
+  const retryConnection = () => {
+    setError(null);
+    fetchGalleryImages();
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading gallery...</p>
+          <p className="text-sm text-gray-500 mt-2">Connecting to: {API_BASE_URL}</p>
         </div>
       </div>
     );
@@ -454,15 +499,24 @@ const GalleryPage: React.FC = () => {
   if (error && (error.includes('session') || error?.includes('log in'))) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => window.location.href = '/login'}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Go to Login
-          </button>
+        <div className="text-center max-w-md mx-4">
+          <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h3>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.href = '/login'}
+              className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Go to Login
+            </button>
+            <button
+              onClick={retryConnection}
+              className="w-full bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 font-medium"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -470,20 +524,48 @@ const GalleryPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <div className="flex flex-col space-y-4 sm:space-y-6">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
-                <Images className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-white" />
+        {/* Connection Error Banner */}
+        {error && !error.includes('session') && !error.includes('log in') && (
+          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                <span>{error}</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl lg:text-3xl xl:text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              <div className="flex gap-2">
+                <button 
+                  onClick={retryConnection}
+                  className="text-red-800 hover:text-red-900 font-medium text-sm"
+                >
+                  Retry
+                </button>
+                <button onClick={() => setError(null)}>
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            {error.includes('Cannot connect') && (
+              <div className="mt-2 text-sm">
+                <p>Make sure your backend server is running on: <code className="bg-red-200 px-1 rounded">{API_BASE_URL}</code></p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Images className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
                   Project Gallery
                 </h1>
-                <p className="text-gray-600 text-xs sm:text-sm lg:text-base xl:text-lg mt-1">
+                <p className="text-gray-600 mt-1">
                   Showcase of professional work and completed projects
                 </p>
               </div>
@@ -491,97 +573,86 @@ const GalleryPage: React.FC = () => {
           </div>
         </div>
 
-        {error && (
-          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl">
-            <div className="flex justify-between items-center">
-              <span>{error}</span>
-              <button onClick={() => setError(null)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Gallery Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
-          <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-2 sm:mb-4 gap-2 sm:gap-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <Images className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Images className="w-6 h-6 text-white" />
               </div>
-              <div className="text-blue-600 hidden sm:block">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-            </div>
-            <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Projects</p>
-              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900">{galleryImages.length}</p>
-              <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Professional work</p>
-            </div>
-          </div>
-
-          <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-2 sm:mb-4 gap-2 sm:gap-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <Eye className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
-              </div>
-              <div className="text-emerald-600 hidden sm:block">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="text-blue-600">
+                <TrendingUp className="w-5 h-5" />
               </div>
             </div>
-            <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Views</p>
-              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900">{totalViews}</p>
-              <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Gallery engagement</p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-600">Total Projects</p>
+              <p className="text-2xl font-bold text-gray-900">{galleryImages.length}</p>
+              <p className="text-sm text-gray-500">Professional work</p>
             </div>
           </div>
 
-          <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-2 sm:mb-4 gap-2 sm:gap-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-pink-500 to-rose-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <Heart className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
+          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Eye className="w-6 h-6 text-white" />
               </div>
-              <div className="text-pink-600 hidden sm:block">
-                <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="text-emerald-600">
+                <TrendingUp className="w-5 h-5" />
               </div>
             </div>
-            <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Total Likes</p>
-              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900">{totalLikes}</p>
-              <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Client appreciation</p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-600">Total Views</p>
+              <p className="text-2xl font-bold text-gray-900">{totalViews}</p>
+              <p className="text-sm text-gray-500">Gallery engagement</p>
             </div>
           </div>
 
-          <div className="group bg-white/80 backdrop-blur-sm p-3 sm:p-4 lg:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between mb-2 sm:mb-4 gap-2 sm:gap-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <Award className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-white" />
+          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Heart className="w-6 h-6 text-white" />
               </div>
-              <div className="text-purple-600 hidden sm:block">
-                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="text-pink-600">
+                <TrendingUp className="w-5 h-5" />
               </div>
             </div>
-            <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs sm:text-sm font-medium text-gray-600">Featured</p>
-              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-gray-900">{featuredImages.length}</p>
-              <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Best work</p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-600">Total Likes</p>
+              <p className="text-2xl font-bold text-gray-900">{totalLikes}</p>
+              <p className="text-sm text-gray-500">Client appreciation</p>
+            </div>
+          </div>
+
+          <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
+            <div className="flex items-start justify-between mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <div className="text-purple-600">
+                <Sparkles className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-gray-600">Featured</p>
+              <p className="text-2xl font-bold text-gray-900">{featuredImages.length}</p>
+              <p className="text-sm text-gray-500">Best work</p>
             </div>
           </div>
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 p-4 sm:p-6 mb-6 sm:mb-8">
-          <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-6">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search projects..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 bg-gray-50 border border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
+                  className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -590,52 +661,52 @@ const GalleryPage: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all ${
+                className={`p-4 rounded-2xl border-2 transition-all ${
                   viewMode === 'grid'
                     ? 'bg-blue-50 border-blue-200 text-blue-600'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <Grid3X3 className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Grid3X3 className="w-5 h-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all ${
+                className={`p-4 rounded-2xl border-2 transition-all ${
                   viewMode === 'list'
                     ? 'bg-blue-50 border-blue-200 text-blue-600'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <List className="w-4 h-4 sm:w-5 sm:h-5" />
+                <List className="w-5 h-5" />
               </button>
             </div>
 
             {/* Add New Button */}
             <button 
               onClick={() => setShowUploadModal(true)}
-              className="w-full lg:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3"
             >
-              <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
-                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+              <div className="w-6 h-6 bg-white/20 rounded-lg flex items-center justify-center">
+                <Plus className="w-4 h-4" />
               </div>
               <span>Add Image</span>
             </button>
           </div>
 
           {/* Category Filter */}
-          <div className="flex flex-wrap gap-2 sm:gap-3 mt-4 sm:mt-6">
+          <div className="flex flex-wrap gap-3 mt-6">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl font-medium text-sm sm:text-base transition-all duration-200 ${
+                className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
                   selectedCategory === category.id
                     ? `bg-gradient-to-r ${category.color} text-white shadow-lg`
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 <span>{category.name}</span>
-                <span className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-bold ${
+                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                   selectedCategory === category.id
                     ? 'bg-white/20 text-white'
                     : 'bg-gray-200 text-gray-600'
@@ -648,14 +719,14 @@ const GalleryPage: React.FC = () => {
         </div>
 
         {/* Gallery Content */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 sm:p-6 lg:p-8">
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 lg:p-8">
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredImages.map((image) => (
                   <div
                     key={image._id}
-                    className="group relative bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                    className="group relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
                     onClick={() => handleImageClick(image)}
                   >
                     <div className="aspect-[4/3] overflow-hidden">
@@ -702,7 +773,6 @@ const GalleryPage: React.FC = () => {
                         >
                           <Share2 className="w-5 h-5 text-white" />
                         </button>
-                        {/* Delete button */}
                         <button 
                           className="w-10 h-10 bg-red-500/80 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-red-600/80 transition-colors"
                           onClick={(e) => handleDeleteClick(image, e)}
@@ -714,8 +784,8 @@ const GalleryPage: React.FC = () => {
 
                     <div className="p-4">
                       <div className="mb-2">
-                        <h3 className="font-bold text-gray-900 text-sm sm:text-base line-clamp-1">{image.title}</h3>
-                        <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mt-1">{image.description}</p>
+                        <h3 className="font-bold text-gray-900 line-clamp-1">{image.title}</h3>
+                        <p className="text-sm text-gray-600 line-clamp-2 mt-1">{image.description}</p>
                       </div>
                       
                       <div className="flex items-center justify-between text-xs text-gray-500">
@@ -743,10 +813,10 @@ const GalleryPage: React.FC = () => {
                 {filteredImages.map((image) => (
                   <div
                     key={image._id}
-                    className="group flex gap-4 sm:gap-6 bg-white rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
+                    className="group flex gap-6 bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-xl transition-all duration-300 cursor-pointer"
                     onClick={() => handleImageClick(image)}
                   >
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
+                    <div className="w-32 h-32 rounded-2xl overflow-hidden flex-shrink-0">
                       <img
                         src={image.fullImageUrl || `${API_BASE_URL}${image.imageUrl}`}
                         alt={image.title}
@@ -759,7 +829,7 @@ const GalleryPage: React.FC = () => {
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-gray-900 text-sm sm:text-lg">{image.title}</h3>
+                            <h3 className="font-bold text-gray-900 text-lg">{image.title}</h3>
                             {image.featured && (
                               <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-0.5 rounded-md flex items-center gap-1 text-xs font-medium">
                                 <Star className="w-3 h-3 fill-current" />
@@ -767,22 +837,22 @@ const GalleryPage: React.FC = () => {
                               </div>
                             )}
                           </div>
-                          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2 mb-3">{image.description}</p>
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">{image.description}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4 text-xs sm:text-sm text-gray-500">
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
                           <div className="flex items-center gap-1">
-                            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Eye className="w-4 h-4" />
                             <span>{image.views}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Heart className="w-4 h-4" />
                             <span>{image.likes}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                            <Calendar className="w-4 h-4" />
                             <span>{formatDate(image.createdAt)}</span>
                           </div>
                         </div>
@@ -803,7 +873,6 @@ const GalleryPage: React.FC = () => {
                           >
                             <Share2 className="w-4 h-4 text-gray-600" />
                           </button>
-                          {/* Delete button for list view */}
                           <button 
                             className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                             onClick={(e) => handleDeleteClick(image, e)}
@@ -840,16 +909,16 @@ const GalleryPage: React.FC = () => {
 
         {/* Image Modal */}
         {selectedImage && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4">
-            <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-3xl w-full h-full sm:w-auto sm:h-auto sm:max-w-[95vw] sm:max-h-[95vh] lg:max-w-6xl xl:max-w-7xl overflow-hidden shadow-2xl flex flex-col sm:flex-row">
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl w-full h-full sm:w-auto sm:h-auto sm:max-w-[95vw] sm:max-h-[95vh] lg:max-w-6xl xl:max-w-7xl overflow-hidden shadow-2xl flex flex-col sm:flex-row">
               
               {/* Image Section */}
               <div className="relative flex-1 sm:flex-[2] lg:flex-[3] min-h-[50vh] sm:min-h-[60vh] lg:min-h-[70vh]">
                 <button
                   onClick={closeModal}
-                  className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 w-8 h-8 sm:w-10 sm:h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+                  className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/60 transition-colors"
                 >
-                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <X className="w-5 h-5" />
                 </button>
                 
                 <div className="w-full h-full">
@@ -864,55 +933,55 @@ const GalleryPage: React.FC = () => {
 
               {/* Content Section */}
               <div className="flex-1 sm:flex-[1] lg:flex-[1] bg-white overflow-y-auto">
-                <div className="p-4 sm:p-6 lg:p-8 h-full flex flex-col">
+                <div className="p-6 lg:p-8 h-full flex flex-col">
                   {/* Header Section */}
-                  <div className="mb-4 lg:mb-6">
+                  <div className="mb-6">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1 pr-2">
                         <div className="flex items-center gap-2 mb-2">
-                          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 line-clamp-2">{selectedImage.title}</h2>
+                          <h2 className="text-2xl font-bold text-gray-900 line-clamp-2">{selectedImage.title}</h2>
                           {selectedImage.featured && (
                             <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 rounded-md flex items-center gap-1 text-xs font-medium flex-shrink-0">
                               <Star className="w-3 h-3 fill-current" />
-                              <span className="hidden sm:inline">Featured</span>
+                              <span>Featured</span>
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-1 mb-3">
                           <Tag className="w-4 h-4 text-blue-500" />
-                          <span className="text-blue-600 font-medium capitalize text-sm">{selectedImage.category}</span>
+                          <span className="text-blue-600 font-medium capitalize">{selectedImage.category}</span>
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
-                      <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-                        <button className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-colors">
-                          <Download className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                      <div className="flex gap-2 flex-shrink-0">
+                        <button className="p-3 hover:bg-gray-100 rounded-lg transition-colors">
+                          <Download className="w-5 h-5 text-gray-600" />
                         </button>
                         <button 
-                          className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-colors"
+                          className="p-3 hover:bg-gray-100 rounded-lg transition-colors"
                           onClick={(e) => handleShare(selectedImage, e)}
                         >
-                          <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                          <Share2 className="w-5 h-5 text-gray-600" />
                         </button>
                         <button 
-                          className="p-2 sm:p-3 hover:bg-red-100 rounded-lg transition-colors"
+                          className="p-3 hover:bg-red-100 rounded-lg transition-colors"
                           onClick={(e) => handleDeleteClick(selectedImage, e)}
                         >
-                          <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                          <Trash2 className="w-5 h-5 text-red-600" />
                         </button>
                       </div>
                     </div>
                   </div>
                   
                   {/* Description */}
-                  <div className="mb-4 lg:mb-6 flex-1 overflow-y-auto">
-                    <p className="text-gray-700 leading-relaxed text-sm sm:text-base">{selectedImage.description}</p>
+                  <div className="mb-6 flex-1 overflow-y-auto">
+                    <p className="text-gray-700 leading-relaxed">{selectedImage.description}</p>
                   </div>
                   
                   {/* Stats Grid */}
-                  <div className="mb-4 lg:mb-6">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-xl">
+                  <div className="mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-xl">
                       <div className="text-center">
                         <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg mx-auto mb-1">
                           <Eye className="w-4 h-4 text-blue-600" />
@@ -931,14 +1000,14 @@ const GalleryPage: React.FC = () => {
                         <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg mx-auto mb-1">
                           <Calendar className="w-4 h-4 text-green-600" />
                         </div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-900">{formatDate(selectedImage.createdAt)}</p>
+                        <p className="text-sm font-medium text-gray-900">{formatDate(selectedImage.createdAt)}</p>
                         <p className="text-xs text-gray-500">Created</p>
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-lg mx-auto mb-1">
                           <Tag className="w-4 h-4 text-purple-600" />
                         </div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-900 capitalize">{selectedImage.category}</p>
+                        <p className="text-sm font-medium text-gray-900 capitalize">{selectedImage.category}</p>
                         <p className="text-xs text-gray-500">Category</p>
                       </div>
                     </div>
@@ -947,17 +1016,17 @@ const GalleryPage: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="flex flex-col sm:flex-row gap-3 mt-auto">
                     <button 
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2 text-sm sm:text-base"
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
                       onClick={(e) => handleLike(selectedImage, e)}
                     >
-                      <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Heart className="w-5 h-5" />
                       <span>Like Project</span>
                     </button>
                     <button 
-                      className="flex-1 bg-gray-100 text-gray-700 px-4 sm:px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
+                      className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
                       onClick={(e) => handleShare(selectedImage, e)}
                     >
-                      <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <Share2 className="w-5 h-5" />
                       <span>Share</span>
                     </button>
                   </div>
@@ -996,10 +1065,10 @@ const GalleryPage: React.FC = () => {
         {/* Upload Modal */}
         {showUploadModal && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-              <div className="p-6 sm:p-8">
+            <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+              <div className="p-8">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Upload New Image</h2>
+                  <h2 className="text-2xl font-bold text-gray-900">Upload New Image</h2>
                   <button
                     onClick={() => setShowUploadModal(false)}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -1008,56 +1077,63 @@ const GalleryPage: React.FC = () => {
                   </button>
                 </div>
                 
-                <form onSubmit={handleUploadSubmit} className="space-y-4">
+                <form onSubmit={handleUploadSubmit} className="space-y-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Image File *
                     </label>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleFileSelect}
-                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
                     {selectedFile && (
-                      <p className="text-sm text-gray-500 mt-1">Selected: {selectedFile.name}</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Selected: {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
                     )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supported formats: JPEG, PNG, GIF, WEBP. Max size: 5MB
+                    </p>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Title *
                     </label>
                     <input
                       type="text"
                       value={uploadForm.title}
                       onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
-                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter a descriptive title"
                       required
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Description
                     </label>
                     <textarea
                       value={uploadForm.description}
                       onChange={(e) => setUploadForm({...uploadForm, description: e.target.value})}
-                      className="w-full p-2 border border-gray-300 rounded-lg"
-                      rows={3}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={4}
+                      placeholder="Describe your project or image..."
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Category *
                     </label>
                     <select
                       value={uploadForm.category}
                       onChange={(e) => setUploadForm({...uploadForm, category: e.target.value})}
-                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     >
                       <option value="cleaning">Cleaning</option>
@@ -1068,14 +1144,14 @@ const GalleryPage: React.FC = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Tags (comma-separated)
                     </label>
                     <input
                       type="text"
                       value={uploadForm.tags}
                       onChange={(e) => setUploadForm({...uploadForm, tags: e.target.value})}
-                      className="w-full p-2 border border-gray-300 rounded-lg"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="e.g., kitchen, renovation, before-after"
                     />
                   </div>
@@ -1086,29 +1162,29 @@ const GalleryPage: React.FC = () => {
                       id="featured"
                       checked={uploadForm.featured}
                       onChange={(e) => setUploadForm({...uploadForm, featured: e.target.checked})}
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded"
+                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                     />
                     <label htmlFor='featured' className="ml-2 text-sm text-gray-700">
-                      Mark as featured
+                      Mark as featured (showcase this image prominently)
                     </label>
                   </div>
                   
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-3 pt-6">
                     <button
                       type="button"
                       onClick={() => setShowUploadModal(false)}
-                      className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                      className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      disabled={uploading}
-                      className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                      disabled={uploading || !selectedFile || !uploadForm.title.trim()}
+                      className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {uploading ? (
                         <>
-                          <Loader className="w-4 h-4 animate-spin mr-2" />
+                          <Loader className="w-4 h-4 animate-spin" />
                           Uploading...
                         </>
                       ) : (

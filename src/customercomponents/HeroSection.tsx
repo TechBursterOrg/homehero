@@ -15,7 +15,7 @@ import {
   X,
   Navigation
 } from 'lucide-react';
-import {LocationSearch} from './LocationSearch';
+import { LocationSearch } from './LocationSearch';
 
 // Google Maps types
 declare global {
@@ -145,12 +145,12 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         });
       }
     }, 100);
-  }, [onSearch, setSearchQuery]); // Only depend on stable functions
+  }, [onSearch, setSearchQuery]);
 
   // FIXED: Handle search input key press (Enter key) - only triggers on Enter
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Prevent form submission behavior
+      e.preventDefault();
       handleSearch();
     }
   };
@@ -160,7 +160,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     const value = e.target.value;
     setSearchQuery(value);
     
-    // Only show suggestions, don't trigger search
     if (value.length > 2) {
       setShowServiceSuggestions(true);
     } else {
@@ -172,7 +171,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setSearchQuery(suggestion);
     setShowServiceSuggestions(false);
-    // FIXED: Only trigger search when suggestion is clicked
     handleSearch();
   }, [handleSearch, setSearchQuery]);
 
@@ -202,17 +200,17 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   return (
     <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 sm:py-8">
-        {/* Modern Hero Section with enhanced design from second component */}
+        {/* Modern Hero Section */}
         <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl">
           
-          {/* Enhanced background decorations from second design */}
+          {/* Enhanced background decorations */}
           <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]"></div>
           <div className="absolute -top-8 -right-8 w-24 h-24 sm:w-32 sm:h-32 bg-white/10 rounded-full blur-2xl"></div>
           <div className="absolute -bottom-12 -left-12 w-32 h-32 sm:w-40 sm:h-40 bg-white/5 rounded-full blur-3xl"></div>
           <div className="absolute top-1/2 right-1/4 w-16 h-16 bg-yellow-400/20 rounded-full blur-xl"></div>
           
           <div className="relative">
-            {/* Enhanced Header with icon from second design */}
+            {/* Enhanced Header with icon */}
             <div className="text-center mb-8 sm:mb-12">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-4">
                 <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-white/20 to-white/10 rounded-2xl sm:rounded-3xl flex items-center justify-center backdrop-blur-sm border border-white/20">
@@ -263,7 +261,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </button>
               </div>
 
-              {/* View Mode Toggle from second design */}
+              {/* View Mode Toggle */}
               <div className="flex bg-white/20 backdrop-blur-sm rounded-xl sm:rounded-2xl p-1 border border-white/20 shadow-lg w-full sm:w-auto">
                 <button
                   onClick={() => onViewModeChange('list')}
@@ -290,7 +288,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               </div>
             </div>
 
-            {/* Main Search Bar with enhanced styling */}
+            {/* Main Search Bar */}
             <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 relative" ref={searchContainerRef}>
@@ -302,13 +300,13 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                     type="text"
                     placeholder={serviceType === 'immediate' ? "What do you need help with right now?" : "Describe your project..."}
                     value={searchQuery}
-                    onChange={handleInputChange} // FIXED: Use the new handler
+                    onChange={handleInputChange}
                     onKeyPress={handleKeyPress}
                     onFocus={() => searchQuery.length > 2 && setShowServiceSuggestions(true)}
                     className="w-full pl-14 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
                   />
                   
-                  {/* Service Suggestions - maintained from first component */}
+                  {/* Service Suggestions */}
                   {showServiceSuggestions && serviceSuggestions.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-64 overflow-y-auto z-40">
                       {serviceSuggestions.map((suggestion, index) => (
@@ -364,7 +362,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
               </div>
 
-              {/* Enhanced Filters Panel from second design */}
+              {/* Enhanced Filters Panel */}
               {showFilters && (
                 <div className="bg-white/10 backdrop-blur-sm rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-white/20 animate-in slide-in-from-top-2 duration-200 shadow-lg">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -430,7 +428,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
               )}
             </div>
 
-            {/* Status Indicator from second design */}
+            {/* Status Indicator */}
             {serviceType === 'immediate' && (
               <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center space-x-3 text-sm sm:text-base text-blue-100">
@@ -451,7 +449,6 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>

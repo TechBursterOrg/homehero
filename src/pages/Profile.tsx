@@ -128,7 +128,7 @@ interface ProfileData {
   successRate: number;
   repeatCustomers: number;
   services: string[];
-  hourlyRate: number;
+  Rate: number;
   experience: string;
   profileImage: string;
 }
@@ -167,7 +167,7 @@ const Profile: React.FC = () => {
     successRate: 0,
     repeatCustomers: 0,
     services: [],
-    hourlyRate: 0,
+    Rate: 0,
     experience: '',
     profileImage: ''
   });
@@ -180,7 +180,7 @@ const Profile: React.FC = () => {
     state: '',
     country: '',
     services: [] as string[],
-    hourlyRate: 0,
+    Rate: 0,
     experience: ''
   });
 
@@ -259,7 +259,7 @@ const Profile: React.FC = () => {
           successRate: user.successRate || 0,
           repeatCustomers: user.repeatCustomers || 0,
           services: user.services || [],
-          hourlyRate: user.hourlyRate || 0,
+          Rate: user.hourlyRate || 0,
           experience: user.experience || '',
           profileImage: profileImageUrl
         });
@@ -272,7 +272,7 @@ const Profile: React.FC = () => {
           state: user.state || '',
           country: user.country || '',
           services: user.services || [],
-          hourlyRate: user.hourlyRate || 0,
+          Rate: user.hourlyRate || 0,
           experience: user.experience || ''
         });
       }
@@ -508,7 +508,7 @@ const Profile: React.FC = () => {
           country: editForm.country,
           location: `${editForm.city}, ${editForm.state}, ${editForm.country}`,
           services: editForm.services,
-          hourlyRate: editForm.hourlyRate,
+          Rate: editForm.Rate,
           experience: editForm.experience
         }));
         
@@ -1067,13 +1067,13 @@ const Profile: React.FC = () => {
                       {isEditing ? (
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Hourly Rate</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
                             <input
                               type="number"
-                              value={editForm.hourlyRate}
-                              onChange={(e) => setEditForm({...editForm, hourlyRate: Number(e.target.value)})}
+                              value={editForm.Rate}
+                              onChange={(e) => setEditForm({...editForm, Rate: Number(e.target.value)})}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              placeholder="Hourly rate"
+                              placeholder="Rate"
                             />
                           </div>
                           <div>
@@ -1093,9 +1093,9 @@ const Profile: React.FC = () => {
                             Professional service provider with {profileData.experience || 'several years'} of experience. 
                             Committed to delivering high-quality work and excellent customer service.
                           </p>
-                          {profileData.hourlyRate > 0 && (
+                          {profileData.Rate > 0 && (
                             <p className="font-semibold text-blue-600">
-                              Rate: ₦{profileData.hourlyRate}/hour
+                              Rate: ₦{profileData.Rate}
                             </p>
                           )}
                           {profileData.experience && (

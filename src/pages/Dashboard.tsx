@@ -20,8 +20,7 @@ import {
   BookOpen,
   Eye,
   Mail,
-  Phone,
-  DollarSign
+  Phone
 } from 'lucide-react';
 
 interface BusinessHours {
@@ -50,7 +49,7 @@ interface Booking {
   budget: string;
   specialRequests: string;
   bookingType: string;
-  status: 'pending' | 'confirmed' | 'accepted' | 'completed' | 'cancelled' | 'rejected';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'rejected';
   requestedAt: string;
   acceptedAt?: string;
   completedAt?: string;
@@ -61,8 +60,6 @@ interface Booking {
   };
   ratingPrompted?: boolean;
 }
-
-
 
 interface ScheduleEntry {
   id: string;
@@ -75,7 +72,7 @@ interface ScheduleEntry {
   endTime: string;
   duration: string;
   payment: string;
-  status: 'accepted' | 'pending' | 'cancelled';
+  status: 'confirmed' | 'pending' | 'cancelled';
   notes: string;
   category: string;
   priority: 'high' | 'medium' | 'low';
@@ -144,10 +141,8 @@ const RatingModal: React.FC<RatingModalProps> = ({ isOpen, booking, onClose, onS
 
   if (!isOpen) return null;
 
-  const isRatingCustomer = type === 'customer';
-  const ratedPersonName = isRatingCustomer ? booking.customerName : booking.providerName;
-  const modalTitle = isRatingCustomer ? 'Rate Customer' : 'Rate Your Experience';
-  const modalDescription = isRatingCustomer 
+  const modalTitle = type === 'customer' ? 'Rate Customer' : 'Rate Your Experience';
+  const modalDescription = type === 'customer' 
     ? `How was your experience with ${booking.customerName}?`
     : `How was your service with ${booking.providerName}?`;
 
@@ -461,17 +456,16 @@ const Dashboard: React.FC = () => {
   };
 
   const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    case 'confirmed': return 'bg-blue-100 text-blue-700 border-blue-200';
-    case 'accepted': return 'bg-blue-100 text-blue-700 border-blue-200';
-    case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
-    case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
-    case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
-    default: return 'bg-gray-100 text-gray-700 border-gray-200';
-  }
-};
-
+    switch (status) {
+      case 'completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'confirmed': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'accepted': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'pending': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'cancelled': return 'bg-red-100 text-red-700 border-red-200';
+      case 'rejected': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -555,7 +549,7 @@ const Dashboard: React.FC = () => {
         endTime: calculateEndTime('10:00 AM', booking.serviceType),
         duration: '2 hours',
         payment: booking.budget,
-        status: 'accepted' as const,
+        status: 'confirmed' as const,
         notes: booking.specialRequests || booking.description,
         category: booking.serviceType.toLowerCase().includes('clean') ? 'cleaning' : 'handyman',
         priority: 'medium' as const,
@@ -669,139 +663,96 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const extractBudgetAmount = (budget: string): number => {
-    if (!budget) return 0;
-    const numericString = budget.replace(/[^\d.]/g, '');
-    return parseFloat(numericString) || 0;
-  };
-
   const handleCompleteBooking = async (bookingId: string) => {
-  try {
-    setError(null);
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-
-    console.log('🔄 Starting booking completion process for:', bookingId);
-
-    // First, update the booking status to completed
-    const statusResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ status: 'completed' }),
-    });
-
-    if (!statusResponse.ok) {
-      const errorData = await statusResponse.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP error! status: ${statusResponse.status}`);
-    }
-
-    const statusResult = await statusResponse.json();
-    
-    if (statusResult.success) {
-      console.log('✅ Booking status updated to completed');
-      
-      // Remove from schedule
-      await removeBookingFromSchedule(bookingId);
-      
-      // Now update the provider dashboard with earnings and stats
-      const completeResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!completeResponse.ok) {
-        console.warn('⚠️ Failed to update dashboard, but booking was completed');
-      } else {
-        const completeResult = await completeResponse.json();
-        console.log('✅ Dashboard updated with earnings:', completeResult.data);
-      }
-
-      // Find the completed booking
-      const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
-      if (completedBooking) {
-        // Show provider rating modal for customer
-        setRatingBooking(completedBooking);
-        setRatingType('customer');
-        setShowRatingModal(true);
-      }
-      
-      // Refresh dashboard data to show updated stats
-      await fetchDashboardData();
-      
-      setError(null);
-      setShowBookingModal(false);
-      
-      alert('Booking marked as completed! Removed from schedule. Earnings added to your dashboard. Please rate the customer.');
-    } else {
-      throw new Error(statusResult.message || 'Failed to update booking status');
-    }
-    
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
-    setError(errorMessage);
-    console.error('❌ Complete booking error:', err);
-    alert(`Error: ${errorMessage}`);
-  }
-};
-
-
-const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
-  try {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-    
-    console.log('🗑️ Removing booking from schedule:', bookingId);
-
-    const response = await fetch(`${API_BASE_URL}/api/schedule/booking/${bookingId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.warn('⚠️ Failed to remove from schedule (non-critical):', errorData.message);
-      // Don't throw error - schedule removal is secondary
-    } else {
-      const result = await response.json();
-      console.log('✅ Booking removed from schedule:', result);
-      
-      // Update local schedule state
-      setSchedule(prev => prev.filter(entry => entry.bookingId !== bookingId));
-    }
-    
-  } catch (err) {
-    console.error('❌ Error removing booking from schedule:', err);
-    // Don't throw error - schedule removal is non-critical
-  }
-};
-
-
-
-  const updateProviderDashboard = async (bookingId: string) => {
     try {
+      setError(null);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       if (!token) {
         throw new Error('Authentication token not found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
-        method: 'POST',
+      console.log('🔄 Starting booking completion process for:', bookingId);
+
+      // First, update the booking status to completed
+      const statusResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'completed' }),
+      });
+
+      if (!statusResponse.ok) {
+        const errorData = await statusResponse.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${statusResponse.status}`);
+      }
+
+      const statusResult = await statusResponse.json();
+      
+      if (statusResult.success) {
+        console.log('✅ Booking status updated to completed');
+        
+        // Remove from schedule
+        await removeBookingFromSchedule(bookingId);
+        
+        // Now update the provider dashboard with earnings and stats
+        const completeResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/complete`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!completeResponse.ok) {
+          console.warn('⚠️ Failed to update dashboard, but booking was completed');
+        } else {
+          const completeResult = await completeResponse.json();
+          console.log('✅ Dashboard updated with earnings:', completeResult.data);
+        }
+
+        // Find the completed booking
+        const completedBooking = dashboardData?.bookings.find(b => b._id === bookingId);
+        if (completedBooking) {
+          // Show provider rating modal for customer
+          setRatingBooking(completedBooking);
+          setRatingType('customer');
+          setShowRatingModal(true);
+        }
+        
+        // Refresh dashboard data to show updated stats
+        await fetchDashboardData();
+        
+        setError(null);
+        setShowBookingModal(false);
+        
+        alert('Booking marked as completed! Removed from schedule. Earnings added to your dashboard. Please rate the customer.');
+      } else {
+        throw new Error(statusResult.message || 'Failed to update booking status');
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to complete booking';
+      setError(errorMessage);
+      console.error('❌ Complete booking error:', err);
+      alert(`Error: ${errorMessage}`);
+    }
+  };
+
+  const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
+      }
+      
+      console.log('🗑️ Removing booking from schedule:', bookingId);
+
+      const response = await fetch(`${API_BASE_URL}/api/schedule/booking/${bookingId}`, {
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -809,24 +760,25 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
       });
 
       if (!response.ok) {
-        console.warn('Failed to update provider dashboard, but booking was completed');
-        return;
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('⚠️ Failed to remove from schedule (non-critical):', errorData.message);
+        // Don't throw error - schedule removal is secondary
+      } else {
+        const result = await response.json();
+        console.log('✅ Booking removed from schedule:', result);
+        
+        // Update local schedule state
+        setSchedule(prev => prev.filter(entry => entry.bookingId !== bookingId));
       }
-
-      const result = await response.json();
       
-      if (result.success) {
-        console.log('✅ Provider dashboard updated successfully');
-        await fetchDashboardData();
-      }
-      
-    } catch (error) {
-      console.error('Error updating provider dashboard:', error);
+    } catch (err) {
+      console.error('❌ Error removing booking from schedule:', err);
+      // Don't throw error - schedule removal is non-critical
     }
   };
 
-  // Enhanced booking status update function with proper status mapping
-  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'accepted' | 'completed' | 'cancelled') => {
+  // FIXED: Enhanced booking status update function with proper status mapping
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
     if (status === 'completed') {
       await handleCompleteBooking(bookingId);
     } else {
@@ -855,7 +807,7 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
         const result = await response.json();
         
         if (result.success) {
-          if (status === 'accepted' && selectedBooking) {
+          if (status === 'confirmed' && selectedBooking) {
             await addBookingToSchedule(selectedBooking);
             
             try {
@@ -875,7 +827,7 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
                 email: dashboardData?.user.email || ''
               };
 
-              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-accepted`, {
+              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-confirmed`, {
                 method: 'POST',
                 headers: {
                   'Authorization': `Bearer ${token}`,
@@ -889,9 +841,9 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
               });
 
               if (emailResponse.ok) {
-                console.log('✅ Booking acceptance email sent to customer');
+                console.log('✅ Booking confirmation email sent to customer');
               } else {
-                console.log('⚠️ Failed to send booking acceptance email, but booking was accepted');
+                console.log('⚠️ Failed to send booking confirmation email, but booking was confirmed');
               }
             } catch (emailError) {
               console.error('⚠️ Email notification failed (non-critical):', emailError);
@@ -903,7 +855,7 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
           setShowBookingModal(false);
           
           let successMessage = `Booking ${status} successfully!`;
-          if (status === 'accepted') {
+          if (status === 'confirmed') {
             successMessage += ' Added to schedule and customer has been notified.';
           }
           alert(successMessage);
@@ -981,26 +933,24 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
     return `₦${amount.toLocaleString()}`;
   };
 
-  // Get upcoming bookings (pending and accepted)
+  // Get upcoming bookings (pending and confirmed)
   const getUpcomingBookings = () => {
-  if (!dashboardData?.bookings) return [];
-  
-  // Show ALL non-completed bookings (pending, confirmed, accepted)
-  const upcomingBookings = dashboardData.bookings.filter(booking => 
-    ['pending', 'confirmed', 'accepted'].includes(booking.status)
-  );
-  
-  console.log('📋 Frontend - Upcoming bookings filtered:', {
-    total: dashboardData.bookings.length,
-    upcoming: upcomingBookings.length,
-    pending: upcomingBookings.filter(b => b.status === 'pending').length,
-    confirmed: upcomingBookings.filter(b => b.status === 'confirmed').length,
-    accepted: upcomingBookings.filter(b => b.status === 'accepted').length
-  });
-  
-  return upcomingBookings;
-};
-
+    if (!dashboardData?.bookings) return [];
+    
+    // Show ALL non-completed bookings (pending, confirmed)
+    const upcomingBookings = dashboardData.bookings.filter(booking => 
+      ['pending', 'confirmed'].includes(booking.status)
+    );
+    
+    console.log('📋 Frontend - Upcoming bookings filtered:', {
+      total: dashboardData.bookings.length,
+      upcoming: upcomingBookings.length,
+      pending: upcomingBookings.filter(b => b.status === 'pending').length,
+      confirmed: upcomingBookings.filter(b => b.status === 'confirmed').length
+    });
+    
+    return upcomingBookings;
+  };
 
   if (loading) {
     return (
@@ -1062,7 +1012,7 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
                     <span className="inline sm:inline">👋</span>
                   </h1>
                   <div className="flex items-center gap-2 mt-1">
-                    <p className="text-gray-600 text-sm sm:text-base md:text-lg leading-relaxed">
+                    <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
                       <span className="hidden xs:inline">Ready to make today productive? Here's your overview.</span>
                       <span className="xs:hidden">Here's your overview for today.</span>
                     </p>
@@ -1288,7 +1238,7 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
               </div>
             </div>
 
-            {/* Bookings Section - FIXED: Shows upcoming bookings (pending and accepted) */}
+            {/* Bookings Section - FIXED: Shows upcoming bookings (pending and confirmed) */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
               <div className="p-4 sm:p-8 border-b border-gray-100">
                 <div className="flex items-center justify-between">
@@ -1765,9 +1715,9 @@ const removeBookingFromSchedule = async (bookingId: string): Promise<void> => {
                   </label>
                   <div className="flex gap-2 flex-wrap">
                     <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'accepted')}
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
                       className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'accepted'}
+                      disabled={selectedBooking.status === 'confirmed'}
                     >
                       Accept
                     </button>
