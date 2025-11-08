@@ -74,6 +74,7 @@ interface BookingCardProps {
   onReleasePayment: (bookingId: string) => void;
   onSeenProvider: (bookingId: string) => void;
   onAcceptBooking?: (bookingId: string) => void;
+  onRetryPayment: (bookingId: string) => void; // Add this line
   userType?: 'customer' | 'provider';
 }
 
