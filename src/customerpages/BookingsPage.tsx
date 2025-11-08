@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, ArrowRight, Plus, X, Phone, Mail } from 'lucide-react';
+import { Calendar, Star, ArrowRight, Plus, X, Phone, Mail, Lock, Shield, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY!);
 
 // Types
 interface ApiBooking {
@@ -61,6 +66,13 @@ interface RescheduleFormData {
   reason: string;
 }
 
+interface PaymentData {
+  processor: 'stripe' | 'paystack';
+  amount: number;
+  clientSecret?: string;
+  authorizationUrl?: string;
+}
+
 const API_BASE_URL = process.env.NODE_ENV === 'production' 
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
@@ -95,6 +107,408 @@ const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
   };
 };
 
+// Payment Form Component
+const PaymentForm: React.FC<{
+  booking: ApiBooking;
+  paymentData: PaymentData;
+  clientSecret: string;
+  onSuccess: () => void;
+  onClose: () => void;
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
+}> = ({ booking, paymentData, onSuccess, onClose, loading, setLoading }) => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [error, setError] = useState('');
+  const [cardComplete, setCardComplete] = useState(false);
+
+  const handlePayment = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (!stripe || !elements) {
+        throw new Error('Payment system not ready');
+      }
+
+      const cardElement = elements.getElement(CardElement);
+
+      if (!cardElement) {
+        throw new Error('Card element not found');
+      }
+
+      console.log('💳 Starting payment process...');
+
+      // Step 1: Create payment method with card details
+      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: booking.customerName || 'Customer',
+          email: booking.customerEmail || '',
+        },
+      });
+
+      if (paymentMethodError) {
+        console.error('❌ Payment method error:', paymentMethodError);
+        throw new Error(paymentMethodError.message);
+      }
+
+      console.log('✅ Payment method created:', paymentMethod.id);
+
+      // Step 2: Confirm payment with backend
+      const token = localStorage.getItem('authToken');
+      const confirmResponse = await fetch(`${API_BASE_URL}/api/bookings/${booking._id}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentMethodId: paymentMethod.id,
+          bookingId: booking._id,
+          processor: paymentData.processor
+        }),
+      });
+
+      if (!confirmResponse.ok) {
+        const errorText = await confirmResponse.text();
+        console.error('❌ Confirm payment failed:', errorText);
+        throw new Error(`Payment confirmation failed: ${confirmResponse.status}`);
+      }
+
+      const confirmResult = await confirmResponse.json();
+      
+      console.log('✅ Payment confirmation result:', confirmResult);
+
+      if (!confirmResult.success) {
+        throw new Error(confirmResult.message || 'Payment confirmation failed');
+      }
+
+      // Step 3: For Stripe, confirm card payment if client secret is provided
+      if (paymentData.processor === 'stripe' && confirmResult.data.clientSecret) {
+        console.log('🔐 Confirming card payment with Stripe...');
+        
+        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
+          confirmResult.data.clientSecret,
+          {
+            payment_method: paymentMethod.id,
+          }
+        );
+
+        if (confirmError) {
+          console.error('❌ Stripe confirmation error:', confirmError);
+          throw new Error(confirmError.message);
+        }
+
+        console.log('✅ Stripe payment confirmed:', paymentIntent?.status);
+      }
+
+      // Success!
+      console.log('🎉 Payment completed successfully!');
+      onSuccess();
+
+    } catch (err: any) {
+      console.error('❌ Payment error:', err);
+      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCardChange = (event: any) => {
+    setCardComplete(event.complete);
+    if (event.error) {
+      setError(event.error.message);
+    } else {
+      setError('');
+    }
+  };
+
+  // For Paystack - redirect to their payment page
+  const handlePaystackPayment = () => {
+  if (paymentData.authorizationUrl) {
+    console.log('🔗 Redirecting to Paystack:', paymentData.authorizationUrl);
+    // This should redirect to Paystack's payment page
+    window.location.href = paymentData.authorizationUrl;
+  } else {
+    setError('Paystack payment URL not available');
+    console.error('❌ No authorization URL provided by Paystack');
+  }
+};
+
+  // Render different payment forms based on processor
+  if (paymentData.processor === 'paystack') {
+  return (
+    <div className="space-y-6">
+      <div className="bg-green-50 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-green-600 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-green-900 mb-1">Paystack Payment</h4>
+            <p className="text-sm text-green-700">
+              You'll be redirected to Paystack for secure payment processing.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg p-4">
+        <div className="flex justify-between items-center mb-4">
+          <span className="text-gray-600">Total Amount</span>
+          <span className="text-2xl font-bold text-gray-900">
+            ₦{paymentData.amount}
+          </span>
+        </div>
+        
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-yellow-600" />
+            <p className="text-sm text-yellow-700">
+              <strong>Note:</strong> You will be redirected to Paystack to complete your payment securely.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <AlertCircle className="w-4 h-4 text-red-600 inline mr-2" />
+          <span className="text-red-700 text-sm">{error}</span>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-4">
+        <button
+          onClick={onClose}
+          disabled={loading}
+          className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handlePaystackPayment}
+          disabled={loading}
+          className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Redirecting...
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4" />
+              Pay ₦{paymentData.amount} with Paystack
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+  // Stripe payment form
+  // return (
+  //   <div className="space-y-6">
+  //     {/* Development mode notice */}
+  //     {process.env.NODE_ENV === 'development' && (
+  //       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+  //         <div className="flex items-center gap-3">
+  //           <CreditCard className="w-5 h-5 text-yellow-600" />
+  //           <div>
+  //             <h4 className="font-semibold text-yellow-900 mb-1">Development Mode</h4>
+  //             <p className="text-sm text-yellow-700">
+  //               Use test card: 4242 4242 4242 4242 | Any future expiry | Any 3 digits
+  //             </p>
+  //           </div>
+  //         </div>
+  //       </div>
+  //     )}
+
+  //     {/* Card Input */}
+  //     <div className="border border-gray-200 rounded-lg p-4">
+  //       <div className="flex justify-between items-center mb-4">
+  //         <span className="text-gray-600">Total Amount</span>
+  //         <span className="text-2xl font-bold text-gray-900">
+  //           ${paymentData.amount}
+  //         </span>
+  //       </div>
+        
+  //       <div className="space-y-4">
+  //         <div>
+  //           <label className="block text-sm font-medium text-gray-700 mb-2">
+  //             Card Information
+  //           </label>
+  //           <div className="border border-gray-300 rounded-lg p-3 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+  //             <CardElement
+  //               options={{
+  //                 style: {
+  //                   base: {
+  //                     fontSize: '16px',
+  //                     color: '#424770',
+  //                     '::placeholder': {
+  //                       color: '#aab7c4',
+  //                     },
+  //                     fontFamily: 'system-ui, sans-serif',
+  //                   },
+  //                 },
+  //                 hidePostalCode: true,
+  //               }}
+  //               onChange={handleCardChange}
+  //             />
+  //           </div>
+  //         </div>
+
+  //         {/* Security Notice */}
+  //         <div className="flex items-center gap-2 text-xs text-gray-500">
+  //           <Lock className="w-3 h-3" />
+  //           <span>Your payment details are secured and encrypted</span>
+  //         </div>
+  //       </div>
+  //     </div>
+
+  //     {error && (
+  //       <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+  //         <AlertCircle className="w-4 h-4 text-red-600 inline mr-2" />
+  //         <span className="text-red-700 text-sm">{error}</span>
+  //       </div>
+  //     )}
+
+  //     <div className="flex gap-3 pt-4">
+  //       <button
+  //         onClick={onClose}
+  //         disabled={loading}
+  //         className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50"
+  //       >
+  //         Cancel
+  //       </button>
+  //       <button
+  //         onClick={handlePayment}
+  //         disabled={!stripe || !cardComplete || loading}
+  //         className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+  //       >
+  //         {loading ? (
+  //           <>
+  //             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  //             Processing...
+  //           </>
+  //         ) : (
+  //           <>
+  //             <Lock className="w-4 h-4" />
+  //             Pay ${paymentData.amount}
+  //           </>
+  //         )}
+  //       </button>
+  //     </div>
+  //   </div>
+  // );
+};
+
+// Payment Details Component
+const PaymentDetails: React.FC<{
+  booking: ApiBooking;
+  onNext: () => void;
+  loading: boolean;
+}> = ({ booking, onNext, loading }) => {
+  return (
+    <div className="space-y-6">
+      <div className="bg-blue-50 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+          <div>
+            <h4 className="font-semibold text-blue-900 mb-1">Secure Payment</h4>
+            <p className="text-sm text-blue-700">
+              Your payment is processed securely. Funds are held until service completion.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg p-4">
+        <h4 className="font-semibold text-gray-900 mb-3">Booking Details</h4>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Service:</span>
+            <span className="font-medium">{booking.serviceType}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Provider:</span>
+            <span className="font-medium">{booking.providerName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Amount:</span>
+            <span className="font-medium text-lg text-green-600">
+              {typeof booking.price === 'string' ? booking.price : `₦${booking.price}`}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <button
+          onClick={onNext}
+          disabled={loading}
+          className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Initializing...
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4" />
+              Proceed to Payment
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Payment Success Component
+const PaymentSuccess: React.FC<{
+  onClose: () => void;
+}> = ({ onClose }) => {
+  return (
+    <div className="text-center space-y-6">
+      <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <CheckCircle className="w-8 h-8 text-green-600" />
+      </div>
+
+      <div>
+        <h4 className="text-lg font-semibold text-gray-900 mb-2">
+          Payment Successful!
+        </h4>
+        <p className="text-gray-600">
+          Your payment has been processed successfully. Your booking is now confirmed.
+        </p>
+      </div>
+
+      <div className="bg-gray-50 rounded-lg p-4 text-left">
+        <h5 className="font-semibold text-gray-900 mb-2">What happens next?</h5>
+        <ul className="text-sm text-gray-600 space-y-1">
+          <li>• Your booking is now confirmed</li>
+          <li>• The provider will contact you to schedule the service</li>
+          <li>• You'll receive service reminders</li>
+          <li>• Payment is secured until service completion</li>
+        </ul>
+      </div>
+
+      <button
+        onClick={onClose}
+        className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+      >
+        Close
+      </button>
+    </div>
+  );
+};
+
+// Main BookingsPage Component
 const BookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +525,13 @@ const BookingsPage: React.FC = () => {
     reason: ''
   });
   const [rescheduleLoading, setRescheduleLoading] = useState(false);
+
+  // Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedBookingForPayment, setSelectedBookingForPayment] = useState<ApiBooking | null>(null);
+  const [paymentStep, setPaymentStep] = useState<'details' | 'payment' | 'success'>('details');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
   useEffect(() => {
     fetchUserBookings();
@@ -157,153 +578,173 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-const handlePaymentSuccess = async (bookingId: string) => {
-  console.log('💰 Processing payment for booking:', bookingId);
+  // Payment Success Handler
+  const handlePaymentSuccess = async (bookingId:any) => {
+  console.log('💰 Payment successful for booking:', bookingId);
   
   try {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      throw new Error('Authentication required');
+    // Refresh bookings to show updated status
+    await fetchUserBookings();
+    
+    // Close payment modal
+    setShowPaymentModal(false);
+    setSelectedBookingForPayment(null);
+    setPaymentStep('details');
+    setPaymentData(null);
+    
+    // Show success message
+    alert('Payment completed successfully! Your booking is now confirmed.');
+    
+  } catch (error) {
+    console.error('❌ Error handling payment success:', error);
+  }
+};
+
+
+  // Payment Button Click Handler
+  const handlePaymentButtonClick = async (bookingId: string) => {
+  console.log('🔄 Starting payment process for booking:', bookingId);
+  
+  const booking = bookings.find(b => b._id === bookingId);
+  if (booking) {
+    try {
+      const result = await initializePayment(booking);
+      console.log('💰 Payment initialization result:', result);
+      
+      if (result && result.processor === 'paystack' && result.authorizationUrl) {
+        // VALIDATE THE URL BEFORE REDIRECTING
+        const authUrl = result.authorizationUrl;
+        console.log('🔗 Paystack URL:', authUrl);
+        
+        if (!authUrl.includes('checkout.paystack.com')) {
+          console.error('❌ INVALID Paystack URL:', authUrl);
+          alert('Invalid payment URL. Please try again.');
+          return;
+        }
+        
+        console.log('✅ Valid Paystack URL, redirecting...');
+        window.location.href = authUrl;
+        return;
+      } else if (result && result.processor === 'stripe' && result.clientSecret) {
+        // Show Stripe modal for card entry
+        setSelectedBookingForPayment(booking);
+        setShowPaymentModal(true);
+        setPaymentStep('payment');
+        setPaymentData(result);
+      } else {
+        console.error('❌ Invalid payment response:', result);
+        alert('Payment initialization failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ Payment initialization error:', error);
+      alert('Failed to initialize payment. Please try again.');
     }
+  }
+};
 
-    // Get the booking to know the amount
-    const booking = bookings.find(b => b._id === bookingId);
-    const amount = booking?.price || booking?.amount || 100;
+type CountryCode = 'NG' | 'GB' | 'US';
 
-    console.log('💳 Payment details:', { amount });
 
-    // First, test body parsing
-    console.log('🧪 Testing body parsing...');
-    const testResponse = await fetch(`${API_BASE_URL}/api/test-body-parsing`, {
+const getCountryCode = (countryName: string): CountryCode => {
+  const countryMap: Record<string, CountryCode> = {
+    'nigeria': 'NG',
+    'ng': 'NG',
+    'united kingdom': 'GB',
+    'uk': 'GB',
+    'gb': 'GB',
+    'united states': 'US',
+    'usa': 'US',
+    'us': 'US'
+  };
+  
+  return countryMap[countryName?.toLowerCase()] || 'NG';
+};
+const initializePayment = async (booking: ApiBooking) => {
+  try {
+    console.log('💰 Starting payment for booking:', booking._id);
+    
+    const token = localStorage.getItem('authToken');
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    
+    const customerCountry = getCountryCode(userData.country);
+    
+    const payload = {
+      amount: booking.price || booking.amount,
+      customerCountry: customerCountry
+    };
+
+    console.log('📦 Payment payload:', payload);
+
+    const response = await fetch(`${API_BASE_URL}/api/bookings/${booking._id}/create-payment`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ test: 'data', amount: amount }),
+      body: JSON.stringify(payload),
     });
 
-    if (testResponse.ok) {
-      const testResult = await testResponse.json();
-      console.log('✅ Body parsing test passed:', testResult);
-    } else {
-      console.log('❌ Body parsing test failed');
-    }
-
-    // 1. Create payment intent
-    const createResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/create-payment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json', // CRITICAL: This header must be set
-      },
-      body: JSON.stringify({
-        amount: amount,
-        customerCountry: 'NG'
-      }),
-    });
-
-    if (!createResponse.ok) {
-      const errorText = await createResponse.text();
-      console.error('❌ Create payment failed:', errorText);
-      throw new Error(`Payment creation failed: ${createResponse.status} ${createResponse.statusText}`);
-    }
-
-    const createResult = await createResponse.json();
+    const result = await response.json();
     
-    if (!createResult.success) {
-      throw new Error(createResult.message || 'Payment creation failed');
+    if (!response.ok) {
+      // If it's a "payment already exists" error, try to get the payment URL
+      if (result.code === 'PAYMENT_ALREADY_EXISTS' || result.message?.includes('already initiated')) {
+        console.log('🔄 Payment already exists, fetching payment URL...');
+        return await getExistingPaymentUrl(booking._id);
+      }
+      throw new Error(result.message || `HTTP error! status: ${response.status}`);
     }
 
-    console.log('✅ Payment intent created:', createResult.data);
-
-    // 2. If in simulation mode, confirm payment immediately
-    if (createResult.data.simulated || createResult.data.processor === 'simulation') {
-      console.log('💳 Simulation mode - confirming payment immediately');
-      
-      const confirmResponse = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/confirm-payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentIntentId: createResult.data.paymentIntentId
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        const errorText = await confirmResponse.text();
-        throw new Error(`Payment confirmation failed: ${confirmResponse.status}`);
-      }
-
-      const confirmResult = await confirmResponse.json();
-      
-      if (!confirmResult.success) {
-        throw new Error(confirmResult.message || 'Payment confirmation failed');
-      }
-
-      // Update UI immediately
-      setBookings(prev => prev.map(booking => 
-        booking._id === bookingId 
-          ? { 
-              ...booking, 
-              payment: {
-                status: 'held',
-                amount: createResult.data.amount,
-                currency: createResult.data.currency,
-                processor: createResult.data.processor,
-                heldAt: new Date().toISOString(),
-                autoRefundAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString()
-              },
-              status: 'confirmed'
-            }
-          : booking
-      ));
-
-      alert('✅ Payment confirmed successfully! The provider has been notified.');
-      
-    } else {
-      // 3. For real payments, show appropriate message
-      if (createResult.data.processor === 'paystack' && createResult.data.authorizationUrl) {
-        alert('🔗 You would be redirected to Paystack for payment in production');
-        console.log('Paystack URL:', createResult.data.authorizationUrl);
-        // window.location.href = createResult.data.authorizationUrl;
-      } else if (createResult.data.processor === 'stripe' && createResult.data.clientSecret) {
-        alert('💳 Stripe payment modal would open here in production');
-        console.log('Stripe client secret:', createResult.data.clientSecret);
-      }
+    console.log('✅ Payment initialization result:', result);
+    
+    // Handle Paystack redirect
+    if (result.data.processor === 'paystack' && result.data.authorizationUrl) {
+      console.log('🔗 Redirecting to Paystack payment page...');
+      window.location.href = result.data.authorizationUrl;
+      return null;
     }
+    
+    return result.data;
 
   } catch (error) {
-    console.error('❌ Payment processing error:', error);
+    console.error('❌ Payment initialization failed:', error);
+    throw error;
+  }
+};
+
+// New function to get existing payment URL
+const getExistingPaymentUrl = async (bookingId: string) => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment-url`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get payment URL');
+    }
+
+    const result = await response.json();
     
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    alert(`Payment failed: ${errorMessage}`);
+    if (result.success && result.data.authorizationUrl) {
+      console.log('🔗 Found existing Paystack payment URL');
+      window.location.href = result.data.authorizationUrl;
+      return null;
+    }
+    
+    throw new Error('No payment URL found');
+
+  } catch (error) {
+    console.error('❌ Failed to get existing payment URL:', error);
+    throw error;
   }
 };
 
 
 
 
-const simulatePaymentSuccess = (bookingId: string) => {
-  setBookings(prev => prev.map(booking => 
-    booking._id === bookingId 
-      ? { 
-          ...booking, 
-          payment: {
-            status: 'confirmed',
-            amount: booking.price || booking.amount,
-            currency: 'NGN',
-            processor: 'paystack',
-            confirmedAt: new Date().toISOString()
-          },
-          status: 'confirmed'
-        }
-      : booking
-  ));
-  alert('💳 Payment simulation: Payment confirmed successfully! The provider has been notified.\n\n🔧 Note: Backend CORS needs configuration for real payments.');
-};
 
   const handleReleasePayment = async (bookingId: string) => {
     try {
@@ -414,6 +855,9 @@ const simulatePaymentSuccess = (bookingId: string) => {
           return;
         case 'contact-phone':
           handleContactPhone(bookingId);
+          return;
+        case 'payment':
+          handlePaymentButtonClick(bookingId);
           return;
         default:
           console.log('Unknown action:', action, bookingId);
@@ -812,7 +1256,7 @@ const simulatePaymentSuccess = (bookingId: string) => {
                       onContact={(id: string, method: 'message' | 'phone') => handleBookingAction(id, `contact-${method}`)}
                       onViewDetails={(id: string) => handleViewDetails(id)}
                       onRateProvider={handleRateProvider}
-                      onPaymentSuccess={handlePaymentSuccess}
+                      onPaymentSuccess={handlePaymentButtonClick}
                       onReleasePayment={handleReleasePayment}
                       onSeenProvider={handleSeenProvider}
                     />
@@ -1143,6 +1587,78 @@ const simulatePaymentSuccess = (bookingId: string) => {
               >
                 Submit Rating
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      {showPaymentModal && selectedBookingForPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">
+                  {paymentStep === 'details' && 'Complete Payment'}
+                  {paymentStep === 'payment' && 'Enter Card Details'}
+                  {paymentStep === 'success' && 'Payment Successful'}
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setSelectedBookingForPayment(null);
+                    setPaymentStep('details');
+                    setPaymentData(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={paymentLoading}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {paymentStep === 'details' && (
+                <PaymentDetails 
+                  booking={selectedBookingForPayment}
+                  onNext={() => initializePayment(selectedBookingForPayment)}
+                  loading={paymentLoading}
+                />
+              )}
+
+              {paymentStep === 'payment' && paymentData && (
+                <Elements stripe={stripePromise}>
+                  <PaymentForm 
+                    booking={selectedBookingForPayment}
+                    paymentData={paymentData}
+                    clientSecret=""
+                    onSuccess={() => {
+                      setPaymentStep('success');
+                      setTimeout(() => {
+                        handlePaymentSuccess(selectedBookingForPayment._id);
+                      }, 2000);
+                    }}
+                    onClose={() => {
+                      setShowPaymentModal(false);
+                      setSelectedBookingForPayment(null);
+                      setPaymentStep('details');
+                      setPaymentData(null);
+                    }}
+                    loading={paymentLoading}
+                    setLoading={setPaymentLoading}
+                  />
+                </Elements>
+              )}
+
+              {paymentStep === 'success' && (
+                <PaymentSuccess 
+                  onClose={() => {
+                    setShowPaymentModal(false);
+                    setSelectedBookingForPayment(null);
+                    setPaymentStep('details');
+                    setPaymentData(null);
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

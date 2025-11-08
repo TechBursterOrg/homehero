@@ -21,6 +21,8 @@ import MessagesPage from "./MessagesPage";
 import ProviderProfilePage from "../customercomponents/ProviderProfilePage";
 import WorkingMapView from "../customercomponents/WorkingMapView";
 import StandaloneMapView from "../customercomponents/StandaloneMapView";
+import PaymentStatusPage from '../customercomponents/PaymentStatusPage';
+
 
 // Types and Data
 import {
@@ -987,6 +989,7 @@ const CustomerContent: React.FC = () => {
             }
           />
           <Route path="bookings" element={<BookingsPage />} />
+          <Route path="/customer/payment-status" element={<PaymentStatusPage />} />
           <Route
             path="provider/:providerId"
             element={<ProviderProfilePage />}
