@@ -54,6 +54,7 @@ interface ProviderProfile {
 interface GalleryImage {
   _id: string;
   imageUrl: string;
+  fullImageUrl?: string;
   title: string;
   description?: string;
   category: string;
@@ -100,7 +101,30 @@ const getFullImageUrl = (url: string | undefined): string | undefined => {
   return `${API_BASE_URL}/uploads/${url}`;
 };
 
-// BookingModal Component (same as your original)
+// Helper function specifically for gallery images (tries multiple URL formats)
+const getGalleryImageUrl = (image: GalleryImage): string => {
+  // Try fullImageUrl first (GCS URL)
+  if (image.fullImageUrl && image.fullImageUrl.startsWith('http')) {
+    return image.fullImageUrl;
+  }
+  
+  // Try imageUrl if it's a full URL
+  if (image.imageUrl && image.imageUrl.startsWith('http')) {
+    return image.imageUrl;
+  }
+  
+  // If imageUrl is a relative path, prepend API base
+  if (image.imageUrl) {
+    return image.imageUrl.startsWith('/') 
+      ? `${API_BASE_URL}${image.imageUrl}`
+      : `${API_BASE_URL}/uploads/${image.imageUrl}`;
+  }
+  
+  // Fallback placeholder
+  return 'https://via.placeholder.com/400x300?text=Image+Not+Available';
+};
+
+// BookingModal Component
 const BookingModal: React.FC<{
   isOpen: boolean;
   provider: ProviderProfile;
@@ -441,35 +465,6 @@ const BookingModal: React.FC<{
                   rows={2}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
                 />
-
-                <div className="flex flex-col sm:flex-row justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-6 py-3 text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 font-medium disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Submitting...
-                  </div>
-                ) : (
-                  `${
-                    serviceType === "immediate"
-                      ? "Book Now"
-                      : "Send Quote Request"
-                  }`
-                )}
-              </button>
-            </div>
               </div>
 
               {/* Booking Summary */}
@@ -509,7 +504,34 @@ const BookingModal: React.FC<{
 
           {/* Footer */}
           <div className="bg-gray-50/80 backdrop-blur-sm border-t border-gray-200/50 p-6 mt-auto">
-            
+            <div className="flex flex-col sm:flex-row justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-6 py-3 text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition-all duration-200 font-medium disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Submitting...
+                  </div>
+                ) : (
+                  `${
+                    serviceType === "immediate"
+                      ? "Book Now"
+                      : "Send Quote Request"
+                  }`
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -595,19 +617,18 @@ const ProviderProfilePage: React.FC = () => {
         console.log('✅ REAL Performance stats:', data);
         
         if (data.success && data.data) {
-          // Only set if we have real data
           setPerformanceStats(data.data);
         } else {
           console.log('❌ No real performance stats available');
-          setPerformanceStats(null); // Don't show fake stats
+          setPerformanceStats(null);
         }
       } else {
         console.log('❌ Performance stats fetch failed:', response.status);
-        setPerformanceStats(null); // Don't show fake stats
+        setPerformanceStats(null);
       }
     } catch (error) {
       console.error("❌ Error fetching performance stats:", error);
-      setPerformanceStats(null); // Don't show fake stats
+      setPerformanceStats(null);
     } finally {
       setStatsLoading(false);
     }
@@ -621,7 +642,6 @@ const ProviderProfilePage: React.FC = () => {
       setGalleryLoading(true);
       console.log('🔄 Fetching REAL gallery for provider:', providerId);
       
-      // Try multiple endpoints
       const endpoints = [
         `${API_BASE_URL}/api/providers/${providerId}/gallery`,
         `${API_BASE_URL}/api/gallery?userId=${providerId}`,
@@ -640,8 +660,12 @@ const ProviderProfilePage: React.FC = () => {
             console.log(`✅ Gallery response from ${endpoint}:`, data);
             
             if (data.success) {
-              // Handle different response formats
               galleryData = data.data?.docs || data.data?.images || data.data || data.images || [];
+              console.log('📸 Gallery data found:', galleryData.length, 'images');
+              
+              if (galleryData.length > 0) {
+                console.log('🔍 First gallery image structure:', galleryData[0]);
+              }
               break;
             }
           }
@@ -687,11 +711,9 @@ const ProviderProfilePage: React.FC = () => {
           
           console.log('📊 Raw reviews data:', reviewsData);
 
-          // Transform the API response to match our Review interface with REAL data
           const transformedReviews = reviewsData.map((review: any) => {
             console.log('🔍 Processing review:', review);
             
-            // Get REAL customer data - check multiple possible field structures
             const customerName = 
               review.customerId?.name ||
               review.customerName || 
@@ -713,7 +735,6 @@ const ProviderProfilePage: React.FC = () => {
               review.customer?._id ||
               'unknown';
 
-            // Get REAL rating - check multiple possible field structures
             const rating = 
               review.rating ||
               review.providerRating ||
@@ -721,7 +742,6 @@ const ProviderProfilePage: React.FC = () => {
               review.score ||
               0;
 
-            // Get REAL comment
             const comment = 
               review.comment ||
               review.providerComment ||
@@ -729,7 +749,6 @@ const ProviderProfilePage: React.FC = () => {
               review.feedback ||
               '';
 
-            // Get REAL service type
             const serviceType = 
               review.serviceType ||
               review.bookingId?.serviceType ||
@@ -743,14 +762,14 @@ const ProviderProfilePage: React.FC = () => {
                 name: customerName,
                 profileImage: customerProfileImage
               },
-              rating: Math.max(1, Math.min(5, rating)), // Ensure rating is between 1-5
+              rating: Math.max(1, Math.min(5, rating)),
               comment: comment,
               serviceType: serviceType,
               createdAt: review.createdAt || review.ratedAt || review.date || new Date().toISOString(),
               helpful: review.helpful || review.likes || review.helpfulCount || 0,
               verified: review.verified || false
             };
-          }).filter((review: Review) => review.rating > 0); // Only include reviews with actual ratings
+          }).filter((review: Review) => review.rating > 0);
 
           console.log('✅ Transformed REAL reviews:', transformedReviews);
           setReviews(transformedReviews);
@@ -860,7 +879,7 @@ const ProviderProfilePage: React.FC = () => {
 
   // Helper functions for rendering
   const renderStars = (rating: number, size = "w-4 h-4") => {
-    const normalizedRating = Math.min(Math.max(rating, 0), 5); // Ensure rating is between 0-5
+    const normalizedRating = Math.min(Math.max(rating, 0), 5);
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
@@ -875,7 +894,7 @@ const ProviderProfilePage: React.FC = () => {
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     const target = e.target as HTMLImageElement;
-    console.error("Image failed to load:", target.src);
+    console.error("❌ Image failed to load:", target.src);
     target.style.display = "none";
     const parent = target.parentElement;
     if (parent) {
@@ -887,7 +906,29 @@ const ProviderProfilePage: React.FC = () => {
   };
 
   const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    console.log("Image loaded successfully:", e.currentTarget.src);
+    console.log("✅ Image loaded successfully:", e.currentTarget.src);
+  };
+
+  const handleGalleryImageError = (e: React.SyntheticEvent<HTMLImageElement>, image: GalleryImage) => {
+    const target = e.currentTarget;
+    console.error("❌ Gallery image failed to load:", {
+      src: target.src,
+      imageId: image._id,
+      title: image.title,
+      fullImageUrl: image.fullImageUrl,
+      imageUrl: image.imageUrl
+    });
+    
+    // Try fallback URL if we haven't already
+    if (image.fullImageUrl && target.src !== image.fullImageUrl) {
+      console.log('🔄 Trying fullImageUrl:', image.fullImageUrl);
+      target.src = image.fullImageUrl;
+      return;
+    }
+    
+    // Set placeholder
+    console.log('⚠️ Using placeholder for:', image.title);
+    target.src = 'https://via.placeholder.com/400x300?text=' + encodeURIComponent(image.title || 'Image Not Available');
   };
 
   const tabs = [
@@ -1110,8 +1151,21 @@ const ProviderProfilePage: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
                 {/* Services and Details */}
                 <div className="lg:col-span-2 space-y-6">
-                  {/* Services Offered */}
-                  
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
+                      Services Offered
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {provider.services.map((service, index) => (
+                        <div
+                          key={index}
+                          className="bg-blue-50 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
+                        >
+                          {service}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
                   {/* Experience and Pricing */}
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
@@ -1233,8 +1287,7 @@ const ProviderProfilePage: React.FC = () => {
                   All Services
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                 
-                  {/* {provider.services.map((service, index) => (
+                  {provider.services.map((service, index) => (
                     <div
                       key={index}
                       className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6"
@@ -1260,23 +1313,8 @@ const ProviderProfilePage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  ))} */}
+                  ))}
                 </div>
-                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">
-                      Services Offered
-                    </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {provider.services.map((service, index) => (
-                        <div
-                          key={index}
-                          className="bg-blue-50 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
-                        >
-                          {service}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
               </div>
             )}
 
@@ -1311,11 +1349,11 @@ const ProviderProfilePage: React.FC = () => {
                       >
                         <div className="aspect-square bg-gray-100 relative">
                           <img
-                            src={getFullImageUrl(image.imageUrl)}
+                            src={getGalleryImageUrl(image)}
                             alt={image.title}
                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                            onError={handleImageError}
-                            onLoad={handleImageLoad}
+                            onError={(e) => handleGalleryImageError(e, image)}
+                            onLoad={(e) => console.log('✅ Gallery image loaded:', e.currentTarget.src)}
                           />
                           {image.featured && (
                             <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 rounded-lg text-xs font-medium">
@@ -1336,7 +1374,7 @@ const ProviderProfilePage: React.FC = () => {
                                 {image.category}
                               </span>
                               {(image.likes || image.views) && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 text-white">
                                   {image.likes && (
                                     <div className="flex items-center gap-1">
                                       <ThumbsUp className="w-3 h-3" />
@@ -1535,14 +1573,10 @@ const ProviderProfilePage: React.FC = () => {
                 <div className="space-y-4">
                   <div className="aspect-video bg-gray-100 rounded-xl overflow-hidden">
                     <img
-                      src={getFullImageUrl(selectedImage.imageUrl)}
+                      src={getGalleryImageUrl(selectedImage)}
                       alt={selectedImage.title}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        console.error("Modal image failed to load:", target.src);
-                        target.src = "https://via.placeholder.com/800x600?text=Image+Not+Found";
-                      }}
+                      onError={(e) => handleGalleryImageError(e, selectedImage)}
                     />
                   </div>
                   <div className="flex items-center justify-between text-sm text-gray-600">

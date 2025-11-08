@@ -657,7 +657,7 @@ const BookingsPage: React.FC = () => {
           setPaymentData(result);
         } else {
           console.error('❌ Invalid payment response:', result);
-          alert('Payment initialization failed. Please try again.');
+          alert('Waiting for payment initialization');
         }
       } catch (error) {
         console.error('❌ Payment initialization error:', error);
