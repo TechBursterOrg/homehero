@@ -33,6 +33,52 @@ const API_BASE_URL = process.env.NODE_ENV === 'production'
     ? "https://backendhomeheroes.onrender.com" 
     : "http://localhost:3001";
 
+// Comprehensive service list for auto-complete
+const SERVICE_LIST = [
+  'houseCleaning',
+  'plumbing',
+  'electrical',
+  'gardenCare',
+  'handyman',
+  'painting',
+  'acRepair',
+  'generatorRepair',
+  'carpentry',
+  'tiling',
+  'masonry',
+  'welding',
+  'pestControl',
+  'autoMechanic',
+  'panelBeater',
+  'autoElectrician',
+  'vulcanizer',
+  'carWash',
+  'hairStylist',
+  'makeupArtist',
+  'nailTechnician',
+  'massageTherapist',
+  'tailor',
+  'nanny',
+  'cook',
+  'laundry',
+  'gardener',
+  'securityGuard',
+  'cctvInstaller',
+  'solarTechnician',
+  'inverterTechnician',
+  'itSupport',
+  'interiorDesigner',
+  'tvRepair'
+];
+
+// Function to format service names for display
+const formatServiceName = (service: string) => {
+  return service
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .trim();
+};
+
 interface HeroSectionProps {
   serviceType: 'immediate' | 'long-term';
   setServiceType: (type: 'immediate' | 'long-term') => void;
@@ -91,21 +137,54 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     serviceTypeRef.current = serviceType;
   }, [serviceType]);
 
+  // Get service suggestions based on search query
+  const getServiceSuggestions = (query: string): string[] => {
+    if (!query.trim()) return [];
+    
+    const lowercaseQuery = query.toLowerCase();
+    
+    // Filter services that match the query
+    const matchedServices = SERVICE_LIST.filter(service => 
+      service.toLowerCase().includes(lowercaseQuery) ||
+      formatServiceName(service).toLowerCase().includes(lowercaseQuery)
+    );
+    
+    // Return formatted service names
+    return matchedServices.map(service => formatServiceName(service));
+  };
+
   // Fetch service suggestions when search query changes
   useEffect(() => {
     const fetchServiceSuggestions = async () => {
-      if (searchQuery.length > 2) {
+      if (searchQuery.length > 0) {
         try {
+          // First try to get suggestions from local service list
+          const localSuggestions = getServiceSuggestions(searchQuery);
+          
+          // If we have local suggestions, use them
+          if (localSuggestions.length > 0) {
+            setServiceSuggestions(localSuggestions);
+            setShowServiceSuggestions(true);
+            return;
+          }
+          
+          // Fallback to API if no local matches
           const response = await fetch(`${API_BASE_URL}/api/services?q=${encodeURIComponent(searchQuery)}`);
           if (response.ok) {
             const data = await response.json();
-            setServiceSuggestions(data.data?.services || []);
+            const apiSuggestions = data.data?.services || [];
+            setServiceSuggestions(apiSuggestions);
             setShowServiceSuggestions(true);
+          } else {
+            setServiceSuggestions([]);
+            setShowServiceSuggestions(false);
           }
         } catch (error) {
           console.error('Error fetching service suggestions:', error);
-          setServiceSuggestions(['Plumbing', 'Electrical', 'Cleaning', 'Painting', 'Carpentry', 'Barbing']);
-          setShowServiceSuggestions(true);
+          // Fallback to local suggestions on error
+          const fallbackSuggestions = getServiceSuggestions(searchQuery);
+          setServiceSuggestions(fallbackSuggestions);
+          setShowServiceSuggestions(fallbackSuggestions.length > 0);
         }
       } else {
         setServiceSuggestions([]);
@@ -113,11 +192,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({
       }
     };
 
-    const debounceTimer = setTimeout(fetchServiceSuggestions, 300);
+    const debounceTimer = setTimeout(fetchServiceSuggestions, 150);
     return () => clearTimeout(debounceTimer);
   }, [searchQuery]);
 
-  // FIXED: Stable search handler with no dependencies
+  // FIXED: Stable search handler with no dependencies - ONLY triggers scroll and search
   const handleSearch = useCallback(() => {
     setShowServiceSuggestions(false);
     
@@ -126,16 +205,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({
       clearTimeout(searchTimeoutRef.current);
     }
     
-    // If both inputs are empty, show all providers
-    if (!searchQueryRef.current.trim() && !currentLocationRef.current.trim()) {
-      setSearchQuery('');
-      setCurrentLocationAddress('');
-    }
-    
     // Call the onSearch callback with current ref values
     onSearch(searchQueryRef.current, currentLocationRef.current, serviceTypeRef.current);
     
-    // Scroll to providers section
+    // Scroll to providers section ONLY when Find Now is clicked
     setTimeout(() => {
       const providersSection = document.getElementById('providers-section');
       if (providersSection) {
@@ -145,7 +218,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
         });
       }
     }, 100);
-  }, [onSearch, setSearchQuery]);
+  }, [onSearch]);
 
   // FIXED: Handle search input key press (Enter key) - only triggers on Enter
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -160,19 +233,25 @@ const HeroSection: React.FC<HeroSectionProps> = ({
     const value = e.target.value;
     setSearchQuery(value);
     
-    if (value.length > 2) {
+    if (value.length > 0) {
       setShowServiceSuggestions(true);
     } else {
       setShowServiceSuggestions(false);
     }
   };
 
-  // Handle service suggestion click
+  // Handle service suggestion click - UPDATED: No longer triggers search or scroll
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setSearchQuery(suggestion);
     setShowServiceSuggestions(false);
-    handleSearch();
-  }, [handleSearch, setSearchQuery]);
+    // Only update the search query, don't trigger search or scroll
+  }, [setSearchQuery]);
+
+  // Handle location change - UPDATED: No longer triggers search or scroll
+  const handleLocationChange = useCallback((location: LocationData) => {
+    onLocationChange(location);
+    // Only update the location, don't trigger search or scroll
+  }, [onLocationChange]);
 
   // Close suggestions when clicking outside
   useEffect(() => {
@@ -302,7 +381,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                     value={searchQuery}
                     onChange={handleInputChange}
                     onKeyPress={handleKeyPress}
-                    onFocus={() => searchQuery.length > 2 && setShowServiceSuggestions(true)}
+                    onFocus={() => searchQuery.length > 0 && setShowServiceSuggestions(true)}
                     className="w-full pl-14 sm:pl-16 pr-4 sm:pr-6 py-4 sm:py-5 bg-white/95 backdrop-blur-sm rounded-xl sm:rounded-2xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-yellow-300 focus:outline-none focus:bg-white transition-all duration-200 border border-white/20 shadow-lg text-base sm:text-lg font-medium"
                   />
                   
@@ -313,21 +392,28 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                         <button
                           key={index}
                           onClick={() => handleSuggestionClick(suggestion)}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center space-x-3"
                         >
-                          <div className="flex items-center space-x-3">
-                            <Search className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm font-medium text-gray-900">{suggestion}</span>
-                          </div>
+                          <Search className="w-4 h-4 text-blue-500" />
+                          <span className="text-sm font-medium text-gray-900">{suggestion}</span>
                         </button>
                       ))}
+                    </div>
+                  )}
+                  
+                  {/* Show message when no suggestions found */}
+                  {showServiceSuggestions && serviceSuggestions.length === 0 && searchQuery.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-40 p-4">
+                      <div className="text-sm text-gray-500 text-center">
+                        No services found for "{searchQuery}"
+                      </div>
                     </div>
                   )}
                 </div>
                 
                 <div className="w-full lg:w-80">
                   <LocationSearch
-                    onLocationSelect={onLocationChange}
+                    onLocationSelect={handleLocationChange}
                     currentLocation={currentLocation}
                     onCurrentLocationDetect={() => setLocationDetected(true)}
                   />
