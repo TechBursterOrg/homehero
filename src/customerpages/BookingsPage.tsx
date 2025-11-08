@@ -668,16 +668,42 @@ const BookingsPage: React.FC = () => {
 
   // Retry Payment Handler
   const handleRetryPaymentClick = async (bookingId: string) => {
-    console.log('🔄 Retrying payment for booking:', bookingId);
+  console.log('🔄 Retrying payment for booking:', bookingId);
+  
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/retry-payment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const result = await response.json();
     
-    try {
-      const result = await handleRetryPayment(bookingId);
-      return result;
-    } catch (error) {
-      console.error('❌ Retry payment error:', error);
-      alert('Failed to retry payment. Please try again.');
+    if (result.success && result.data.authorizationUrl) {
+      // VALIDATE URL BEFORE REDIRECTING
+      const authUrl = result.data.authorizationUrl;
+      console.log('🔗 Redirecting to Paystack:', authUrl);
+      
+      if (!authUrl.includes('checkout.paystack.com')) {
+        console.error('❌ INVALID Paystack URL:', authUrl);
+        alert('Invalid payment URL. Please try again.');
+        return;
+      }
+      
+      // Redirect to Paystack
+      window.location.href = authUrl;
+    } else {
+      alert('Failed to retry payment: ' + (result.message || 'Unknown error'));
     }
-  };
+  } catch (error) {
+    console.error('❌ Retry payment error:', error);
+    alert('Error retrying payment. Please try again.');
+  }
+};
+
 
   type CountryCode = 'NG' | 'GB' | 'US';
 
