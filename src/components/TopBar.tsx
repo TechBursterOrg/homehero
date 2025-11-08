@@ -1,5 +1,5 @@
 // TopBar.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Bell, User, Menu, MessageSquare, Briefcase, Calendar, CheckCircle } from 'lucide-react';
 
@@ -28,6 +28,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
   const location = useLocation();
+  const notificationRef = useRef<HTMLDivElement>(null);
   const [userProfile, setUserProfile] = useState<UserProfile>({
     name: '',
     profileImage: ''
@@ -201,6 +202,23 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
     }
   };
 
+  // Handle click outside to close notifications
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
+
   // Setup polling for real-time updates
   useEffect(() => {
     fetchUserProfile();
@@ -244,7 +262,7 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
         
         <div className="flex items-center space-x-4">
           {/* Notifications Dropdown */}
-          <div className="relative">
+          <div className="relative" ref={notificationRef}>
             <button 
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors relative"
               onClick={() => setShowNotifications(!showNotifications)}
@@ -258,7 +276,7 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-[9999]">
                 <div className="p-4 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-gray-900">Notifications</h3>
@@ -360,14 +378,6 @@ const TopBar: React.FC<TopBarProps> = ({ notifications, setSidebarOpen }) => {
           </div>
         </div>
       </div>
-
-      {/* Click outside to close notifications */}
-      {showNotifications && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowNotifications(false)}
-        />
-      )}
     </div>
   );
 };

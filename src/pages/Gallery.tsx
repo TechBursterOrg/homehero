@@ -398,7 +398,7 @@ const GalleryPage = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          {/* <div className="flex flex-wrap gap-3">
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -412,7 +412,7 @@ const GalleryPage = () => {
                 {category.name} ({category.count})
               </button>
             ))}
-          </div>
+          </div> */}
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm p-6">
