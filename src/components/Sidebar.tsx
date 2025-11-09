@@ -178,14 +178,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       setSidebarOpen(false);
       
       // Redirect to login page
-      navigate('/login');
+      navigate('/provider-login');
     } catch (error) {
       console.error('Logout error:', error);
       // Even if there's an error, clear storage and redirect
       localStorage.removeItem('authToken');
       localStorage.removeItem('token');
       localStorage.removeItem('userData');
-      navigate('/login');
+      navigate('/provider-login');
     }
   };
 

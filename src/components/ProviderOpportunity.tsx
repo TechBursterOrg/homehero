@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TrendingUp, Clock, Shield, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ProviderOpportunity: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,7 +26,7 @@ const ProviderOpportunity: React.FC = () => {
   const benefits = [
     {
       icon: TrendingUp,
-      title: "Earn $25-75/hour",
+      title: "Earn ₦5k-30k/daily",
       description: "Set competitive rates and maximize your earning potential"
     },
     {
@@ -41,7 +42,7 @@ const ProviderOpportunity: React.FC = () => {
   ];
 
   return (
-    <section ref={sectionRef} id="providers" className="py-20 bg-gradient-to-r from-green-600 to-blue-600 relative overflow-hidden">
+    <section ref={sectionRef} id="providers" className="py-20 bg-gradient-to-r from-green-600 to-green-700 relative overflow-hidden">
       <div className="absolute inset-0 bg-black/10"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className={`text-center text-white mb-16 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -89,7 +90,7 @@ const ProviderOpportunity: React.FC = () => {
                 </li>
                 <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5'}`} style={{ transitionDelay: '1200ms' }}>
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-                  <span>Start receiving job requests</span>
+                  <span>Start booking job requests</span>
                 </li>
               </ul>
             </div>
@@ -101,10 +102,10 @@ const ProviderOpportunity: React.FC = () => {
                 <p className="text-gray-600 mb-6">
                   Start earning flexible income with your skills
                 </p>
-                <button className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <Link to='/provider-login' className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl transform hover:-translate-y-1">
                   Become a Provider
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </Link>
               </div>
             </div>
           </div>

@@ -74,7 +74,7 @@ interface ProvidersListProps {
   currentUser?: any;
   favorites?: string[];
   searchRadius?: number;
-  userLocation?: [number, number] | null; // Add user location prop
+  userLocation?: [number, number] | null;
 }
 
 interface ProviderCardItemProps {
@@ -119,6 +119,54 @@ const calculateDistance = (
   const distanceKm = R * c;
   const distanceMiles = distanceKm * 0.621371; // Convert to miles
   return distanceMiles;
+};
+
+// Location matching utility functions
+const normalizeLocation = (location: string): string[] => {
+  if (!location) return [];
+  
+  return location
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ') // Remove special characters
+    .split(/\s+/) // Split by spaces
+    .filter(word => word.length > 2) // Remove short words
+    .filter(word => !['area', 'street', 'road', 'avenue', 'lane', 'close', 'drive', 'way'].includes(word)); // Remove common road types
+};
+
+const hasMatchingLocation = (searchLocation: string, providerLocation: string): boolean => {
+  if (!searchLocation || !providerLocation) return false;
+  
+  const searchWords = normalizeLocation(searchLocation);
+  const providerWords = normalizeLocation(providerLocation);
+  
+  if (searchWords.length === 0 || providerWords.length === 0) return false;
+  
+  // Check if any search word matches any provider location word
+  return searchWords.some(searchWord => 
+    providerWords.some(providerWord => 
+      providerWord.includes(searchWord) || searchWord.includes(providerWord)
+    )
+  );
+};
+
+const getLocationMatchScore = (searchLocation: string, providerLocation: string): number => {
+  if (!searchLocation || !providerLocation) return 0;
+  
+  const searchWords = normalizeLocation(searchLocation);
+  const providerWords = normalizeLocation(providerLocation);
+  
+  if (searchWords.length === 0 || providerWords.length === 0) return 0;
+  
+  let matchCount = 0;
+  searchWords.forEach(searchWord => {
+    if (providerWords.some(providerWord => 
+      providerWord.includes(searchWord) || searchWord.includes(providerWord)
+    )) {
+      matchCount++;
+    }
+  });
+  
+  return matchCount / searchWords.length;
 };
 
 const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
@@ -232,7 +280,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   // Handle card click to navigate to provider profile
   const handleCardClick = useCallback(() => {
     console.log('🔄 Card clicked, navigating to provider profile:', provider._id || provider.id);
-    // Navigate to provider profile page with provider ID
     navigate(`/customer/provider/${provider._id || provider.id}`, { 
       state: { provider } 
     });
@@ -240,7 +287,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
 
   // Handle view profile button click
   const handleViewProfile = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click when button is clicked
+    e.stopPropagation();
     console.log('🔄 View Profile clicked, navigating to provider profile:', provider._id || provider.id);
     navigate(`/customer/provider/${provider._id || provider.id}`, { 
       state: { provider } 
@@ -262,7 +309,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   }, [isFavoriting, onToggleFavorite, provider.id]);
 
   const renderStars = useCallback((rating: number) => {
-    const normalizedRating = Math.min(Math.max(rating, 0), 5); // Ensure rating is between 0-5
+    const normalizedRating = Math.min(Math.max(rating, 0), 5);
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
@@ -278,7 +325,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     if (!onMessage) return;
     
     try {
-      // Call the parent message handler
       onMessage(provider);
     } catch (error) {
       console.error('Error handling message click:', error);
@@ -318,7 +364,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   }, []);
 
-  // Format price range from hourlyRate - FIXED
   const formatPriceRange = useCallback((hourlyRate: number) => {
     if (!hourlyRate || hourlyRate === 0) return 'Contact for pricing';
     if (hourlyRate < 1000) return `₦${hourlyRate}`;
@@ -326,7 +371,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     return `₦${(hourlyRate/1000000).toFixed(1)}M`;
   }, []);
 
-  // Calculate derived values with proper fallbacks - USING REAL STATS
+  // Calculate derived values with proper fallbacks
   const rating = providerStats?.averageRating || provider.averageRating || provider.rating || 4.0;
   const reviewCount = providerStats?.reviewCount || provider.reviewCount || 0;
   const priceRange = provider.priceRange || formatPriceRange(provider.hourlyRate || 0);
@@ -334,26 +379,20 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   const responseTime = provider.responseTime || 'Contact for availability';
   const locationText = provider.location || `${provider.city || ''}, ${provider.state || ''}`.trim() || 'Location not specified';
 
-  // Format distance for display
   const formatDistance = useCallback((distance: number | undefined) => {
     if (!distance) return '';
-    if (distance < 1) return `${(distance * 5280).toFixed(0)} ft`; // Convert to feet
+    if (distance < 1) return `${(distance * 5280).toFixed(0)} ft`;
     return `${distance.toFixed(1)} mi`;
   }, []);
 
-  // Profile Avatar Component - Fixed to handle backend URLs properly
+  // Profile Avatar Component
   const ProfileAvatar = useCallback(({ className }: { className: string }) => {
-    // Get the profile image URL from various possible fields
     const profileImageUrl = provider.profileImage || provider.profilePicture || provider.avatar;
     
-    // Convert relative URLs to full URLs for backend images
     const getFullImageUrl = (url: string | undefined) => {
       if (!url) return null;
-      // If it's already a full URL (starts with http), return as-is
       if (url.startsWith('http')) return url;
-      // If it's a relative URL (starts with /), prepend the API base URL
       if (url.startsWith('/')) return `${API_BASE_URL}${url}`;
-      // Otherwise return as-is
       return url;
     };
     
@@ -375,7 +414,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
             className="w-full h-full object-cover"
             onError={(e) => {
               console.log('Image failed to load:', fullImageUrl);
-              // Hide the image and show initials
               e.currentTarget.style.display = 'none';
               const parent = e.currentTarget.parentElement;
               if (parent) {
@@ -442,7 +480,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         onClick={handleCardClick}
       >
         <div className="flex flex-col sm:flex-row items-start gap-4">
-          {/* Avatar */}
           <div className="relative">
             <ProfileAvatar className="w-16 h-16 sm:w-20 sm:h-20" />
             {provider.isAvailableNow && serviceType === 'immediate' && (
@@ -452,11 +489,9 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
             )}
           </div>
           
-          {/* Content */}
           <div className="flex-1 w-full sm:w-auto">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex-1">
-                {/* Header */}
                 <div 
                   className="flex items-center gap-2 mb-2 cursor-pointer"
                   onClick={handleViewProfile}
@@ -476,7 +511,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   )}
                 </div>
                 
-                {/* Rating */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex items-center">
                     {renderStars(rating)}
@@ -487,7 +521,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   )}
                 </div>
 
-                {/* Services */}
                 <div className="flex flex-wrap gap-2 mb-3">
                   {provider.services && provider.services.slice(0, 3).map((service, index) => (
                     <span
@@ -509,7 +542,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   )}
                 </div>
 
-                {/* Location & Response Time */}
                 <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-4 text-sm text-gray-600 mb-4">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-400" />
@@ -527,7 +559,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 </div>
               </div>
 
-              {/* Favorite Button */}
               <div className="flex items-center gap-2">
                 {onToggleFavorite && (
                   <button
@@ -545,7 +576,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
               </div>
             </div>
 
-            {/* Bottom Row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-6">
                 <div>
@@ -565,9 +595,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 )}
               </div>
               
-              {/* Action Buttons */}
               <div className="flex items-center gap-2">
-                {/* View Profile Button */}
                 <button 
                   onClick={handleViewProfile}
                   className="p-3 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105 group flex items-center gap-2"
@@ -643,7 +671,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
           </div>
         </div>
 
-        {/* Hover Gradient Overlay */}
         <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5 rounded-2xl transition-opacity duration-500 pointer-events-none ${
           isHovered ? 'opacity-100' : 'opacity-0'
         }`}></div>
@@ -651,7 +678,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     );
   }
 
-  // Grid View (Card Mode)
+  // Grid View
   return (
     <div 
       className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative cursor-pointer"
@@ -659,7 +686,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
     >
-      {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div 
           className="flex items-center gap-3 cursor-pointer"
@@ -714,7 +740,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         )}
       </div>
 
-      {/* Services */}
       <div className="flex flex-wrap gap-2 mb-4">
         {provider.services && provider.services.slice(0, 2).map((service, index) => (
           <span
@@ -736,7 +761,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         )}
       </div>
 
-      {/* Availability Badge */}
       {provider.isAvailableNow && serviceType === 'immediate' && (
         <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 text-white px-3 py-2 rounded-xl text-sm font-semibold shadow-lg mb-4">
           <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
@@ -744,7 +768,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </div>
       )}
 
-      {/* Location & Response Time */}
       <div className="space-y-2 mb-4 text-sm text-gray-600">
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-gray-400" />
@@ -761,7 +784,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </div>
       </div>
 
-      {/* Bottom */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-100">
         <div>
           <p className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
@@ -773,7 +795,6 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </div>
         
         <div className="flex items-center gap-2">
-          {/* View Profile Button for Grid View */}
           <button 
             onClick={handleViewProfile}
             className="p-2 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
@@ -845,107 +866,12 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         </div>
       </div>
 
-      {/* Hover Gradient Overlay */}
       <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5 rounded-3xl transition-opacity duration-500 pointer-events-none ${
         isHovered ? 'opacity-100' : 'opacity-0'
       }`}></div>
     </div>
   );
 });
-
-
-const getSampleProviders = (location: string, searchQuery: string, userLocation?: [number, number] | null): Provider[] => {
-  const sampleProviders: Provider[] = [
-    {
-      id: '1',
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      services: ['House Cleaning', 'Deep Cleaning'],
-      hourlyRate: 2500,
-      averageRating: 4.8,
-      city: 'Lagos',
-      state: 'Lagos',
-      country: 'Nigeria',
-      isAvailableNow: true,
-      experience: '5 years',
-      reviewCount: 127,
-      completedJobs: 234,
-      isVerified: true,
-      isTopRated: true,
-      responseTime: 'within 30 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-      coordinates: [6.5244, 3.3792] // Lagos coordinates
-    },
-    {
-      id: '2', 
-      name: 'Michael Adebayo',
-      email: 'michael@example.com',
-      services: ['Plumbing', 'Electrical'],
-      hourlyRate: 3500,
-      averageRating: 4.6,
-      city: 'Abuja',
-      state: 'FCT',
-      country: 'Nigeria',
-      isAvailableNow: false,
-      experience: '8 years',
-      reviewCount: 89,
-      completedJobs: 156,
-      isVerified: true,
-      isTopRated: false,
-      responseTime: 'within 2 hours',
-      profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-      coordinates: [9.0765, 7.3986] // Abuja coordinates
-    },
-    {
-      id: '3',
-      name: 'Fatima Ibrahim',
-      email: 'fatima@example.com',
-      services: ['Painting', 'Interior Design'],
-      hourlyRate: 3000,
-      averageRating: 4.9,
-      city: 'Kano',
-      state: 'Kano',
-      country: 'Nigeria',
-      isAvailableNow: true,
-      experience: '6 years',
-      reviewCount: 156,
-      completedJobs: 289,
-      isVerified: true,
-      isTopRated: true,
-      responseTime: 'within 45 minutes',
-      profileImage: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
-      coordinates: [12.0022, 8.5920] // Kano coordinates
-    }
-  ];
-
-  // Calculate distances if user location is available
-  let providersWithDistance = sampleProviders;
-  if (userLocation) {
-    providersWithDistance = sampleProviders.map(provider => {
-      if (provider.coordinates) {
-        const distance = calculateDistance(
-          userLocation[0], userLocation[1],
-          provider.coordinates[0], provider.coordinates[1]
-        );
-        return { ...provider, distance };
-      }
-      return provider;
-    });
-  }
-
-  return providersWithDistance.filter(provider => {
-    const matchesLocation = !location || 
-      provider.city.toLowerCase().includes(location.toLowerCase()) ||
-      provider.state.toLowerCase().includes(location.toLowerCase());
-    
-    const matchesService = !searchQuery ||
-      provider.services.some(service => 
-        service.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    
-    return matchesLocation && matchesService;
-  });
-};
 
 const ProvidersList: React.FC<ProvidersListProps> = ({
   serviceType,
@@ -958,17 +884,16 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   authToken,
   favorites = [],
   searchRadius,
-  userLocation // Add user location prop
+  userLocation
 }) => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('distance'); // Default to distance
+  const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('distance');
   const [showFilters, setShowFilters] = useState(false);
 
-  // FIXED: Use ref to track previous parameters and prevent duplicate API calls
   const prevParamsRef = useRef<string>('');
   const isInitialMountRef = useRef(true);
 
@@ -988,18 +913,38 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     });
   }, [userLocation]);
 
-  // FIXED: Memoized fetchProviders function with duplicate prevention
+  // Filter providers based on search query and location matching
+  const filterProviders = useCallback((providers: Provider[], searchQuery: string, location: string): Provider[] => {
+    if (!searchQuery && !location) return providers;
+
+    return providers.filter(provider => {
+      // Service matching
+      const matchesService = !searchQuery || 
+        provider.services.some(service => 
+          service.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+      // Location matching using the new logic
+      const matchesLocation = !location || 
+        hasMatchingLocation(location, provider.location || '') ||
+        hasMatchingLocation(location, provider.city || '') ||
+        hasMatchingLocation(location, provider.state || '') ||
+        hasMatchingLocation(location, provider.address || '');
+
+      return matchesService && matchesLocation;
+    });
+  }, []);
+
+  // Enhanced fetchProviders with location matching
   const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
-    // Create a unique key for current parameters to prevent duplicate calls
     const currentParams = JSON.stringify({ 
       serviceType, 
       searchQuery, 
-      location, 
+      location,
       searchRadius,
-      timestamp: Date.now() // Add timestamp to ensure uniqueness
+      timestamp: Date.now()
     });
     
-    // Skip if this is the exact same call as before
     if (currentParams === prevParamsRef.current && !shouldUseFallback) {
       console.log('🔄 Skipping duplicate API call with same parameters');
       return;
@@ -1012,22 +957,11 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       console.log('🚀 Starting provider fetch...');
       console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
       
-      // Build query parameters more carefully
+      // Build query parameters - we'll get all providers and filter locally for better location matching
       const params = new URLSearchParams();
       
-      // Only add non-empty search parameters
-      if (searchQuery?.trim()) {
-        params.append('service', searchQuery.trim());
-        console.log('🔍 Added service filter:', searchQuery.trim());
-      }
-      
-      if (location?.trim()) {
-        params.append('location', location.trim());
-        console.log('📍 Added location filter:', location.trim());
-      }
-      
-      // Always add these defaults
-      params.append('limit', '50'); // Increased limit to get more providers
+      // Get all providers first, then filter locally
+      params.append('limit', '100'); // Get more providers for better filtering
       
       if (serviceType === 'immediate') {
         params.append('availableNow', 'true');
@@ -1037,7 +971,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       const apiUrl = `${API_BASE_URL}/api/providers?${params.toString()}`;
       console.log('📡 Final API URL:', apiUrl);
       
-      // Create fetch options
       const fetchOptions: RequestInit = {
         method: 'GET',
         headers: {
@@ -1046,7 +979,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         },
       };
 
-      // Only add auth header if token exists
       if (authToken?.trim()) {
         fetchOptions.headers = {
           ...fetchOptions.headers,
@@ -1055,11 +987,8 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         console.log('🔐 Added auth token to request');
       }
 
-      console.log('📤 Making fetch request with options:', fetchOptions);
-      
-      // Add timeout to the fetch
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
       const response = await fetch(apiUrl, {
         ...fetchOptions,
@@ -1075,7 +1004,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         url: response.url
       });
       
-      // Get raw response text first for debugging
       const responseText = await response.text();
       console.log('📄 Raw response text:', responseText);
       
@@ -1084,7 +1012,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         throw new Error(`API Error: ${response.status} ${response.statusText} - ${responseText}`);
       }
       
-      // Parse JSON
       let data;
       try {
         data = JSON.parse(responseText);
@@ -1096,7 +1023,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         throw new Error(`JSON Parse Error: ${errorMessage}`);
       }
       
-      // More robust data validation
       if (!data) {
         throw new Error('No data received from API');
       }
@@ -1105,7 +1031,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         throw new Error(data.message || 'API returned success: false');
       }
 
-      // Handle different possible response structures
       let providersArray = [];
       
       if (data.data?.providers) {
@@ -1122,9 +1047,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         console.log('✅ Found providers in data.data array');
       } else {
         console.log('❓ Unexpected response structure:', Object.keys(data));
-        console.log('📊 Full data object:', data);
-        // If we can't find providers in the expected structure, try to extract them
-        // from any array property in the response
         for (const key in data) {
           if (Array.isArray(data[key])) {
             providersArray = data[key];
@@ -1147,7 +1069,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
         console.log(`🔄 Transforming provider ${index + 1}:`, provider);
         
-        // Ensure services is always an array
         let services: string[] = [];
         if (Array.isArray(provider.services)) {
           services = provider.services;
@@ -1157,12 +1078,10 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           services = Array.isArray(provider.service) ? provider.service : [provider.service];
         }
         
-        // Get location information from various possible fields
         const city = provider.city || provider.locationData?.city || '';
         const state = provider.state || provider.locationData?.state || '';
         const country = provider.country || provider.locationData?.country || '';
         
-        // Create location string for display
         const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
         const locationText = locationParts.join(', ') || 'Location not specified';
         
@@ -1177,14 +1096,12 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           city: city,
           state: state,
           country: country,
-          location: locationText, // Add the formatted location
+          location: locationText,
           experience: provider.experience || '',
           isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
-          // Enhanced profile image handling
           profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
           profilePicture: provider.profilePicture,
           avatar: provider.avatar,
-          // Calculated fields with fallbacks
           rating: provider.averageRating || provider.rating || 4.0,
           reviewCount: provider.reviewCount || 0,
           priceRange: provider.priceRange || '',
@@ -1193,18 +1110,21 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
           isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
           phoneNumber: provider.phoneNumber || provider.phone,
-          // Coordinates for distance calculation
-          coordinates: provider.coordinates || [6.5244, 3.3792] // Default to Lagos
+          coordinates: provider.coordinates || [6.5244, 3.3792]
         };
         
         console.log(`✅ Transformed provider:`, transformed);
         return transformed;
       });
       
-      // Calculate distances for all providers
-      const providersWithDistances = calculateProviderDistances(transformedProviders);
+      // Apply location-based filtering
+      const filteredProviders = filterProviders(transformedProviders, searchQuery, location);
+      console.log(`📍 After location filtering: ${filteredProviders.length} providers`);
       
-      console.log(`🎉 Successfully transformed ${providersWithDistances.length} providers with distances`);
+      // Calculate distances for filtered providers
+      const providersWithDistances = calculateProviderDistances(filteredProviders);
+      
+      console.log(`🎉 Successfully processed ${providersWithDistances.length} providers`);
       setProviders(providersWithDistances);
       
     } catch (err: unknown) {
@@ -1212,39 +1132,40 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
       
-      // Only show sample data on explicit retry or if no real attempt was made
       if (shouldUseFallback) {
-        console.log('🔄 Fallback: Using sample data due to API error during retry');
-        const sampleProviders = getSampleProviders(location, searchQuery, userLocation);
-        setProviders(sampleProviders);
+        console.log('🔄 Fallback: Using empty data due to API error during retry');
+        setProviders([]);
       } else {
-        console.log('❌ Setting empty providers array due to API error');
         setProviders([]);
       }
     } finally {
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [serviceType, searchQuery, location, authToken, searchRadius, userLocation, calculateProviderDistances]);
+  }, [serviceType, searchQuery, location, authToken, searchRadius, userLocation, calculateProviderDistances, filterProviders]);
 
   const handleRetry = useCallback(() => {
     console.log('🔄 User triggered retry');
     setIsRetrying(true);
     setLoading(true);
     setError(null);
-    fetchProviders(true); // Pass true to indicate fallback should be used
+    fetchProviders(true);
   }, [fetchProviders]);
 
-  const handleShowSampleData = useCallback(() => {
-    console.log('📋 User requested sample data');
-    setError(null);
-    const sampleProviders = getSampleProviders(location, searchQuery, userLocation);
-    setProviders(sampleProviders);
-  }, [location, searchQuery, userLocation]);
-
-  // Sort providers - Memoized to prevent unnecessary recalculations
+  // Sort providers with location matching priority
   const sortedProviders = React.useMemo(() => {
     return [...providers].sort((a, b) => {
+      // First, sort by location match score if location is provided
+      if (location) {
+        const aMatchScore = getLocationMatchScore(location, a.location || '');
+        const bMatchScore = getLocationMatchScore(location, b.location || '');
+        
+        if (aMatchScore !== bMatchScore) {
+          return bMatchScore - aMatchScore; // Higher match score first
+        }
+      }
+      
+      // Then apply the selected sort
       switch (sortBy) {
         case 'rating':
           const ratingA = a.averageRating || a.rating || 0;
@@ -1253,7 +1174,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         case 'price':
           return (a.hourlyRate || 0) - (b.hourlyRate || 0);
         case 'distance':
-          // Sort by distance (closest first), providers without distance go last
           if (a.distance === undefined && b.distance === undefined) return 0;
           if (a.distance === undefined) return 1;
           if (b.distance === undefined) return -1;
@@ -1264,11 +1184,9 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           return defaultRatingB - defaultRatingA;
       }
     });
-  }, [providers, sortBy]);
+  }, [providers, sortBy, location]);
 
-  // FIXED: useEffect with proper dependency handling and duplicate prevention
   useEffect(() => {
-    // Skip initial mount in development due to React.StrictMode double mounting
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       return;
@@ -1276,19 +1194,17 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     
     console.log('🔄 useEffect triggered with:', { searchQuery, location, serviceType, authToken: !!authToken });
     setLoading(true);
-    fetchProviders(false); // Pass false for initial load (no fallback)
-  }, [fetchProviders]); // Only depend on the memoized function
+    fetchProviders(false);
+  }, [fetchProviders]);
 
-  // Initial load effect
   useEffect(() => {
     setLoading(true);
     fetchProviders(false);
-  }, []); // Empty dependency array for initial load only
+  }, []);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        {/* Loading Header */}
         <div className="flex items-center justify-between">
           <div className="space-y-2">
             <div className="h-6 bg-gray-200 rounded-xl w-48 animate-pulse"></div>
@@ -1300,7 +1216,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           </div>
         </div>
 
-        {/* Loading Cards */}
         <div className={`grid gap-6 ${viewMode === 'grid' ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
           {[...Array(6)].map((_, i) => (
             <div key={i} className="bg-white/80 backdrop-blur-sm rounded-3xl border border-gray-100 p-6 animate-pulse">
@@ -1334,8 +1249,15 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-3">Unable to load providers</h3>
         <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">{error}</p>
-        
-        
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            onClick={handleRetry}
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl flex items-center gap-3 justify-center"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -1348,11 +1270,11 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mb-3">No providers found</h3>
         <p className="text-gray-600 mb-4 max-w-md mx-auto leading-relaxed">
-          
+          {searchQuery || location 
+            ? `No providers found for "${searchQuery}"${location ? ` in "${location}"` : ''}. Try adjusting your search criteria.`
+            : 'No providers available at the moment. Please try again later.'
+          }
         </p>
-        {/* <p className="text-sm text-gray-400 mb-8 font-mono bg-gray-50 px-4 py-2 rounded-lg inline-block">
-          API: {API_BASE_URL}/api/providers
-        </p> */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
             onClick={handleRetry}
@@ -1361,7 +1283,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
             <RefreshCw className="w-5 h-5" />
             Try Again
           </button>
-          
         </div>
       </div>
     );
@@ -1369,28 +1290,22 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Header */}
       <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-gray-200/50 p-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Results Info */}
           <div className="space-y-1">
             <h2 className="text-xl font-bold text-gray-900">
               {sortedProviders.length} Provider{sortedProviders.length !== 1 ? 's' : ''} Found
               {userLocation && ' • Showing closest first'}
+              {location && ' • Location matched'}
             </h2>
             <p className="text-sm text-gray-600">
               {searchQuery && `for "${searchQuery}"`}
               {searchQuery && location && ' '}
               {location && `in ${location}`}
             </p>
-            {/* <p className="text-xs text-gray-400 font-mono">
-              API: {API_BASE_URL}/api/providers
-            </p> */}
           </div>
 
-          {/* Controls */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Sort Dropdown */}
             <div className="relative">
               <select
                 value={sortBy}
@@ -1404,7 +1319,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
 
-            {/* Filter Button */}
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 ${
@@ -1417,7 +1331,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               Filters
             </button>
 
-            {/* View Mode Toggle */}
             <div className="flex items-center bg-gray-100 rounded-xl p-1">
               <button
                 onClick={() => setViewMode('grid')}
@@ -1441,7 +1354,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               </button>
             </div>
 
-            {/* Refresh Button */}
             <button
               onClick={handleRetry}
               disabled={loading}
@@ -1452,7 +1364,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           </div>
         </div>
 
-        {/* Expandable Filters */}
         {showFilters && (
           <div className="mt-6 pt-6 border-t border-gray-200/50">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1500,7 +1411,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         )}
       </div>
 
-      {/* Providers Grid/List */}
       <div className={`grid gap-6 ${
         viewMode === 'grid' 
           ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4' 
@@ -1521,7 +1431,6 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
         ))}
       </div>
 
-      {/* Load More Button */}
       {sortedProviders.length > 0 && (
         <div className="text-center pt-8">
           <button className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">

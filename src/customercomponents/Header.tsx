@@ -15,6 +15,8 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { UserProfile } from '../types';
+import logo from '../../public/homeheroes.jpeg';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   isMenuOpen: boolean;
@@ -357,13 +359,17 @@ const Header: React.FC<HeaderProps> = ({
       <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                HomeHeroes
-              </div>
+             <div className="flex items-center space-x-2 mb-0">
+              <Link to="/customer" className="flex items-center space-x-2">
+            <img 
+              src={logo} 
+              alt="HomeHeroes Logo" 
+              className="w-10 h-10 object-contain rounded-lg"
+            />
+            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
+              HomeHeroes
+            </span>
+          </Link>
             </div>
             <div className="flex items-center space-x-4">
               <div className="animate-pulse bg-gray-200 rounded-full w-10 h-10"></div>
@@ -379,17 +385,18 @@ const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
-              <Home className="w-6 h-6 text-white" />
-            </div>
-            <button
-              onClick={() => navigate('/customer')}
-              className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent hover:opacity-80 transition-opacity focus:outline-none"
-            >
+         <div className="flex items-center space-x-2 mb-0">
+              <Link to="/customer" className="flex items-center space-x-2">
+            <img 
+              src={logo} 
+              alt="HomeHeroes Logo" 
+              className="w-10 h-10 object-contain rounded-lg"
+            />
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
               HomeHeroes
-            </button>
-          </div>
+            </span>
+          </Link>
+            </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
@@ -398,7 +405,7 @@ const Header: React.FC<HeaderProps> = ({
                 key={item.id}
                 onClick={() => handleNavigation(item.path)}
                 className={`text-sm font-medium transition-colors duration-200 relative focus:outline-none ${
-                  isActivePath(item.path) ? 'text-blue-600' : 'text-gray-600 hover:text-gray-900'
+                  isActivePath(item.path) ? 'text-green-600' : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {item.label}

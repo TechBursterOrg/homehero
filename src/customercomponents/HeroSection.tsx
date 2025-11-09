@@ -68,7 +68,10 @@ const SERVICE_LIST = [
   'inverterTechnician',
   'itSupport',
   'interiorDesigner',
-  'tvRepair'
+  'tvRepair',
+  'barber',
+  'photographer',
+  'eventPlanner',
 ];
 
 // Function to format service names for display

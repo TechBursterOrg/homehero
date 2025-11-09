@@ -19,7 +19,7 @@ const Hero: React.FC = () => {
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
             Your Home,
-            <span className="block bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent animate-gradient">
+            <span className="block bg-gradient-to-r from-gray-600 to-green-600 bg-clip-text text-transparent animate-gradient">
               Our Heroes
             </span>
           </h1>

@@ -16,6 +16,7 @@ import {
   XCircle,
   X
 } from "lucide-react";
+import logo from '../../public/homeheroes.png';
 
 interface FormData {
   name: string;
@@ -369,7 +370,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center p-4">
       {/* Verification Success Popup */}
       {showVerificationSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -384,7 +385,7 @@ const LoginPage = () => {
               </p>
               <button
                 onClick={closeVerificationSuccess}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-xl hover:bg-blue-700 transition-colors font-semibold"
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-xl hover:bg-green-700 transition-colors font-semibold"
               >
                 Continue to Login
               </button>
@@ -397,20 +398,20 @@ const LoginPage = () => {
 
       <div className="relative w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex flex-col justify-center space-y-8 animate-fade-in-up">
+        <div className="hidden lg:flex flex-col justify-center space-y-3 animate-fade-in-up">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-green-500 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-              <Home className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-500 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
+             <img src={logo} alt="" />
             </div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-              HomeHero
+            <span className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
+              Home Heroes
             </span>
           </div>
 
           <div className="space-y-6">
             <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
               Welcome to Your
-              <span className="block bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="block">
                 Home Services Hub
               </span>
             </h1>
@@ -448,10 +449,10 @@ const LoginPage = () => {
           <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-200 p-8 animate-fade-in-up">
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-500 rounded-xl flex items-center justify-center">
                 <Home className="w-6 h-6 text-white" />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
                 HomeHero
               </span>
             </div>
@@ -460,11 +461,11 @@ const LoginPage = () => {
             {!isLogin && (
               <div className="flex justify-center mb-6">
                 <div className="flex items-center space-x-4">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "signup" ? "bg-blue-600 text-white" : "bg-gray-300 text-gray-600"}`}>
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "signup" ? "bg-green-600 text-white" : "bg-gray-300 text-gray-600"}`}>
                     1
                   </div>
                   <div className="w-12 h-1 bg-gray-300"></div>
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "verify" ? "bg-blue-600 text-white" : currentStep === "complete" ? "bg-green-600 text-white" : "bg-gray-300 text-gray-600"}`}>
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "verify" ? "bg-green-600 text-white" : currentStep === "complete" ? "bg-green-600 text-white" : "bg-gray-300 text-gray-600"}`}>
                     2
                   </div>
                 </div>
@@ -473,37 +474,39 @@ const LoginPage = () => {
 
             {/* Toggle Buttons */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
-              <button
-                onClick={() => {
-                  setIsLogin(true);
-                  setCurrentStep("signup");
-                  setError("");
-                  setSuccessMessage("");
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 ${
-                  isLogin
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                onClick={() => {
-                  setIsLogin(false);
-                  setCurrentStep("signup");
-                  setError("");
-                  setSuccessMessage("");
-                }}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 ${
-                  !isLogin
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Sign Up
-              </button>
-            </div>
+  <button
+    onClick={() => {
+      setIsLogin(true);
+      setCurrentStep("signup");
+      setError("");
+      setSuccessMessage("");
+    }}
+    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+      isLogin
+        ? "bg-white text-green-600 shadow-sm"
+        : "text-gray-600 hover:text-gray-900"
+    }`}
+  >
+    Sign In
+  </button>
+
+  <button
+    onClick={() => {
+      setIsLogin(false);
+      setCurrentStep("signup");
+      setError("");
+      setSuccessMessage("");
+    }}
+    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+      !isLogin
+        ? "bg-white text-green-600 shadow-sm"
+        : "text-gray-600 hover:text-gray-900"
+    }`}
+  >
+    Sign Up
+  </button>
+</div>
+
 
             {/* Form */}
             <form onSubmit={isLogin ? handleLogin : (currentStep === "signup" ? handleSignup : (e) => e.preventDefault())} className="space-y-6">
@@ -520,7 +523,7 @@ const LoginPage = () => {
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Enter your full name"
                         required
                         minLength={2}
@@ -539,7 +542,7 @@ const LoginPage = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Enter your email"
                         required
                       />
@@ -557,7 +560,7 @@ const LoginPage = () => {
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Enter your password (min. 6 characters)"
                         required
                         minLength={6}
@@ -587,7 +590,7 @@ const LoginPage = () => {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Confirm your password"
                         required
                         minLength={6}
@@ -605,7 +608,7 @@ const LoginPage = () => {
                         name="country"
                         value={formData.country}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400 appearance-none bg-white"
                         required
                       >
                         <option value="NIGERIA">🇳🇬 Nigeria</option>
@@ -630,7 +633,7 @@ const LoginPage = () => {
                           name="phoneNumber"
                           value={formData.phoneNumber}
                           onChange={handleInputChange}
-                          className="flex-1 pl-3 pr-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                          className="flex-1 pl-3 pr-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                           placeholder={`Enter your phone number (${countryData[formData.country as keyof typeof countryData]?.length || 10} digits)`}
                           required
                           maxLength={countryData[formData.country as keyof typeof countryData]?.length || 10}
@@ -647,7 +650,7 @@ const LoginPage = () => {
                       name="userType"
                       value={formData.userType}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
                       
                       <option value="provider">Provide Services (Provider)</option>
@@ -673,7 +676,7 @@ const LoginPage = () => {
                       type="button"
                       onClick={resendVerificationEmail}
                       disabled={isLoading}
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                      className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                     >
                       {isLoading ? "Sending..." : "Resend Verification Email"}
                     </button>
@@ -691,7 +694,7 @@ const LoginPage = () => {
                         setCurrentStep("signup");
                         setSuccessMessage("");
                       }}
-                      className="w-full text-blue-600 hover:text-blue-700 font-medium"
+                      className="w-full text-green-600 hover:text-green-700 font-medium"
                     >
                       Back to Login
                     </button>
@@ -700,6 +703,7 @@ const LoginPage = () => {
               )}
 
               {isLogin && (
+
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -712,7 +716,7 @@ const LoginPage = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Enter your email"
                         required
                       />
@@ -730,7 +734,7 @@ const LoginPage = () => {
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                        className="w-full pl-11 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                         placeholder="Enter your password"
                         required
                       />
@@ -756,7 +760,7 @@ const LoginPage = () => {
                       name="userType"
                       value={formData.userType}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
                      
                       <option value="provider">Service Provider</option>
@@ -768,13 +772,13 @@ const LoginPage = () => {
                     <label className="flex items-center">
                       <input
                         type="checkbox"
-                        className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                        className="w-4 h-4 text-green-600 rounded border-gray-300 focus:ring-green-500"
                       />
                       <span className="ml-2 text-gray-600">Remember me</span>
                     </label>
                     <button
                       type="button"
-                      className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                      className="text-green-600 hover:text-green-700 font-medium hover:underline"
                     >
                       Forgot password?
                     </button>
@@ -801,7 +805,7 @@ const LoginPage = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="w-full bg-gradient-to-r from-green-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-green-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isLoading ? (
                     <>
@@ -821,7 +825,7 @@ const LoginPage = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-blue-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  className="w-full bg-gradient-to-r from-green-600 to-green-600 text-white py-3 px-6 rounded-xl hover:from-green-700 hover:to-green-700 transition-all duration-300 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isLoading ? (
                     <>
@@ -852,7 +856,7 @@ const LoginPage = () => {
                     setSuccessMessage("");
                     setCurrentStep("signup");
                   }}
-                  className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
+                  className="text-green-600 hover:text-gree-700 font-medium hover:underline"
                 >
                   {isLogin ? "Sign up here" : "Sign in here"}
                 </button>

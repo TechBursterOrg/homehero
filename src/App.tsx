@@ -6,6 +6,9 @@ import CustomerPage from './customerpages/Customer';
 import Waitlist from './pages/Waitlist';
 import ProviderLayout from './pages/Provider';
 import CustomerLogin from './customerpages/Login';
+import ServicesPage from './pages/ServicesPage';
+import HowItWorks from './components/HowItWorks';
+import HowItWorksPage from './pages/HowItWorksPage';
 
 
 // Types
@@ -113,6 +116,22 @@ function App() {
             element={
               <PublicRoute>
                 <Home />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/services" 
+            element={
+              <PublicRoute>
+                <ServicesPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/how-it-works" 
+            element={
+              <PublicRoute>
+                <HowItWorksPage />
               </PublicRoute>
             } 
           />
