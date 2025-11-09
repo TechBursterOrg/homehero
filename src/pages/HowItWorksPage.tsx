@@ -207,7 +207,7 @@ const HowItWorksPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white ">
          <Header scrollY={scrollY}/>
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-600 text-white py-20">
+      <div className="bg-gradient-to-r from-green-600 to-green-600 text-white py-20 howitworksImg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">
             How It Works

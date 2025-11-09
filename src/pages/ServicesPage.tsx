@@ -1,19 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import family from '../../public/family.jpg'
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
+// Mock components - replace with your actual imports
+
+
+
+
 const ServicesPage = () => {
   const [scrollY, setScrollY] = useState(0);
-  
-    useEffect(() => {
-      const handleScroll = () => setScrollY(window.scrollY);
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
   const [activeCategory, setActiveCategory] = useState('all');
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -260,70 +265,79 @@ const ServicesPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header scrollY={scrollY}/>
+      
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-20 mb-12" style={{ backgroundImage: `url(${family})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-12 md:py-20 mb-8 md:mb-12 mt-14 servicesImg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6 animate-fade-in">
+          <h1 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
             Our Professional Services
           </h1>
-          <p className="text-xl md:text-2xl text-green-50 max-w-3xl mx-auto">
+          <p className="text-lg md:text-2xl text-green-50 max-w-3xl mx-auto">
             Connect with trusted professionals for all your home, auto, beauty, and tech needs
           </p>
         </div>
       </div>
 
-      {/* Category Filter */}
-      <div className="bg-white shadow-md">
+      {/* Category Filter - Mobile Optimized */}
+      <div className="bg-white shadow-md mb-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-wrap gap-3 justify-center">
+          <div className="flex flex-wrap gap-2 md:gap-3 justify-center">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 ${
+                className={`px-3 py-2 md:px-6 md:py-3 rounded-lg md:rounded-xl text-sm md:text-base font-semibold transition-all duration-300 transform hover:scale-105 ${
                   activeCategory === category.id
                     ? 'bg-green-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <span className="mr-2">{category.icon}</span>
-                {category.name}
+                <span className="mr-1 md:mr-2">{category.icon}</span>
+                <span className="hidden sm:inline">{category.name}</span>
+                <span className="inline sm:hidden">{category.name.split(' ')[0]}</span>
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Services Grid */}
-      <section ref={sectionRef} className="py-16">
+      {/* Services Grid - Mobile Optimized */}
+      <section ref={sectionRef} className="py-8 md:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredServices.map((service, index) => (
               <div
                 key={index}
-                className={`group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 cursor-pointer border border-gray-100 ${
-                  isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+                className={`group bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer border border-gray-100 ${
+                  isVisible ? 'animate-fade-in-up' : 'opacity-0'
                 }`}
-                style={{ transitionDelay: `${index * 50}ms` }}
+                style={{ 
+                  animationDelay: `${index * 50}ms`,
+                  animationFillMode: 'forwards'
+                }}
               >
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-40 md:h-48 overflow-hidden">
                   <img 
                     src={service.image} 
                     alt={service.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                    <button className="w-full bg-white text-green-600 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors">
+                  {/* Mobile: Show button on card, Desktop: Show on hover */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
+                    <Link
+                      to="/login"
+                      className="w-full bg-white text-green-600 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors text-center block text-sm md:text-base md:transform md:translate-y-full md:group-hover:translate-y-0 md:transition-transform md:duration-300"
+                    >
                       Book Now
-                    </button>
+                    </Link>
                   </div>
                 </div>
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-green-600 transition-colors">
+                <div className="p-4 md:p-6">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-green-600 transition-colors">
                     {service.title}
                   </h3>
-                  <p className="text-gray-600 text-sm leading-relaxed">
+                  <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
                     {service.description}
                   </p>
                 </div>
@@ -332,18 +346,31 @@ const ServicesPage = () => {
           </div>
 
           {filteredServices.length === 0 && (
-            <div className="text-center py-20">
-              <p className="text-2xl text-gray-500">No services found in this category</p>
+            <div className="text-center py-12 md:py-20">
+              <p className="text-xl md:text-2xl text-gray-500">No services found in this category</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* CTA Section */}
+      <Footer />
       
-       
-        <Footer />
-     
+      <style>{`
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

@@ -88,6 +88,7 @@ interface DashboardData {
     id: string;
     country: string;
     phoneNumber?: string;
+    isAvailableNow?: boolean;
   };
   businessHours: BusinessHours[];
   recentJobs: any[];
@@ -246,6 +247,7 @@ const Dashboard: React.FC = () => {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
   const [ratingType, setRatingType] = useState<'provider' | 'customer'>('provider');
+  const [currentAvailability, setCurrentAvailability] = useState<boolean | null>(null);
 
   // Days of the week
   const daysOfWeek = [
@@ -281,6 +283,41 @@ const Dashboard: React.FC = () => {
       setBusinessHours(updatedBusinessHours);
     } else {
       setBusinessHours([...businessHours, updatedHours]);
+    }
+  };
+
+  // Fetch current availability status
+  const checkAvailability = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.warn('No authentication token found for availability check');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/availability/check-now`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setCurrentAvailability(data.data.isAvailableNow);
+      } else {
+        console.warn('Availability check failed:', data.message);
+        // Fallback to dashboard data if available
+        if (dashboardData?.user.isAvailableNow !== undefined) {
+          setCurrentAvailability(dashboardData.user.isAvailableNow);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check availability:', error);
+      // Fallback to dashboard data if available
+      if (dashboardData?.user.isAvailableNow !== undefined) {
+        setCurrentAvailability(dashboardData.user.isAvailableNow);
+      }
     }
   };
 
@@ -330,6 +367,11 @@ const Dashboard: React.FC = () => {
       setBusinessHours(data.businessHours || []);
       setSchedule(data.schedule || []);
       
+      // Set availability from dashboard data if available
+      if (data.user?.isAvailableNow !== undefined) {
+        setCurrentAvailability(data.user.isAvailableNow);
+      }
+      
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
       setError(errorMessage);
@@ -349,15 +391,63 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, []);
 
+  // Check availability when dashboard data is loaded or business hours are updated
+  useEffect(() => {
+    if (dashboardData) {
+      checkAvailability();
+    }
+  }, [dashboardData]);
+
   const serviceTypes = [
-    'House Cleaning',
-    'Plumbing Repair',
-    'Garden Maintenance',
-    'Electrical Work',
-    'Painting',
-    'General Maintenance',
-    'Other'
-  ];
+  'House Cleaning',
+  'Plumbing Repair',
+  'Garden Maintenance',
+  'Electrical Work',
+  'Painting',
+  'General Maintenance',
+  'Barber',
+
+  // 🏠 Home Maintenance & Repair
+  'AC Repair',
+  'Generator Repair',
+  'Carpentry',
+  'Tiling',
+  'Masonry',
+  'Welding',
+  'Pest Control',
+
+  // 🚗 Auto & Mechanical Services
+  'Auto Mechanic',
+  'Panel Beater',
+  'Auto Electrician',
+  'Vulcanizer',
+  'Car Wash',
+
+  // 💇🏾‍♂️ Beauty & Personal Care
+  'Hair Stylist',
+  'Makeup Artist',
+  'Nail Technician',
+  'Massage Therapist',
+  'Tailor',
+
+  // 🧹 Domestic & Household Help
+  'Nanny',
+  'Cook',
+  'Laundry',
+  'Gardener',
+  'Security Guard',
+
+  // 🔌 Smart Home & Modern Needs
+  'CCTV Installer',
+  'Solar Technician',
+  'Inverter Technician',
+  'IT Support',
+  'Interior Designer',
+  'TV Repair',
+
+  'Other'
+];
+
 
   const handleAddAvailability = () => {
     setShowAvailabilityModal(true);
@@ -387,6 +477,9 @@ const Dashboard: React.FC = () => {
       const result = await response.json();
       setBusinessHours(result.data.businessHours || []);
       setShowAvailabilityModal(false);
+      
+      // Recheck availability after saving business hours
+      await checkAvailability();
       
       alert('Business hours saved successfully!');
     } catch (err) {
@@ -508,6 +601,43 @@ const Dashboard: React.FC = () => {
     setShowBookingModal(true);
   };
 
+  // FIXED: Calculate realistic duration based on service type
+  const calculateRealisticDuration = (serviceType: string): { duration: string; hours: number } => {
+    const serviceDurations: { [key: string]: { duration: string; hours: number } } = {
+      'House Cleaning': { duration: '3-4 hours', hours: 3.5 },
+      'Deep Cleaning': { duration: '4-6 hours', hours: 5 },
+      'Plumbing Repair': { duration: '2-3 hours', hours: 2.5 },
+      'Garden Maintenance': { duration: '2-4 hours', hours: 3 },
+      'Electrical Work': { duration: '2-3 hours', hours: 2.5 },
+      'Painting': { duration: '5-8 hours', hours: 6.5 },
+      'General Maintenance': { duration: '2-4 hours', hours: 3 },
+      'Other': { duration: '2-3 hours', hours: 2.5 }
+    };
+
+    return serviceDurations[serviceType] || { duration: '2-3 hours', hours: 2.5 };
+  };
+
+  // FIXED: Calculate end time based on realistic duration
+  const calculateEndTime = (startTime: string, serviceType: string): string => {
+    const [time, modifier] = startTime.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (modifier === 'PM' && hours !== 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    
+    const { hours: durationHours } = calculateRealisticDuration(serviceType);
+    
+    const totalMinutes = hours * 60 + minutes + Math.round(durationHours * 60);
+    let endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    const endModifier = endHours >= 12 ? 'PM' : 'AM';
+    if (endHours > 12) endHours -= 12;
+    if (endHours === 0) endHours = 12;
+    
+    return `${endHours}:${endMinutes.toString().padStart(2, '0')} ${endModifier}`;
+  };
+
   const addBookingToSchedule = async (booking: Booking): Promise<void> => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -516,28 +646,7 @@ const Dashboard: React.FC = () => {
         throw new Error('Authentication token not found');
       }
 
-      const calculateEndTime = (startTime: string, serviceType: string): string => {
-        const [time, modifier] = startTime.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        
-        if (modifier === 'PM' && hours !== 12) hours += 12;
-        if (modifier === 'AM' && hours === 12) hours = 0;
-        
-        let durationHours = 2;
-        if (serviceType.includes('Cleaning')) durationHours = 3;
-        if (serviceType.includes('Maintenance')) durationHours = 4;
-        if (serviceType.includes('Repair')) durationHours = 2;
-        
-        const totalMinutes = hours * 60 + minutes + durationHours * 60;
-        let endHours = Math.floor(totalMinutes / 60) % 24;
-        const endMinutes = totalMinutes % 60;
-        
-        const endModifier = endHours >= 12 ? 'PM' : 'AM';
-        if (endHours > 12) endHours -= 12;
-        if (endHours === 0) endHours = 12;
-        
-        return `${endHours}:${endMinutes.toString().padStart(2, '0')} ${endModifier}`;
-      };
+      const { duration } = calculateRealisticDuration(booking.serviceType);
 
       const scheduleData = {
         title: booking.serviceType,
@@ -547,7 +656,7 @@ const Dashboard: React.FC = () => {
         date: new Date().toISOString().split('T')[0],
         time: '10:00 AM',
         endTime: calculateEndTime('10:00 AM', booking.serviceType),
-        duration: '2 hours',
+        duration: duration,
         payment: booking.budget,
         status: 'confirmed' as const,
         notes: booking.specialRequests || booking.description,
@@ -1025,7 +1134,20 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex gap-3">
+            {/* Availability Status Indicator */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {currentAvailability !== null && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  currentAvailability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  <div className={`w-3 h-3 rounded-full ${
+                    currentAvailability ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className="font-medium text-sm">
+                    {currentAvailability ? 'Available Now' : 'Currently Unavailable'}
+                  </span>
+                </div>
+              )}
               <button 
                 onClick={handleAddAvailability}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 w-full sm:w-auto"

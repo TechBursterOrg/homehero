@@ -913,29 +913,80 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     });
   }, [userLocation]);
 
-  // Filter providers based on search query and location matching
+  // FIXED: Filter providers - only apply filters when search criteria are provided
   const filterProviders = useCallback((providers: Provider[], searchQuery: string, location: string): Provider[] => {
-    if (!searchQuery && !location) return providers;
+  console.log('🔍 Starting filter with:', { 
+    totalProviders: providers.length, 
+    searchQuery, 
+    location 
+  });
+  
+  // If no search criteria, return all providers
+  if (!searchQuery && !location) {
+    console.log('✅ No filters applied, returning all providers');
+    return providers;
+  }
 
-    return providers.filter(provider => {
-      // Service matching
-      const matchesService = !searchQuery || 
-        provider.services.some(service => 
-          service.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-
-      // Location matching using the new logic
-      const matchesLocation = !location || 
-        hasMatchingLocation(location, provider.location || '') ||
-        hasMatchingLocation(location, provider.city || '') ||
-        hasMatchingLocation(location, provider.state || '') ||
-        hasMatchingLocation(location, provider.address || '');
-
-      return matchesService && matchesLocation;
+  const filtered = providers.filter(provider => {
+    console.log(`🔍 Checking provider: ${provider.name}`, {
+      services: provider.services,
+      location: provider.location,
+      city: provider.city,
+      state: provider.state
     });
-  }, []);
 
-  // Enhanced fetchProviders with location matching
+    // Service matching - be more lenient
+    let matchesService = true;
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      matchesService = provider.services?.some(service => 
+        service.toLowerCase().includes(query)
+      ) || false;
+      
+      // Also check provider name if no service matches
+      if (!matchesService) {
+        matchesService = provider.name?.toLowerCase().includes(query) || false;
+      }
+      
+      console.log(`🔍 Service match for ${provider.name}:`, matchesService);
+    }
+
+    // Location matching - be more lenient
+    let matchesLocation = true;
+    if (location) {
+      const locationQuery = location.toLowerCase().trim();
+      
+      // Check multiple location fields
+      const locationFields = [
+        provider.location,
+        provider.city,
+        provider.state,
+        provider.address
+      ].filter(Boolean);
+      
+      matchesLocation = locationFields.some(field => 
+        field?.toLowerCase().includes(locationQuery)
+      );
+      
+      console.log(`🔍 Location match for ${provider.name}:`, matchesLocation, locationFields);
+    }
+
+    const shouldInclude = matchesService && matchesLocation;
+    console.log(`🔍 Should include ${provider.name}:`, shouldInclude);
+    
+    return shouldInclude;
+  });
+
+  console.log('✅ Filter result:', {
+    originalCount: providers.length,
+    filteredCount: filtered.length,
+    filteredProviders: filtered.map(p => p.name)
+  });
+
+  return filtered;
+}, []);
+
+  // Enhanced fetchProviders with better debugging
   const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
     const currentParams = JSON.stringify({ 
       serviceType, 
@@ -957,11 +1008,11 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       console.log('🚀 Starting provider fetch...');
       console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
       
-      // Build query parameters - we'll get all providers and filter locally for better location matching
+      // Build query parameters - get all providers and filter locally
       const params = new URLSearchParams();
       
       // Get all providers first, then filter locally
-      params.append('limit', '100'); // Get more providers for better filtering
+      params.append('limit', '100');
       
       if (serviceType === 'immediate') {
         params.append('availableNow', 'true');
@@ -1067,59 +1118,72 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       
       // Transform providers to ensure consistent format
       const transformedProviders: Provider[] = providersArray.map((provider: any, index: number) => {
-        console.log(`🔄 Transforming provider ${index + 1}:`, provider);
-        
-        let services: string[] = [];
-        if (Array.isArray(provider.services)) {
-          services = provider.services;
-        } else if (typeof provider.services === 'string') {
-          services = [provider.services];
-        } else if (provider.service) {
-          services = Array.isArray(provider.service) ? provider.service : [provider.service];
-        }
-        
-        const city = provider.city || provider.locationData?.city || '';
-        const state = provider.state || provider.locationData?.state || '';
-        const country = provider.country || provider.locationData?.country || '';
-        
-        const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
-        const locationText = locationParts.join(', ') || 'Location not specified';
-        
-        const transformed: Provider = {
-          ...provider,
-          id: provider._id || provider.id || `provider-${index}`,
-          _id: provider._id || provider.id,
-          services: services,
-          name: provider.name || `Provider ${index + 1}`,
-          email: provider.email || `provider${index + 1}@example.com`,
-          hourlyRate: provider.hourlyRate || provider.rate || 0,
-          city: city,
-          state: state,
-          country: country,
-          location: locationText,
-          experience: provider.experience || '',
-          isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
-          profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
-          profilePicture: provider.profilePicture,
-          avatar: provider.avatar,
-          rating: provider.averageRating || provider.rating || 4.0,
-          reviewCount: provider.reviewCount || 0,
-          priceRange: provider.priceRange || '',
-          responseTime: provider.responseTime || 'Contact for availability',
-          completedJobs: provider.completedJobs || 0,
-          isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
-          isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
-          phoneNumber: provider.phoneNumber || provider.phone,
-          coordinates: provider.coordinates || [6.5244, 3.3792]
-        };
-        
-        console.log(`✅ Transformed provider:`, transformed);
-        return transformed;
-      });
+  console.log(`🔄 Transforming provider ${index + 1}:`, {
+    name: provider.name,
+    services: provider.services,
+    location: provider.location,
+    city: provider.city,
+    state: provider.state
+  });
+  
+  let services: string[] = [];
+  if (Array.isArray(provider.services)) {
+    services = provider.services;
+  } else if (typeof provider.services === 'string') {
+    services = [provider.services];
+  } else if (provider.service) {
+    services = Array.isArray(provider.service) ? provider.service : [provider.service];
+  } else {
+    services = ['General Services']; // Default fallback
+  }
+  
+  const city = provider.city || provider.locationData?.city || '';
+  const state = provider.state || provider.locationData?.state || '';
+  const country = provider.country || provider.locationData?.country || '';
+  
+  const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
+  const locationText = locationParts.join(', ') || 'Location not specified';
+  
+  const transformed: Provider = {
+    ...provider,
+    id: provider._id || provider.id || `provider-${index}`,
+    _id: provider._id || provider.id,
+    services: services,
+    name: provider.name || `Provider ${index + 1}`,
+    email: provider.email || `provider${index + 1}@example.com`,
+    hourlyRate: provider.hourlyRate || provider.rate || 0,
+    city: city,
+    state: state,
+    country: country,
+    location: locationText,
+    experience: provider.experience || '',
+    isAvailableNow: provider.isAvailableNow !== undefined ? provider.isAvailableNow : true,
+    profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
+    profilePicture: provider.profilePicture,
+    avatar: provider.avatar,
+    rating: provider.averageRating || provider.rating || 0,
+    reviewCount: provider.reviewCount || 0,
+    priceRange: provider.priceRange || '',
+    responseTime: provider.responseTime || 'Contact for availability',
+    completedJobs: provider.completedJobs || 0,
+    isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
+    isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
+    phoneNumber: provider.phoneNumber || provider.phone,
+    coordinates: provider.coordinates || [6.5244, 3.3792]
+  };
+  
+  console.log(`✅ Transformed provider ${provider.name}:`, {
+    services: transformed.services,
+    location: transformed.location,
+    isAvailableNow: transformed.isAvailableNow
+  });
+  
+  return transformed;
+});
       
-      // Apply location-based filtering
+      // Apply location-based filtering - FIXED: Only filter when search criteria exist
       const filteredProviders = filterProviders(transformedProviders, searchQuery, location);
-      console.log(`📍 After location filtering: ${filteredProviders.length} providers`);
+      console.log(`📍 After filtering: ${filteredProviders.length} providers (from ${transformedProviders.length} total)`);
       
       // Calculate distances for filtered providers
       const providersWithDistances = calculateProviderDistances(filteredProviders);
@@ -1302,6 +1366,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               {searchQuery && `for "${searchQuery}"`}
               {searchQuery && location && ' '}
               {location && `in ${location}`}
+              {!searchQuery && !location && ' • All available providers'}
             </p>
           </div>
 

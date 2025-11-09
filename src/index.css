@@ -57,6 +57,15 @@ html {
   scroll-behavior: smooth;
 }
 
+.servicesImg{
+  background-image: url(../public/familys.jpg);
+  background-size: cover;
+}
+
+.howitworksImg{
+  background-image: url(../public/family.jpg);
+  background-size: cover;
+}
 
 button:focus,
 input:focus,
