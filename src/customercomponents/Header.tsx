@@ -366,7 +366,7 @@ const Header: React.FC<HeaderProps> = ({
               alt="HomeHeroes Logo" 
               className="w-10 h-10 object-contain rounded-lg"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
               HomeHeroes
             </span>
           </Link>
