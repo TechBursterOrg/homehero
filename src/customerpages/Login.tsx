@@ -610,9 +610,9 @@ const LoginPage = () => {
                         required
                       >
                         <option value="NIGERIA">🇳🇬 Nigeria</option>
-                        <option value="UK">🇬🇧 United Kingdom</option>
+                        {/* <option value="UK">🇬🇧 United Kingdom</option>
                         <option value="USA">🇺🇸 United States</option>
-                        <option value="CANADA">🇨🇦 Canada</option>
+                        <option value="CANADA">🇨🇦 Canada</option> */}
                       </select>
                     </div>
                   </div>

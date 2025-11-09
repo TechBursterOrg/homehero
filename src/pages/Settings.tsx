@@ -158,7 +158,7 @@ const Settings: React.FC = () => {
 
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
     payoutSchedule: "weekly",
-    currency: "USD",
+    currency: "NGN",
     bankAccount: null
   });
 
