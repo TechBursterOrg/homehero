@@ -122,99 +122,53 @@ const PaymentForm: React.FC<{
   const [error, setError] = useState('');
   const [cardComplete, setCardComplete] = useState(false);
 
-  const handlePayment = async () => {
-    setLoading(true);
-    setError('');
+  const handlePayment = async (bookingId:any) => {
+  try {
+    console.log('Starting payment for booking:', bookingId);
+    
+    const token = localStorage.getItem('authToken');
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    
+    // Step 1: Create payment intent
+    const response = await fetch(`/api/bookings/${bookingId}/create-payment`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: 10000, // Your amount
+        customerCountry: userData.country || 'NG'
+      }),
+    });
 
-    try {
-      if (!stripe || !elements) {
-        throw new Error('Payment system not ready');
-      }
+    const result = await response.json();
+    console.log('Payment creation response:', result);
 
-      const cardElement = elements.getElement(CardElement);
-
-      if (!cardElement) {
-        throw new Error('Card element not found');
-      }
-
-      console.log('💳 Starting payment process...');
-
-      // Step 1: Create payment method with card details
-      const { error: paymentMethodError, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          name: booking.customerName || 'Customer',
-          email: booking.customerEmail || '',
-        },
-      });
-
-      if (paymentMethodError) {
-        console.error('❌ Payment method error:', paymentMethodError);
-        throw new Error(paymentMethodError.message);
-      }
-
-      console.log('✅ Payment method created:', paymentMethod.id);
-
-      // Step 2: Confirm payment with backend
-      const token = localStorage.getItem('authToken');
-      const confirmResponse = await fetch(`${API_BASE_URL}/api/bookings/${booking._id}/confirm-payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paymentMethodId: paymentMethod.id,
-          bookingId: booking._id,
-          processor: paymentData.processor
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        const errorText = await confirmResponse.text();
-        console.error('❌ Confirm payment failed:', errorText);
-        throw new Error(`Payment confirmation failed: ${confirmResponse.status}`);
-      }
-
-      const confirmResult = await confirmResponse.json();
-      
-      console.log('✅ Payment confirmation result:', confirmResult);
-
-      if (!confirmResult.success) {
-        throw new Error(confirmResult.message || 'Payment confirmation failed');
-      }
-
-      // Step 3: For Stripe, confirm card payment if client secret is provided
-      if (paymentData.processor === 'stripe' && confirmResult.data.clientSecret) {
-        console.log('🔐 Confirming card payment with Stripe...');
-        
-        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(
-          confirmResult.data.clientSecret,
-          {
-            payment_method: paymentMethod.id,
-          }
-        );
-
-        if (confirmError) {
-          console.error('❌ Stripe confirmation error:', confirmError);
-          throw new Error(confirmError.message);
-        }
-
-        console.log('✅ Stripe payment confirmed:', paymentIntent?.status);
-      }
-
-      // Success!
-      console.log('🎉 Payment completed successfully!');
-      onSuccess();
-
-    } catch (err: any) {
-      console.error('❌ Payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
-    } finally {
-      setLoading(false);
+    if (!result.success) {
+      throw new Error(result.message || 'Payment creation failed');
     }
-  };
+
+    // Step 2: Handle Paystack redirect
+    if (result.data.processor === 'paystack' && result.data.authorizationUrl) {
+      console.log('Redirecting to Paystack:', result.data.authorizationUrl);
+      
+      // Validate the URL before redirecting
+      if (result.data.authorizationUrl.includes('checkout.paystack.com')) {
+        window.location.href = result.data.authorizationUrl;
+      } else {
+        throw new Error('Invalid Paystack URL received');
+      }
+    } else {
+      throw new Error('No payment URL received from server');
+    }
+
+  } catch (error) {
+    console.error('Payment error:', error);
+    alert('Payment failed: ');
+  }
+};
+
 
   const handleCardChange = (event: any) => {
     setCardComplete(event.complete);
@@ -626,45 +580,40 @@ const BookingsPage: React.FC = () => {
   };
 
   // Payment Button Click Handler
-  const handlePaymentButtonClick = async (bookingId: string) => {
-    console.log('🔄 Starting payment process for booking:', bookingId);
-    
-    const booking = bookings.find(b => b._id === bookingId);
-    if (booking) {
-      try {
-        const result = await initializePayment(booking);
-        console.log('💰 Payment initialization result:', result);
+ const handlePaymentButtonClick = async (bookingId: string) => {
+  console.log('🔄 Starting payment process for booking:', bookingId);
+  
+  const booking = bookings.find(b => b._id === bookingId);
+  if (booking) {
+    try {
+      setPaymentLoading(true);
+      
+      const paymentResult = await initializePayment(booking);
+      console.log('💰 Payment initialization result:', paymentResult);
+      
+      if (paymentResult.processor === 'paystack' && paymentResult.authorizationUrl) {
+        console.log('🔗 Valid Paystack URL found, redirecting...');
         
-        if (result && result.processor === 'paystack' && result.authorizationUrl) {
-          // VALIDATE THE URL BEFORE REDIRECTING
-          const authUrl = result.authorizationUrl;
-          console.log('🔗 Paystack URL:', authUrl);
-          
-          if (!authUrl.includes('checkout.paystack.com')) {
-            console.error('❌ INVALID Paystack URL:', authUrl);
-            alert('Invalid payment URL. Please try again.');
-            return;
-          }
-          
-          console.log('✅ Valid Paystack URL, redirecting...');
-          window.location.href = authUrl;
-          return;
-        } else if (result && result.processor === 'stripe' && result.clientSecret) {
-          // Show Stripe modal for card entry
-          setSelectedBookingForPayment(booking);
-          setShowPaymentModal(true);
-          setPaymentStep('payment');
-          setPaymentData(result);
+        // CRITICAL: Validate URL before redirect
+        if (paymentResult.authorizationUrl.includes('checkout.paystack.com')) {
+          console.log('✅ Redirecting to Paystack payment page');
+          window.location.href = paymentResult.authorizationUrl;
         } else {
-          console.error('❌ Invalid payment response:', result);
-          alert('Waiting for payment initialization');
+          throw new Error('Invalid Paystack payment URL');
         }
-      } catch (error) {
-        console.error('❌ Payment initialization error:', error);
-        alert('Failed to initialize payment. Please try again.');
+      } else {
+        throw new Error('No valid payment URL received');
       }
+    } catch (error) {
+      console.error('❌ Payment initialization error:', error);
+      alert('Failed to initialize payment: ' );
+    } finally {
+      setPaymentLoading(false);
     }
-  };
+  }
+};
+
+
 
   // Retry Payment Handler
   const handleRetryPaymentClick = async (bookingId: string) => {
@@ -722,88 +671,125 @@ const BookingsPage: React.FC = () => {
     return countryMap[countryName?.toLowerCase()] || 'NG';
   };
 
-  const initializePayment = async (booking: ApiBooking) => {
-    try {
-      console.log('💰 Starting payment for booking:', booking._id);
-      
-      const token = localStorage.getItem('authToken');
-      const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-      
-      const customerCountry = getCountryCode(userData.country);
-      
-      const payload = {
-        amount: booking.price || booking.amount,
-        customerCountry: customerCountry
-      };
+const initializePayment = async (booking: ApiBooking) => {
+  try {
+    console.log('💰 Starting payment for booking:', booking._id);
+    
+    const token = localStorage.getItem('authToken');
+    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+    
+    // TEMPORARY: Use debug endpoint to see what's happening
+    const payload = {
+      bookingId: booking._id,
+      amount: booking.price || booking.amount
+    };
 
-      console.log('📦 Payment payload:', payload);
+    console.log('📦 Payment payload:', payload);
 
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${booking._id}/create-payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+    // TEMPORARY: Use debug endpoint
+    const response = await fetch(`${API_BASE_URL}/api/debug/check-payment-response`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-      const result = await response.json();
-      
-      if (!response.ok) {
-        // If it's a "payment already exists" error, try to get the payment URL
-        if (result.code === 'PAYMENT_ALREADY_EXISTS' || result.message?.includes('already initiated')) {
-          console.log('🔄 Payment already exists, fetching payment URL...');
-          return await getExistingPaymentUrl(booking._id);
-        }
-        throw new Error(result.message || `HTTP error! status: ${response.status}`);
-      }
-
-      console.log('✅ Payment initialization result:', result);
-      
-      // Handle Paystack redirect
-      if (result.data.processor === 'paystack' && result.data.authorizationUrl) {
-        console.log('🔗 Redirecting to Paystack payment page...');
-        window.location.href = result.data.authorizationUrl;
-        return null;
-      }
-      
-      return result.data;
-
-    } catch (error) {
-      console.error('❌ Payment initialization failed:', error);
-      throw error;
+    const result = await response.json();
+    
+    console.log('🔍 Full payment response:', result);
+    
+    if (!response.ok) {
+      throw new Error(result.message || `HTTP error! status: ${response.status}`);
     }
-  };
+
+    // Extract authorization URL from the response
+    const authorizationUrl = result.data?.authorizationUrl;
+
+    console.log('🔗 Authorization URL:', authorizationUrl);
+
+    if (!authorizationUrl) {
+      console.error('❌ No authorization URL in response. Full response:', result);
+      throw new Error('Payment service did not return a payment URL');
+    }
+
+    // Validate it's a proper Paystack URL
+    if (!authorizationUrl.includes('checkout.paystack.com')) {
+      console.error('❌ Invalid Paystack URL:', authorizationUrl);
+      throw new Error('Invalid payment URL received');
+    }
+
+    return {
+      processor: 'paystack',
+      authorizationUrl: authorizationUrl,
+      amount: payload.amount
+    };
+
+  } catch (error) {
+    console.error('❌ Payment initialization failed:', error);
+    throw error;
+  }
+};
+
+
+
+
 
   // New function to get existing payment URL
   const getExistingPaymentUrl = async (bookingId: string) => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment-url`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment-url`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error('Failed to get payment URL');
-      }
-
-      const result = await response.json();
-      
-      if (result.success && result.data.authorizationUrl) {
-        console.log('🔗 Found existing Paystack payment URL');
-        window.location.href = result.data.authorizationUrl;
-        return null;
-      }
-      
-      throw new Error('No payment URL found');
-
-    } catch (error) {
-      console.error('❌ Failed to get existing payment URL:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error('Failed to get payment URL');
     }
-  };
+
+    const result = await response.json();
+    
+    if (result.success && result.data.authorizationUrl) {
+      console.log('🔗 Found existing Paystack payment URL');
+      return result.data.authorizationUrl;
+    }
+    
+    throw new Error('No payment URL found');
+
+  } catch (error) {
+    console.error('❌ Failed to get existing payment URL:', error);
+    throw error;
+  }
+};
+
+const testPaystackDirectly = async () => {
+  try {
+    const response = await fetch('/api/debug/paystack-raw-response', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+      },
+      body: JSON.stringify({
+        amount: 10000, // 100 NGN
+        email: 'petervj2019@gmail.com'
+      })
+    });
+    
+    const result = await response.json();
+    console.log('Paystack test result:', result);
+    
+    if (result.data.authorization_url) {
+      // Redirect to Paystack
+      window.location.href = result.data.authorization_url;
+    }
+  } catch (error) {
+    console.error('Paystack test failed:', error);
+  }
+};
 
   const handleReleasePayment = async (bookingId: string) => {
     try {
@@ -1440,6 +1426,8 @@ const BookingsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      
 
       {/* Booking Details Modal */}
       {showDetailsModal && selectedBooking && (
