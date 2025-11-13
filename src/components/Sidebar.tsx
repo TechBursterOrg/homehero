@@ -240,13 +240,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         border-r border-gray-200 overflow-y-auto
       `}>
         {/* Logo & Close Button */}
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-white">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-green-500 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-500 rounded-xl flex items-center justify-center shadow-lg">
               <Home className="w-6 h-6 text-white" />
             </div>
             <div>
-              <span className="text-md font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+              <span className="text-md font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
                 Home Heroes
               </span>
               <p className="text-xs text-gray-500 mt-1">Service Provider</p>
@@ -261,7 +261,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* User Profile Section */}
-        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
+        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-green-50">
           <div className="flex items-center space-x-4">
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-gray-900 text-lg truncate">
@@ -273,7 +273,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     ? 'bg-green-100 text-green-800' 
                     : userProfile.userType === 'both'
                     ? 'bg-purple-100 text-purple-800'
-                    : 'bg-blue-100 text-blue-800'
+                    : 'bg-green-100 text-green-800'
                 }`}>
                   {userProfile.userType === 'both' ? 'Provider & Customer' : userProfile.userType}
                 </span>
@@ -303,14 +303,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={handleLinkClick}
                   className={`group relative flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-gradient-to-r from-blue-500 to-green-500 text-white shadow-lg transform scale-[1.02]'
-                      : 'text-gray-600 hover:bg-gradient-to-r hover:from-blue-50 hover:to-green-50 hover:text-gray-900 hover:shadow-md'
+                      ? 'bg-gradient-to-r from-green-500 to-green-500 text-white shadow-lg transform scale-[1.02]'
+                      : 'text-gray-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-50 hover:text-gray-900 hover:shadow-md'
                   }`}
                 >
                   <IconComponent className={`w-5 h-5 transition-colors relative z-10 flex-shrink-0 ${
                     isActive 
                       ? 'text-white' 
-                      : 'text-gray-400 group-hover:text-blue-600'
+                      : 'text-gray-400 group-hover:text-green-600'
                   }`} />
                   
                   <span className={`font-medium relative z-10 flex-1 ${
@@ -323,7 +323,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {hasBadge && (
                     <span className={`relative z-10 text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center flex-shrink-0 ${
                       isActive
-                        ? 'bg-white text-blue-600'
+                        ? 'bg-white text-green-600'
                         : 'bg-red-500 text-white animate-pulse'
                     }`}>
                       {badgeDisplay}

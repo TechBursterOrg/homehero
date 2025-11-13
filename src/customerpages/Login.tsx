@@ -16,7 +16,7 @@ import {
   XCircle,
   X
 } from "lucide-react";
-import logo from '../../public/homeheroes.png';
+import logo from '../../public/HHH.png';
 
 interface FormData {
   name: string;
@@ -399,12 +399,15 @@ const LoginPage = () => {
       <div className="relative w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="hidden lg:flex flex-col justify-center space-y-3 animate-fade-in-up">
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-500 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-             <img src={logo} alt="HomeHeroes Logo" className="w-10 h-10" />
+          <div className="flex items-center space-x-1">
+            <div className="  flex items-center justify-center hover:scale-110 transition-transform duration-300">
+             <img 
+              src={logo} 
+              alt="HomeHeroes Logo" 
+              className="w-[50px] h-[50px] object-contain"
+            />
             </div>
-            <span className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
-              Home Heroes
+<span className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">              Home Heroes
             </span>
           </div>
 

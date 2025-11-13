@@ -280,10 +280,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   }, []);
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="bg-gradient-to-br from-slate-50 via-green-50 to-green-100">
       <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 sm:py-8">
         {/* Modern Hero Section */}
-        <div className="bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl">
+        <div className="bg-gradient-to-br from-green-600 via-green-600 to-green-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 text-white relative overflow-hidden shadow-2xl">
           
           {/* Enhanced background decorations */}
           <div className="absolute inset-0 bg-black/10 backdrop-blur-[1px]"></div>
@@ -315,12 +315,12 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => setServiceType('immediate')}
                   className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 flex-1 sm:flex-initial ${
                     serviceType === 'immediate'
-                      ? 'bg-white text-blue-600 shadow-lg transform scale-105'
+                      ? 'bg-white text-green-600 shadow-lg transform scale-105'
                       : 'text-white hover:bg-white/20'
                   }`}
                 >
                   <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center ${
-                    serviceType === 'immediate' ? 'bg-blue-600 text-white' : 'bg-white/20'
+                    serviceType === 'immediate' ? 'bg-green-600 text-white' : 'bg-white/20'
                   }`}>
                     <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
                   </div>
@@ -330,12 +330,12 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => setServiceType('long-term')}
                   className={`flex items-center space-x-2 sm:space-x-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-300 flex-1 sm:flex-initial ${
                     serviceType === 'long-term'
-                      ? 'bg-white text-blue-600 shadow-lg transform scale-105'
+                      ? 'bg-white text-green-600 shadow-lg transform scale-105'
                       : 'text-white hover:bg-white/20'
                   }`}
                 >
                   <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center ${
-                    serviceType === 'long-term' ? 'bg-blue-600 text-white' : 'bg-white/20'
+                    serviceType === 'long-term' ? 'bg-green-600 text-white' : 'bg-white/20'
                   }`}>
                     <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
                   </div>

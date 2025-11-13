@@ -15,7 +15,10 @@ import {
   Shield,
   UserCheck,
   MapPin,
-  CreditCard
+  CreditCard,
+  Copy,
+  ExternalLink,
+  PhoneCall
 } from 'lucide-react';
 
 // Types
@@ -74,7 +77,7 @@ interface BookingCardProps {
   onReleasePayment: (bookingId: string) => void;
   onSeenProvider: (bookingId: string) => void;
   onAcceptBooking?: (bookingId: string) => void;
-  onRetryPayment: (bookingId: string) => void; // Add this line
+  onRetryPayment: (bookingId: string) => void;
   userType?: 'customer' | 'provider';
 }
 
@@ -249,6 +252,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onReleasePayment,
   onSeenProvider,
   onAcceptBooking,
+  onRetryPayment,
   userType = 'customer'
 }) => {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
@@ -261,6 +265,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
   const moreOptionsRef = useRef<HTMLDivElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
+  const callButtonRef = useRef<HTMLButtonElement>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -268,7 +273,12 @@ const BookingCard: React.FC<BookingCardProps> = ({
       if (moreOptionsRef.current && !moreOptionsRef.current.contains(event.target as Node)) {
         setShowMoreOptions(false);
       }
-      if (callOptionsRef.current && !callOptionsRef.current.contains(event.target as Node)) {
+      if (
+        callOptionsRef.current && 
+        !callOptionsRef.current.contains(event.target as Node) &&
+        callButtonRef.current && 
+        !callButtonRef.current.contains(event.target as Node)
+      ) {
         setShowCallOptions(false);
       }
     };
@@ -335,22 +345,36 @@ const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
-  const handleCallClick = () => {
+  const handleCallClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowCallOptions(!showCallOptions);
+  };
+
+  const handlePhoneCall = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (booking.provider?.phoneNumber) {
-      window.location.href = `tel:${booking.provider.phoneNumber}`;
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const cleanPhoneNumber = booking.provider.phoneNumber.replace(/\D/g, '');
+      
+      if (isMobile) {
+        window.location.href = `tel:${cleanPhoneNumber}`;
+      } else {
+        window.open(`tel:${cleanPhoneNumber}`);
+      }
     } else {
       alert('Phone number not available');
     }
     setShowCallOptions(false);
   };
 
-  const handleCopyNumber = async () => {
+  const handleCopyNumber = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (booking.provider?.phoneNumber) {
       try {
         await navigator.clipboard.writeText(booking.provider.phoneNumber);
         alert('Phone number copied to clipboard!');
       } catch {
-        prompt('Copy this phone number:', booking.provider.phoneNumber);
+        console.log('Phone number:', booking.provider.phoneNumber);
       }
     } else {
       alert('Phone number not available');
@@ -393,21 +417,17 @@ const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
-  // FIXED: Improved price calculation with better fallbacks
+  // Price calculation
   const calculatePrice = (): number => {
-    // First check payment amount
     if (booking.payment?.amount && booking.payment.amount > 0) {
       return booking.payment.amount;
     }
-    // Then check booking price
     if (booking.price && booking.price > 0) {
       return booking.price;
     }
-    // Then check booking amount
     if (booking.amount && booking.amount > 0) {
       return booking.amount;
     }
-    // Default to 0 if no valid price found
     return 0;
   };
 
@@ -415,10 +435,28 @@ const BookingCard: React.FC<BookingCardProps> = ({
   const isCustomer = userType === 'customer';
   const isProvider = userType === 'provider';
 
+  // Updated payment button logic - more comprehensive conditions
   const needsPayment = 
     isCustomer && 
-    (booking.status === 'awaiting_payment' || 
-     (booking.payment && booking.payment.status === 'requires_payment_method'));
+    booking.payment && 
+    (booking.payment.status === 'requires_payment_method' || 
+     booking.payment.status === 'failed' ||
+     !booking.payment.status);
+
+  // Check if payment has been completed
+  const hasPaid = 
+    isCustomer && 
+    booking.payment && 
+    ['held', 'confirmed', 'released', 'succeeded'].includes(booking.payment.status);
+
+  // Check if booking is in a state that requires payment
+  const isAwaitingPayment = 
+    booking.status === 'awaiting_payment' || 
+    booking.status === 'pending' || 
+    (booking.status === 'confirmed' && !hasPaid);
+
+  // Final condition to show payment button
+  const shouldShowPaymentButton = needsPayment && isAwaitingPayment && !hasPaid;
 
   const canAcceptBooking = 
     isProvider && 
@@ -433,25 +471,13 @@ const BookingCard: React.FC<BookingCardProps> = ({
     !booking.serviceConfirmedByCustomer &&
     onSeenProvider;
 
-  // FIXED: Use the improved price calculation
+  // Use the improved price calculation
   const price = calculatePrice();
   const currency = booking.payment?.currency || 'NGN';
   const currencySymbol = getCurrencySymbol(currency);
 
-  // FIXED: Format price with commas for better readability
+  // Format price with commas for better readability
   const formattedPrice = price > 0 ? price.toLocaleString() : '0';
-
-  // Debug logging to help identify the issue
-  useEffect(() => {
-    console.log('Booking data:', {
-      id: booking.id,
-      price: booking.price,
-      amount: booking.amount,
-      paymentAmount: booking.payment?.amount,
-      calculatedPrice: price,
-      status: booking.status
-    });
-  }, [booking]);
 
   return (
     <>
@@ -547,7 +573,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             </div>
           </div>
 
-          {/* Date & Time with Price - FIXED */}
+          {/* Date & Time with Price */}
           <div className="bg-blue-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-blue-700">
@@ -557,7 +583,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 </span>
               </div>
               <div className="text-right">
-                {/* FIXED: Price display with proper formatting */}
                 <p className="text-lg font-bold text-emerald-600">
                   {currencySymbol}{formattedPrice}
                 </p>
@@ -583,6 +608,17 @@ const BookingCard: React.FC<BookingCardProps> = ({
             />
           )}
 
+          {/* Debug Information */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-gray-100 p-2 mt-2 rounded text-xs">
+              <div>Debug: Status: {booking.status}</div>
+              <div>Payment Status: {booking.payment?.status || 'No payment'}</div>
+              <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
+              <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
+              <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <div className="flex items-center gap-2">
@@ -593,29 +629,45 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <MessageCircle className="w-4 h-4" />
               </button>
               
-              <div className="relative" ref={callOptionsRef}>
+              <div className="relative">
                 <button 
-                  onClick={() => setShowCallOptions(!showCallOptions)}
+                  ref={callButtonRef}
+                  onClick={handleCallClick}
                   className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
                 >
                   <Phone className="w-4 h-4" />
                 </button>
                 
                 {showCallOptions && (
-                  <div className="absolute left-0 bottom-full mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-44">
+                  <div 
+                    ref={callOptionsRef}
+                    className="absolute left-0 bottom-full mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-44"
+                  >
                     <button
-                      onClick={handleCallClick}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onContact(booking.id, 'phone');
+                        setShowCallOptions(false);
+                      }}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
                     >
-                      <Phone className="w-4 h-4 text-green-600" />
-                      <span>{isCustomer ? 'Call Provider' : 'Call Customer'}</span>
+                      <PhoneCall className="w-4 h-4 text-green-600" />
+                      <span>Web Audio Call</span>
+                    </button>
+                    
+                    <button
+                      onClick={handlePhoneCall}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4 text-purple-600" />
+                      <span>Phone App</span>
                     </button>
                     
                     <button
                       onClick={handleCopyNumber}
                       className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
                     >
-                      <Eye className="w-4 h-4 text-gray-600" />
+                      <Copy className="w-4 h-4 text-gray-600" />
                       <span>Copy Number</span>
                     </button>
                   </div>
@@ -636,28 +688,37 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 </button>
               )}
               
-              {needsPayment ? (
+              {/* Updated payment button logic */}
+              {shouldShowPaymentButton ? (
                 <button
                   onClick={() => onPaymentSuccess(booking.id)}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
                 >
                   Pay {currencySymbol}{formattedPrice} to Confirm
                 </button>
-              ) : isCustomer && booking.status === 'pending' ? (
+              ) : hasPaid ? (
+                <div className="bg-green-100 text-green-800 px-3 py-2 rounded-lg text-sm font-medium">
+                  ✅ Payment Completed
+                </div>
+              ) : null}
+              
+              {isCustomer && booking.status === 'pending' && !shouldShowPaymentButton && (
                 <button
                   onClick={() => onReschedule(booking.id)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
                 >
                   Reschedule
                 </button>
-              ) : isCustomer && booking.status === 'completed' && !isRated ? (
+              )}
+              
+              {isCustomer && booking.status === 'completed' && !isRated && (
                 <button
                   onClick={() => setShowRatingModal(true)}
                   className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-semibold text-sm"
                 >
                   Rate Provider
                 </button>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
@@ -699,7 +760,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </div>
               
               <div className="text-right">
-                {/* FIXED: Price display in desktop */}
                 <p className="text-2xl font-bold text-emerald-600">
                   {currencySymbol}{formattedPrice}
                 </p>
@@ -726,6 +786,19 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </div>
             )}
 
+            {/* Debug Information for Desktop */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-gray-100 p-3 mt-2 rounded text-xs mb-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>Status: {booking.status}</div>
+                  <div>Payment: {booking.payment?.status || 'No payment'}</div>
+                  <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
+                  <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
+                  <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
@@ -736,29 +809,45 @@ const BookingCard: React.FC<BookingCardProps> = ({
                     <MessageCircle className="w-5 h-5" />
                   </button>
                   
-                  <div className="relative" ref={callOptionsRef}>
+                  <div className="relative">
                     <button 
-                      onClick={() => setShowCallOptions(!showCallOptions)}
+                      ref={callButtonRef}
+                      onClick={handleCallClick}
                       className="p-3 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
                     >
                       <Phone className="w-5 h-5" />
                     </button>
                     
                     {showCallOptions && (
-                      <div className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-48">
+                      <div 
+                        ref={callOptionsRef}
+                        className="absolute right-0 bottom-full mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-48"
+                      >
                         <button
-                          onClick={handleCallClick}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onContact(booking.id, 'phone');
+                            setShowCallOptions(false);
+                          }}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
                         >
-                          <Phone className="w-4 h-4 text-green-600" />
-                          <span>{isCustomer ? 'Call Provider' : 'Call Customer'}</span>
+                          <PhoneCall className="w-4 h-4 text-green-600" />
+                          <span>Web Audio Call</span>
+                        </button>
+                        
+                        <button
+                          onClick={handlePhoneCall}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
+                        >
+                          <ExternalLink className="w-4 h-4 text-purple-600" />
+                          <span>Phone App</span>
                         </button>
                         
                         <button
                           onClick={handleCopyNumber}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
                         >
-                          <Eye className="w-4 h-4 text-gray-600" />
+                          <Copy className="w-4 h-4 text-gray-600" />
                           <span>Copy Number</span>
                         </button>
                       </div>
@@ -780,28 +869,38 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   </button>
                 )}
                 
-                {needsPayment ? (
+                {/* Updated payment button logic for desktop */}
+                {shouldShowPaymentButton ? (
                   <button
                     onClick={() => onPaymentSuccess(booking.id)}
                     className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
                   >
                     Pay {currencySymbol}{formattedPrice} to Confirm
                   </button>
-                ) : isCustomer && booking.status === 'pending' ? (
+                ) : hasPaid ? (
+                  <div className="bg-green-100 text-green-800 px-4 py-3 rounded-lg text-sm font-medium flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    Payment Completed
+                  </div>
+                ) : null}
+                
+                {isCustomer && booking.status === 'pending' && !shouldShowPaymentButton && (
                   <button
                     onClick={() => onReschedule(booking.id)}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
                   >
                     Reschedule Booking
                   </button>
-                ) : isCustomer && booking.status === 'completed' && !isRated ? (
+                )}
+                
+                {isCustomer && booking.status === 'completed' && !isRated && (
                   <button
                     onClick={() => setShowRatingModal(true)}
                     className="bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-semibold"
                   >
                     Rate Provider
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
           </div>

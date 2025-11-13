@@ -108,6 +108,309 @@ type ProviderSettings = {
   vacationMode: boolean;
 };
 
+// ProviderBankAccount Component
+const ProviderBankAccount = () => {
+  const [bankDetails, setBankDetails] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountName: '',
+    bankCode: ''
+  });
+  const [existingAccount, setExistingAccount] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [banks, setBanks] = useState<any[]>([]);
+  const [userType, setUserType] = useState('');
+
+  useEffect(() => {
+    fetchBankAccount();
+    fetchBanks();
+    // Check user type
+    const userData = localStorage.getItem('userData');
+    if (userData) {
+      const user = JSON.parse(userData);
+      setUserType(user.userType);
+    }
+  }, []);
+
+  const fetchBankAccount = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/providers/bank-account`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.status === 403) {
+        console.log('User is not a provider');
+        return;
+      }
+      
+      const result = await response.json();
+      if (result.success && result.data) {
+        setExistingAccount(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch bank account:', error);
+    }
+  };
+
+  const fetchBanks = async () => {
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/banks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        setBanks(result.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch banks:', error);
+      alert('Failed to load bank list');
+    }
+  };
+
+  const handleAccountVerification = async () => {
+    if (!bankDetails.accountNumber || !bankDetails.bankCode) {
+      alert('Please select a bank and enter account number');
+      return;
+    }
+
+    if (bankDetails.accountNumber.length < 10) {
+      alert('Please enter a valid 10-digit account number');
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/verify-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          accountNumber: bankDetails.accountNumber,
+          bankCode: bankDetails.bankCode
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setBankDetails(prev => ({
+          ...prev,
+          accountName: result.data.accountName
+        }));
+        alert(`Account verified: ${result.data.accountName}`);
+      } else {
+        alert('Account verification failed: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Account verification error:', error);
+      alert('Failed to verify account number');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleBankChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedBank = banks.find(bank => bank.code === e.target.value);
+    setBankDetails(prev => ({
+      ...prev,
+      bankCode: e.target.value,
+      bankName: selectedBank ? selectedBank.name : ''
+    }));
+  };
+
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const accountNumber = e.target.value.replace(/\D/g, ''); // Remove non-digits
+    setBankDetails(prev => ({
+      ...prev,
+      accountNumber: accountNumber
+    }));
+
+    // Auto-verify when account number is 10 digits and bank is selected
+    if (accountNumber.length === 10 && bankDetails.bankCode) {
+      // Small delay to let user finish typing
+      setTimeout(() => {
+        handleAccountVerification();
+      }, 500);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Check if user is a provider
+    if (!userType.includes('provider')) {
+      alert('Only providers can add bank accounts. Please switch to provider mode.');
+      return;
+    }
+
+    // Validate form
+    if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName || !bankDetails.bankCode) {
+      alert('Please complete all bank account details');
+      return;
+    }
+
+    if (bankDetails.accountNumber.length !== 10) {
+      alert('Please enter a valid 10-digit account number');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/providers/bank-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(bankDetails)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('Bank account added successfully!');
+        setExistingAccount(result.data);
+        setBankDetails({ bankName: '', accountNumber: '', accountName: '', bankCode: '' });
+      } else {
+        alert('Failed to add bank account: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Add bank account error:', error);
+      alert('Failed to add bank account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show message if user is not a provider
+  if (userType && !userType.includes('provider')) {
+    return (
+      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-blue-200">
+        <h2 className="text-2xl font-bold mb-6">Bank Account Settings</h2>
+        <div className="bg-red-50 p-4 rounded-lg">
+          <p className="text-red-800">
+            Only providers can add bank accounts. Please switch to provider mode in your account settings.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-blue-200">
+      <h2 className="text-2xl font-bold mb-6">Bank Account Settings</h2>
+      
+      {existingAccount ? (
+        <div className="bg-green-50 p-4 rounded-lg mb-6">
+          <h3 className="font-semibold text-green-800">Bank Account Configured</h3>
+          <p className="text-green-700">
+            {existingAccount.bankAccount?.bankName} - ****{existingAccount.bankAccount?.accountNumber}
+          </p>
+          <p className="text-green-700">Account Name: {existingAccount.bankAccount?.accountName}</p>
+          <p className="text-green-700 text-sm mt-2">✅ Verified and ready to receive payments</p>
+        </div>
+      ) : (
+        <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+          <p className="text-yellow-800">
+            You need to add a bank account to receive payments. Payments will be automatically transferred to this account when jobs are completed.
+          </p>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Select Bank <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={bankDetails.bankCode}
+            onChange={handleBankChange}
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          >
+            <option value="">Choose a bank</option>
+            {banks.map((bank) => (
+              <option key={bank.code} value={bank.code}>
+                {bank.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Account Number <span className="text-red-500">*</span>
+          </label>
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={bankDetails.accountNumber}
+              onChange={handleAccountNumberChange}
+              placeholder="10-digit account number"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+              maxLength={10}
+              required
+            />
+            <button
+              type="button"
+              onClick={handleAccountVerification}
+              disabled={verifying || !bankDetails.accountNumber || !bankDetails.bankCode}
+              className="mt-1 px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50 whitespace-nowrap"
+            >
+              {verifying ? 'Verifying...' : 'Verify'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Enter your 10-digit account number. It will be automatically verified when complete.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Account Name
+          </label>
+          <input
+            type="text"
+            value={bankDetails.accountName}
+            readOnly
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-gray-50"
+            placeholder="Will be automatically filled after verification"
+          />
+          {bankDetails.accountName && (
+            <p className="text-green-600 text-sm mt-1">✅ Account name verified</p>
+          )}
+        </div>
+
+        <div className="pt-4">
+          <button
+            type="submit"
+            disabled={loading || !bankDetails.accountName}
+            className="w-full bg-blue-600 text-white px-4 py-3 rounded-md disabled:opacity-50 font-medium hover:bg-blue-700 transition-colors"
+          >
+            {loading ? 'Adding Bank Account...' : 'Save Bank Account'}
+          </button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Your bank account will be securely verified with Paystack
+          </p>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 const Settings: React.FC = () => {
   const [activeSection, setActiveSection] = useState("general");
   const [showPassword, setShowPassword] = useState(false);
@@ -1541,6 +1844,9 @@ const Settings: React.FC = () => {
                           </div>
                         )}
                       </div>
+
+                      {/* Provider Bank Account Component */}
+                      <ProviderBankAccount />
 
                       <div className="flex justify-end">
                         <button

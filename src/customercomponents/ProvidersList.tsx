@@ -400,7 +400,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     
     return (
       <div 
-        className={`bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden relative ${className}`}
+        className={`bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center text-white font-bold overflow-hidden relative ${className}`}
         onClick={(e) => {
           e.stopPropagation();
           handleViewProfile(e as any);
@@ -659,7 +659,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 {onBook && (
                   <button
                     onClick={handleBookClick}
-                    className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
+                    className="bg-gradient-to-r from-green-600 via-green-600 to-green-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl hover:shadow-2xl group"
                   >
                     <span className="group-hover:scale-110 inline-block transition-transform">
                       {serviceType === 'immediate' ? 'Book Now' : 'Get Quote'}
@@ -858,7 +858,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
           {onBook && (
             <button
               onClick={handleBookClick}
-              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl text-sm"
+              className="bg-gradient-to-r from-green-600 via-green-600 to-green-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 shadow-xl text-sm"
             >
               {serviceType === 'immediate' ? 'Book' : 'Quote'}
             </button>
@@ -1433,7 +1433,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
 
       {sortedProviders.length > 0 && (
         <div className="text-center pt-8">
-          <button className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">
+          <button className="bg-gradient-to-r from-green-600 via-gren-600 to-green-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">
             Load More Providers
           </button>
         </div>

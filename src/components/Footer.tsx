@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Home, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import logo from '../../public/homeheroes.png';
+import logo from '../../public/HH.png';
 
 const Footer: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -72,11 +72,11 @@ const Footer: React.FC = () => {
             <img 
               src={logo} 
               alt="HomeHeroes Logo" 
-              className="w-10 h-10 object-contain rounded-lg"
+              className="w-14 h-14 object-contain rounded-lg"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
+            {/* <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
               HomeHeroes
-            </span>
+            </span> */}
           </Link>
             </div>
             <p className="text-gray-400 mb-6 leading-relaxed">

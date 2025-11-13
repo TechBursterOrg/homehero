@@ -15,7 +15,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { UserProfile } from '../types';
-import logo from '../../public/homeheroes.jpeg';
+import logo from '../../public/HH.png';
 import { Link } from 'react-router-dom';
 
 interface HeaderProps {
@@ -364,11 +364,11 @@ const Header: React.FC<HeaderProps> = ({
             <img 
               src={logo} 
               alt="HomeHeroes Logo" 
-              className="w-10 h-10 object-contain rounded-lg"
+              className="w-14 h-14 object-contain rounded-lg"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            {/* <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
               HomeHeroes
-            </span>
+            </span> */}
           </Link>
             </div>
             <div className="flex items-center space-x-4">
@@ -390,11 +390,11 @@ const Header: React.FC<HeaderProps> = ({
             <img 
               src={logo} 
               alt="HomeHeroes Logo" 
-              className="w-10 h-10 object-contain rounded-lg"
+              className="w-14 h-14 object-contain rounded-lg"
             />
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
+            {/* <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
               HomeHeroes
-            </span>
+            </span> */}
           </Link>
             </div>
 

@@ -112,6 +112,8 @@ const CustomerContent: React.FC = () => {
     0
   );
 
+  
+
   // Fetch providers data
   const fetchProviders = useCallback(async () => {
     try {

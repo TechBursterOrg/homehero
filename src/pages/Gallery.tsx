@@ -18,7 +18,7 @@ interface GalleryImage {
   _id: string;
   title: string;
   description?: string;
-  category: 'cleaning' | 'handyman' | 'gardening';
+  category: 'cleaning' | 'handyman' | 'gardening'| 'hair stylist' | 'plumbing' | 'electrical' | 'painting' | 'moving' | 'other'| 'barber' | 'carpentry'| 'pest control';
   featured: boolean;
   imageUrl?: string;
   fullImageUrl?: string;
@@ -30,7 +30,7 @@ interface GalleryImage {
 interface UploadForm {
   title: string;
   description: string;
-  category: 'cleaning' | 'handyman' | 'gardening';
+  category: 'cleaning' | 'handyman' | 'gardening'| 'hair stylist' | 'plumbing' | 'electrical' | 'painting' | 'moving' | 'other'| 'barber' | 'carpentry'| 'pest control';
   featured: boolean;
 }
 
@@ -328,6 +328,7 @@ const GalleryPage = () => {
     { id: 'cleaning', name: 'Cleaning', count: galleryImages.filter(i => i.category === 'cleaning').length },
     { id: 'handyman', name: 'Handyman', count: galleryImages.filter(i => i.category === 'handyman').length },
     { id: 'gardening', name: 'Gardening', count: galleryImages.filter(i => i.category === 'gardening').length }
+    
   ];
 
   const filteredImages = galleryImages.filter(image => {
@@ -509,6 +510,15 @@ const GalleryPage = () => {
                     <option value="cleaning">Cleaning</option>
                     <option value="handyman">Handyman</option>
                     <option value="gardening">Gardening</option>
+                     <option value="gardening">Hair stylist</option>
+                      <option value="gardening">Barber</option>
+                       <option value="gardening">Chef</option>
+                    <option value="plumbing">Plumbing</option>
+                    <option value="electrical">Electrical</option>
+                    <option value="painting">Painting</option>
+                    <option value="carpentry">Carpentry</option>
+                    <option value="pest control">Pest Control</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 

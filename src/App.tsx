@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import EmailVerificationPage from './pages/VerifyEmail';
@@ -24,6 +25,21 @@ interface UserData {
 interface RouteComponentProps {
   children: React.ReactNode;
 }
+
+// Scroll to top component
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    // Only scroll to top for specific routes
+    const scrollRoutes = ['/', '/services', '/how-it-works'];
+    if (scrollRoutes.includes(pathname)) {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname]);
+
+  return null;
+};
 
 // Helper function to get and parse user data
 const getUserData = (): UserData | null => {
@@ -108,6 +124,7 @@ const AuthenticatedRedirect = () => {
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <div className="App">
         <Routes>
           

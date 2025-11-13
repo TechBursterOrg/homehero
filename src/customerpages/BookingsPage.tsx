@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, ArrowRight, Plus, X, Phone, Mail, Lock, Shield, CheckCircle, AlertCircle, CreditCard } from 'lucide-react';
+import { Calendar, Star, Plus, X, Phone, Mail, Lock, Shield, CheckCircle, AlertCircle, CreditCard, RefreshCw } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
 import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { Elements, CardElement } from '@stripe/react-stripe-js';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY!);
@@ -28,7 +28,7 @@ interface ApiBooking {
   amount: number;
   specialRequests: string;
   bookingType: string;
-  status: 'pending' | 'confirmed' | 'upcoming' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'upcoming' | 'in-progress' | 'completed' | 'cancelled' | 'awaiting_payment';
   requestedAt: string;
   acceptedAt?: string;
   completedAt?: string;
@@ -109,75 +109,11 @@ const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
 
 // Payment Form Component
 const PaymentForm: React.FC<{
-  booking: ApiBooking;
   paymentData: PaymentData;
-  clientSecret: string;
-  onSuccess: () => void;
   onClose: () => void;
   loading: boolean;
-  setLoading: (loading: boolean) => void;
-}> = ({ booking, paymentData, onSuccess, onClose, loading, setLoading }) => {
-  const stripe = useStripe();
-  const elements = useElements();
+}> = ({ paymentData, onClose, loading }) => {
   const [error, setError] = useState('');
-  const [cardComplete, setCardComplete] = useState(false);
-
-  const handlePayment = async (bookingId:any) => {
-  try {
-    console.log('Starting payment for booking:', bookingId);
-    
-    const token = localStorage.getItem('authToken');
-    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    
-    // Step 1: Create payment intent
-    const response = await fetch(`/api/bookings/${bookingId}/create-payment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount: 10000, // Your amount
-        customerCountry: userData.country || 'NG'
-      }),
-    });
-
-    const result = await response.json();
-    console.log('Payment creation response:', result);
-
-    if (!result.success) {
-      throw new Error(result.message || 'Payment creation failed');
-    }
-
-    // Step 2: Handle Paystack redirect
-    if (result.data.processor === 'paystack' && result.data.authorizationUrl) {
-      console.log('Redirecting to Paystack:', result.data.authorizationUrl);
-      
-      // Validate the URL before redirecting
-      if (result.data.authorizationUrl.includes('checkout.paystack.com')) {
-        window.location.href = result.data.authorizationUrl;
-      } else {
-        throw new Error('Invalid Paystack URL received');
-      }
-    } else {
-      throw new Error('No payment URL received from server');
-    }
-
-  } catch (error) {
-    console.error('Payment error:', error);
-    alert('Payment failed: ');
-  }
-};
-
-
-  const handleCardChange = (event: any) => {
-    setCardComplete(event.complete);
-    if (event.error) {
-      setError(event.error.message);
-    } else {
-      setError('');
-    }
-  };
 
   // For Paystack - redirect to their payment page
   const handlePaystackPayment = () => {
@@ -309,7 +245,6 @@ const PaymentForm: React.FC<{
                   },
                   hidePostalCode: true,
                 }}
-                onChange={handleCardChange}
               />
             </div>
           </div>
@@ -338,8 +273,8 @@ const PaymentForm: React.FC<{
           Cancel
         </button>
         <button
-          onClick={handlePayment}
-          disabled={!stripe || !cardComplete || loading}
+          onClick={handlePaystackPayment}
+          disabled={loading}
           className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
@@ -461,32 +396,6 @@ const PaymentSuccess: React.FC<{
   );
 };
 
-// Retry Payment Handler
-const handleRetryPayment = async (bookingId: string) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/retry-payment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      // Redirect to Paystack
-      window.location.href = result.data.authorizationUrl;
-    } else {
-      alert('Failed to retry payment: ' + result.message);
-    }
-  } catch (error) {
-    console.error('Retry payment error:', error);
-    alert('Error retrying payment');
-  }
-};
-
 // Main BookingsPage Component
 const BookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
@@ -511,6 +420,40 @@ const BookingsPage: React.FC = () => {
   const [paymentStep, setPaymentStep] = useState<'details' | 'payment' | 'success'>('details');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+
+  // Manual refresh state
+  const [refreshingBooking, setRefreshingBooking] = useState<string | null>(null);
+
+  // Add this useEffect to handle the redirect when returning from Paystack
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      // Check if we're returning from a payment
+      const urlParams = new URLSearchParams(window.location.search);
+      const paymentStatus = urlParams.get('payment');
+      const bookingId = urlParams.get('bookingId');
+      const reference = urlParams.get('reference');
+      const trxref = urlParams.get('trxref');
+      
+      console.log('🔍 Checking URL parameters:', { paymentStatus, bookingId, reference, trxref });
+      
+      if ((paymentStatus === 'success' && bookingId) || reference || trxref) {
+        console.log('✅ Payment successful detected, refreshing bookings...');
+        
+        // Wait a moment for the backend to process the payment
+        setTimeout(async () => {
+          await fetchUserBookings();
+          
+          // Show success message
+          alert('Payment completed successfully! Your booking is now confirmed.');
+          
+          // Clean URL - remove payment parameters
+          window.history.replaceState({}, '', '/customer');
+        }, 3000);
+      }
+    };
+
+    checkPaymentStatus();
+  }, []);
 
   useEffect(() => {
     fetchUserBookings();
@@ -544,8 +487,18 @@ const BookingsPage: React.FC = () => {
 
       const data = await response.json();
       
+      console.log('📦 Bookings data received:', data);
+      
       if (data.success) {
-        setBookings(data.data.bookings || []);
+        const fetchedBookings = data.data.bookings || [];
+        console.log('🔍 Fetched bookings with payment status:', fetchedBookings.map((b: ApiBooking) => ({
+          id: b._id,
+          status: b.status,
+          paymentStatus: b.payment?.status,
+          provider: b.providerName
+        })));
+        
+        setBookings(fetchedBookings);
       } else {
         throw new Error(data.message || 'Failed to fetch bookings');
       }
@@ -557,239 +510,193 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  // Payment Success Handler
-  const handlePaymentSuccess = async (bookingId: any) => {
-    console.log('💰 Payment successful for booking:', bookingId);
-    
+  // Manual payment status check for a specific booking
+  const checkPaymentStatus = async (bookingId: string) => {
     try {
-      // Refresh bookings to show updated status
+      setRefreshingBooking(bookingId);
+      const token = localStorage.getItem('authToken');
+      
+      console.log('🔄 Manually checking payment status for booking:', bookingId);
+      
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment-status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('💰 Payment status check result:', result);
+        
+        if (result.success) {
+          // Update the specific booking in state
+          setBookings(prev => prev.map(booking => 
+            booking._id === bookingId 
+              ? { 
+                  ...booking, 
+                  payment: result.data.payment,
+                  status: result.data.status
+                }
+              : booking
+          ));
+          
+          if (result.data.payment?.status && ['held', 'confirmed', 'succeeded'].includes(result.data.payment.status)) {
+            alert('Payment status updated! Your payment has been confirmed.');
+          } else {
+            alert('Payment status checked. If payment was completed, it may take a few moments to update.');
+          }
+        }
+      } else {
+        console.warn('Could not check payment status, but refreshing bookings anyway');
+      }
+      
+      // Always refresh the full bookings list as fallback
       await fetchUserBookings();
       
-      // Close payment modal
-      setShowPaymentModal(false);
-      setSelectedBookingForPayment(null);
-      setPaymentStep('details');
-      setPaymentData(null);
-      
-      // Show success message
-      alert('Payment completed successfully! Your booking is now confirmed.');
-      
     } catch (error) {
-      console.error('❌ Error handling payment success:', error);
+      console.error('Error checking payment status:', error);
+      // Still refresh bookings as fallback
+      await fetchUserBookings();
+    } finally {
+      setRefreshingBooking(null);
     }
   };
 
-  // Payment Button Click Handler
- const handlePaymentButtonClick = async (bookingId: string) => {
-  console.log('🔄 Starting payment process for booking:', bookingId);
-  
-  const booking = bookings.find(b => b._id === bookingId);
-  if (booking) {
-    try {
-      setPaymentLoading(true);
-      
-      const paymentResult = await initializePayment(booking);
-      console.log('💰 Payment initialization result:', paymentResult);
-      
-      if (paymentResult.processor === 'paystack' && paymentResult.authorizationUrl) {
-        console.log('🔗 Valid Paystack URL found, redirecting...');
+  // Payment Success Handler
+  const handlePaymentSuccess = async (bookingId: string) => {
+    console.log('💰 Payment initiated for booking:', bookingId);
+    
+    const booking = bookings.find(b => b._id === bookingId);
+    if (booking) {
+      try {
+        setPaymentLoading(true);
         
-        // CRITICAL: Validate URL before redirect
-        if (paymentResult.authorizationUrl.includes('checkout.paystack.com')) {
-          console.log('✅ Redirecting to Paystack payment page');
-          window.location.href = paymentResult.authorizationUrl;
+        const paymentResult = await initializePayment(booking);
+        console.log('💰 Payment initialization result:', paymentResult);
+        
+        if (paymentResult.processor === 'paystack' && paymentResult.authorizationUrl) {
+          console.log('🔗 Valid Paystack URL found, redirecting...');
+          
+          // CRITICAL: Validate URL before redirect
+          if (paymentResult.authorizationUrl.includes('checkout.paystack.com')) {
+            console.log('✅ Redirecting to Paystack payment page');
+            // This redirects to Paystack - after payment, they'll be redirected to /customer
+            window.location.href = paymentResult.authorizationUrl;
+          } else {
+            throw new Error('Invalid Paystack payment URL');
+          }
         } else {
-          throw new Error('Invalid Paystack payment URL');
+          throw new Error('No valid payment URL received');
         }
-      } else {
-        throw new Error('No valid payment URL received');
+      } catch (error) {
+        console.error('❌ Payment initialization error:', error);
+        alert('Failed to initialize payment: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      } finally {
+        setPaymentLoading(false);
       }
-    } catch (error) {
-      console.error('❌ Payment initialization error:', error);
-      alert('Failed to initialize payment: ' );
-    } finally {
-      setPaymentLoading(false);
     }
-  }
-};
-
-
+  };
 
   // Retry Payment Handler
   const handleRetryPaymentClick = async (bookingId: string) => {
-  console.log('🔄 Retrying payment for booking:', bookingId);
-  
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/retry-payment`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    const result = await response.json();
+    console.log('🔄 Retrying payment for booking:', bookingId);
     
-    if (result.success && result.data.authorizationUrl) {
-      // VALIDATE URL BEFORE REDIRECTING
-      const authUrl = result.data.authorizationUrl;
-      console.log('🔗 Redirecting to Paystack:', authUrl);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/retry-payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
       
-      if (!authUrl.includes('checkout.paystack.com')) {
-        console.error('❌ INVALID Paystack URL:', authUrl);
-        alert('Invalid payment URL. Please try again.');
-        return;
+      if (result.success && result.data.authorizationUrl) {
+        // VALIDATE URL BEFORE REDIRECTING
+        const authUrl = result.data.authorizationUrl;
+        console.log('🔗 Redirecting to Paystack:', authUrl);
+        
+        if (!authUrl.includes('checkout.paystack.com')) {
+          console.error('❌ INVALID Paystack URL:', authUrl);
+          alert('Invalid payment URL. Please try again.');
+          return;
+        }
+        
+        // Redirect to Paystack
+        window.location.href = authUrl;
+      } else {
+        alert('Failed to retry payment: ' + (result.message || 'Unknown error'));
       }
-      
-      // Redirect to Paystack
-      window.location.href = authUrl;
-    } else {
-      alert('Failed to retry payment: ' + (result.message || 'Unknown error'));
+    } catch (error) {
+      console.error('❌ Retry payment error:', error);
+      alert('Error retrying payment. Please try again.');
     }
-  } catch (error) {
-    console.error('❌ Retry payment error:', error);
-    alert('Error retrying payment. Please try again.');
-  }
-};
-
-
-  type CountryCode = 'NG' | 'GB' | 'US';
-
-  const getCountryCode = (countryName: string): CountryCode => {
-    const countryMap: Record<string, CountryCode> = {
-      'nigeria': 'NG',
-      'ng': 'NG',
-      'united kingdom': 'GB',
-      'uk': 'GB',
-      'gb': 'GB',
-      'united states': 'US',
-      'usa': 'US',
-      'us': 'US'
-    };
-    
-    return countryMap[countryName?.toLowerCase()] || 'NG';
   };
 
-const initializePayment = async (booking: ApiBooking) => {
-  try {
-    console.log('💰 Starting payment for booking:', booking._id);
-    
-    const token = localStorage.getItem('authToken');
-    const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-    
-    // TEMPORARY: Use debug endpoint to see what's happening
-    const payload = {
-      bookingId: booking._id,
-      amount: booking.price || booking.amount
-    };
+  const initializePayment = async (booking: ApiBooking) => {
+    try {
+      console.log('💰 Starting payment for booking:', booking._id);
+      
+      const token = localStorage.getItem('authToken');
+      
+      const payload = {
+        bookingId: booking._id,
+        amount: booking.price || booking.amount
+      };
 
-    console.log('📦 Payment payload:', payload);
+      console.log('📦 Payment payload:', payload);
 
-    // TEMPORARY: Use debug endpoint
-    const response = await fetch(`${API_BASE_URL}/api/debug/check-payment-response`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${booking._id}/create-payment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-    const result = await response.json();
-    
-    console.log('🔍 Full payment response:', result);
-    
-    if (!response.ok) {
-      throw new Error(result.message || `HTTP error! status: ${response.status}`);
+      const result = await response.json();
+      
+      console.log('🔍 Full payment response:', result);
+      
+      if (!response.ok) {
+        throw new Error(result.message || `HTTP error! status: ${response.status}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.message || 'Payment initialization failed');
+      }
+
+      // Extract authorization URL from the response
+      const authorizationUrl = result.data?.authorizationUrl;
+
+      console.log('🔗 Authorization URL:', authorizationUrl);
+
+      if (!authorizationUrl) {
+        console.error('❌ No authorization URL in response. Full response:', result);
+        throw new Error('Payment service did not return a payment URL');
+      }
+
+      // Validate it's a proper Paystack URL
+      if (!authorizationUrl.includes('checkout.paystack.com')) {
+        console.error('❌ Invalid Paystack URL:', authorizationUrl);
+        throw new Error('Invalid payment URL received');
+      }
+
+      return {
+        processor: 'paystack',
+        authorizationUrl: authorizationUrl,
+        amount: payload.amount
+      };
+
+    } catch (error) {
+      console.error('❌ Payment initialization failed:', error);
+      throw error;
     }
-
-    // Extract authorization URL from the response
-    const authorizationUrl = result.data?.authorizationUrl;
-
-    console.log('🔗 Authorization URL:', authorizationUrl);
-
-    if (!authorizationUrl) {
-      console.error('❌ No authorization URL in response. Full response:', result);
-      throw new Error('Payment service did not return a payment URL');
-    }
-
-    // Validate it's a proper Paystack URL
-    if (!authorizationUrl.includes('checkout.paystack.com')) {
-      console.error('❌ Invalid Paystack URL:', authorizationUrl);
-      throw new Error('Invalid payment URL received');
-    }
-
-    return {
-      processor: 'paystack',
-      authorizationUrl: authorizationUrl,
-      amount: payload.amount
-    };
-
-  } catch (error) {
-    console.error('❌ Payment initialization failed:', error);
-    throw error;
-  }
-};
-
-
-
-
-
-  // New function to get existing payment URL
-  const getExistingPaymentUrl = async (bookingId: string) => {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment-url`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to get payment URL');
-    }
-
-    const result = await response.json();
-    
-    if (result.success && result.data.authorizationUrl) {
-      console.log('🔗 Found existing Paystack payment URL');
-      return result.data.authorizationUrl;
-    }
-    
-    throw new Error('No payment URL found');
-
-  } catch (error) {
-    console.error('❌ Failed to get existing payment URL:', error);
-    throw error;
-  }
-};
-
-const testPaystackDirectly = async () => {
-  try {
-    const response = await fetch('/api/debug/paystack-raw-response', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-      },
-      body: JSON.stringify({
-        amount: 10000, // 100 NGN
-        email: 'petervj2019@gmail.com'
-      })
-    });
-    
-    const result = await response.json();
-    console.log('Paystack test result:', result);
-    
-    if (result.data.authorization_url) {
-      // Redirect to Paystack
-      window.location.href = result.data.authorization_url;
-    }
-  } catch (error) {
-    console.error('Paystack test failed:', error);
-  }
-};
+  };
 
   const handleReleasePayment = async (bookingId: string) => {
     try {
@@ -902,10 +809,13 @@ const testPaystackDirectly = async () => {
           handleContactPhone(bookingId);
           return;
         case 'payment':
-          handlePaymentButtonClick(bookingId);
+          handlePaymentSuccess(bookingId);
           return;
         case 'retry-payment':
           handleRetryPaymentClick(bookingId);
+          return;
+        case 'check-payment-status':
+          checkPaymentStatus(bookingId);
           return;
         default:
           console.log('Unknown action:', action, bookingId);
@@ -1089,7 +999,7 @@ const testPaystackDirectly = async () => {
   const filteredBookings = bookings.filter(booking => {
     switch (filter) {
       case 'upcoming':
-        return booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'upcoming';
+        return booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'upcoming' || booking.status === 'awaiting_payment';
       case 'completed':
         return booking.status === 'completed';
       case 'cancelled':
@@ -1116,7 +1026,7 @@ const testPaystackDirectly = async () => {
 
   // Calculate stats from real bookings data
   const upcomingBookings = bookings.filter(booking => 
-    booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'upcoming'
+    booking.status === 'pending' || booking.status === 'confirmed' || booking.status === 'upcoming' || booking.status === 'awaiting_payment'
   );
   
   const completedBookings = bookings.filter(booking => 
@@ -1304,10 +1214,11 @@ const testPaystackDirectly = async () => {
                       onContact={(id: string, method: 'message' | 'phone') => handleBookingAction(id, `contact-${method}`)}
                       onViewDetails={(id: string) => handleViewDetails(id)}
                       onRateProvider={handleRateProvider}
-                      onPaymentSuccess={handlePaymentButtonClick}
+                      onPaymentSuccess={handlePaymentSuccess}
                       onRetryPayment={handleRetryPaymentClick}
                       onReleasePayment={handleReleasePayment}
                       onSeenProvider={handleSeenProvider}
+                      userType="customer"
                     />
                   </div>
                 ))
@@ -1321,8 +1232,8 @@ const testPaystackDirectly = async () => {
                   onClick={fetchUserBookings}
                   className="bg-gray-50 text-gray-700 hover:text-blue-700 px-8 py-3 rounded-xl border border-gray-200 hover:border-blue-200 transition-all duration-300 flex items-center space-x-3 font-medium hover:shadow-sm"
                 >
-                  <span>Refresh Bookings</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh All Bookings</span>
                 </button>
               </div>
             )}
@@ -1426,8 +1337,6 @@ const testPaystackDirectly = async () => {
           </div>
         </div>
       )}
-
-      
 
       {/* Booking Details Modal */}
       {showDetailsModal && selectedBooking && (
@@ -1679,15 +1588,7 @@ const testPaystackDirectly = async () => {
               {paymentStep === 'payment' && paymentData && (
                 <Elements stripe={stripePromise}>
                   <PaymentForm 
-                    booking={selectedBookingForPayment}
                     paymentData={paymentData}
-                    clientSecret=""
-                    onSuccess={() => {
-                      setPaymentStep('success');
-                      setTimeout(() => {
-                        handlePaymentSuccess(selectedBookingForPayment._id);
-                      }, 2000);
-                    }}
                     onClose={() => {
                       setShowPaymentModal(false);
                       setSelectedBookingForPayment(null);
@@ -1695,7 +1596,6 @@ const testPaystackDirectly = async () => {
                       setPaymentData(null);
                     }}
                     loading={paymentLoading}
-                    setLoading={setPaymentLoading}
                   />
                 </Elements>
               )}

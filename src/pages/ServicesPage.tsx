@@ -11,30 +11,12 @@ import Footer from '../components/Footer';
 const ServicesPage = () => {
   const [scrollY, setScrollY] = useState(0);
   const [activeCategory, setActiveCategory] = useState('all');
-  const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef(null);
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (sectionRef.current) {
-      observer.observe(sectionRef.current);
-    }
-
-    return () => observer.disconnect();
   }, []);
 
   const categories = [
@@ -268,7 +250,7 @@ const ServicesPage = () => {
       
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-12 md:py-20 mb-8 md:mb-12 mt-14 servicesImg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-7xl md:h-[400px] mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6">
             Our Professional Services
           </h1>
@@ -286,7 +268,7 @@ const ServicesPage = () => {
               <button
                 key={category.id}
                 onClick={() => setActiveCategory(category.id)}
-                className={`px-3 py-2 md:px-6 md:py-3 rounded-lg md:rounded-xl text-sm md:text-base font-semibold transition-all duration-300 transform hover:scale-105 ${
+                className={`px-3 py-2 md:px-6 md:py-3 rounded-lg md:rounded-xl text-sm md:text-base font-semibold ${
                   activeCategory === category.id
                     ? 'bg-green-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -308,33 +290,27 @@ const ServicesPage = () => {
             {filteredServices.map((service, index) => (
               <div
                 key={index}
-                className={`group bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer border border-gray-100 ${
-                  isVisible ? 'animate-fade-in-up' : 'opacity-0'
-                }`}
-                style={{ 
-                  animationDelay: `${index * 50}ms`,
-                  animationFillMode: 'forwards'
-                }}
+                className="group bg-white rounded-xl md:rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl cursor-pointer border border-gray-100"
               >
                 <div className="relative h-40 md:h-48 overflow-hidden">
                   <img 
                     src={service.image} 
                     alt={service.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="w-full h-full object-cover"
                   />
                   {/* Mobile: Show button on card, Desktop: Show on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent md:opacity-0 md:group-hover:opacity-100"></div>
                   <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
                     <Link
                       to="/login"
-                      className="w-full bg-white text-green-600 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors text-center block text-sm md:text-base md:transform md:translate-y-full md:group-hover:translate-y-0 md:transition-transform md:duration-300"
+                      className="w-full bg-white text-green-600 py-2 rounded-lg font-semibold hover:bg-green-50 text-center block text-sm md:text-base md:translate-y-full md:group-hover:translate-y-0"
                     >
                       Book Now
                     </Link>
                   </div>
                 </div>
                 <div className="p-4 md:p-6">
-                  <h3 className="text-base md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-green-600 transition-colors">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900 mb-1 md:mb-2 group-hover:text-green-600">
                     {service.title}
                   </h3>
                   <p className="text-gray-600 text-xs md:text-sm leading-relaxed">
@@ -354,23 +330,6 @@ const ServicesPage = () => {
       </section>
 
       <Footer />
-      
-      <style>{`
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out;
-        }
-      `}</style>
     </div>
   );
 };
