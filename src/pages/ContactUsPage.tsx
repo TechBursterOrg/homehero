@@ -165,14 +165,14 @@ const ContactUsPage = () => {
     {
       icon: "📞",
       title: "Phone",
-      detail: "+234 123 456 7890",
+      detail: "+234 806 998 0777",
       description: "Mon-Fri from 8am to 5pm",
-      link: "tel:+2341234567890",
+      link: "tel:+2348069980777",
     },
     {
       icon: "✉️",
       title: "Email",
-      detail: "support@serviceplatform.com",
+      detail: "support@homeheroes.help",
       description: "We'll respond within 24 hours",
       link: "mailto:support@serviceplatform.com",
     },
