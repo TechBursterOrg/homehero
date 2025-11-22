@@ -22,6 +22,7 @@ import {
   Mail,
   Phone
 } from 'lucide-react';
+import IdentityVerificationModal from './IdentityVerificationModal';
 
 interface BusinessHours {
   id?: number;
@@ -110,6 +111,18 @@ interface RatingModalProps {
   onClose: () => void;
   onSubmit: (rating: number, comment?: string) => void;
   type: 'provider' | 'customer';
+}
+
+interface UserVerification {
+  isNinVerified: boolean;
+  isNepaVerified: boolean;
+  verificationStatus: string;
+  hasSubmittedVerification: boolean;
+  userDetails?: {
+    fullName: string;
+    gender: string;
+    state: string;
+  };
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -240,7 +253,7 @@ const Dashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDay, setSelectedDay] = useState<string>('Monday');
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
@@ -248,6 +261,15 @@ const Dashboard: React.FC = () => {
   const [ratingBooking, setRatingBooking] = useState<Booking | null>(null);
   const [ratingType, setRatingType] = useState<'provider' | 'customer'>('provider');
   const [currentAvailability, setCurrentAvailability] = useState<boolean | null>(null);
+  
+  // Identity Verification State
+  const [userVerification, setUserVerification] = useState<UserVerification | null>(null);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [pendingBookingAction, setPendingBookingAction] = useState<{
+    bookingId: string;
+    action: 'confirm' | 'complete';
+  } | null>(null);
 
   // Days of the week
   const daysOfWeek = [
@@ -264,6 +286,132 @@ const Dashboard: React.FC = () => {
     notes: ''
   };
 
+  // Fetch user verification status
+  const fetchUserVerification = async () => {
+  try {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (!token) {
+      console.log('❌ No token found for verification fetch');
+      return;
+    }
+
+    console.log('🔄 Fetching verification status...');
+    const response = await fetch(`${API_BASE_URL}/api/auth/verification-status`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to fetch verification status:', response.status);
+      return;
+    }
+
+    const data = await response.json();
+    console.log('✅ Verification data received:', data.data);
+    setUserVerification(data.data);
+    
+  } catch (error) {
+    console.error('❌ Error fetching verification status:', error);
+  }
+};
+
+
+  // Check if user is verified
+  const isUserVerified = () => {
+  // If no verification data, assume not verified
+  if (!userVerification) {
+    return false;
+  }
+  
+  // Only return true if explicitly verified
+  return userVerification.isNinVerified === true;
+};
+
+
+
+
+  // Handle identity verification
+const handleIdentityVerify = async (verificationData: { 
+  nin: string; 
+  nepaBill: File | null;
+  selfie: File | null;
+  consent: boolean;
+}) => {
+  console.log('🔐 Starting verification process');
+  setIsSubmittingVerification(true);
+  
+  try {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+
+    const formData = new FormData();
+    formData.append('nin', verificationData.nin);
+    formData.append('consent', verificationData.consent.toString());
+    
+    if (verificationData.selfie) {
+      formData.append('selfie', verificationData.selfie);
+    }
+    
+    if (verificationData.nepaBill) {
+      formData.append('nepaBill', verificationData.nepaBill);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Verification submission failed: ${response.status}`);
+    }
+
+    // Update verification status to show pending state
+    setUserVerification(prev => prev ? {
+      ...prev,
+      hasSubmittedVerification: true,
+      verificationStatus: 'pending'
+    } : null);
+    
+    setShowVerificationModal(false);
+    
+    // Execute pending action if exists
+    if (pendingBookingAction) {
+      console.log('🔄 Executing pending action after verification');
+      
+      // Use setTimeout to ensure state updates are processed
+      setTimeout(async () => {
+        if (isUserVerified()) {
+          if (pendingBookingAction.action === 'confirm') {
+            await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'confirmed');
+          } else if (pendingBookingAction.action === 'complete') {
+            await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'completed');
+          }
+        } else {
+          alert('Please wait for your verification to be processed.');
+        }
+        setPendingBookingAction(null);
+      }, 100);
+    }
+    
+    alert('Verification submitted successfully! Your documents are under review.');
+    
+  } catch (error) {
+    console.error('Verification error:', error);
+    alert(error instanceof Error ? error.message : 'Verification failed');
+  } finally {
+    setIsSubmittingVerification(false);
+  }
+};
+
+
+
+
   // Get hours for the selected day
   const getHoursForDay = (day: string): BusinessHours => {
     const existingHours = businessHours.find(hours => hours.dayOfWeek === day);
@@ -273,17 +421,30 @@ const Dashboard: React.FC = () => {
     };
   };
 
-  // Update hours for the selected day
-  const updateHoursForDay = (updatedHours: BusinessHours) => {
-    const existingIndex = businessHours.findIndex(hours => hours.dayOfWeek === updatedHours.dayOfWeek);
+  // Update hours for multiple days
+  const updateHoursForDays = (days: string[], updatedHours: Partial<BusinessHours>) => {
+    const updatedBusinessHours = [...businessHours];
     
-    if (existingIndex >= 0) {
-      const updatedBusinessHours = [...businessHours];
-      updatedBusinessHours[existingIndex] = updatedHours;
-      setBusinessHours(updatedBusinessHours);
-    } else {
-      setBusinessHours([...businessHours, updatedHours]);
-    }
+    days.forEach(day => {
+      const existingIndex = updatedBusinessHours.findIndex(hours => hours.dayOfWeek === day);
+      const baseHours = getHoursForDay(day);
+      
+      if (existingIndex >= 0) {
+        updatedBusinessHours[existingIndex] = {
+          ...updatedBusinessHours[existingIndex],
+          ...updatedHours,
+          dayOfWeek: day // Ensure day remains correct
+        };
+      } else {
+        updatedBusinessHours.push({
+          ...baseHours,
+          ...updatedHours,
+          dayOfWeek: day
+        });
+      }
+    });
+    
+    setBusinessHours(updatedBusinessHours);
   };
 
   // Fetch current availability status
@@ -320,6 +481,12 @@ const Dashboard: React.FC = () => {
       }
     }
   };
+
+  useEffect(() => {
+  console.log('🔄 Dashboard mounted - checking verification state');
+  console.log('📊 Current userVerification:', userVerification);
+  console.log('🔒 Is user verified?', isUserVerified());
+}, []);
 
   // Fetch dashboard data from backend
   const fetchDashboardData = async () => {
@@ -389,6 +556,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchUserVerification();
   }, []);
 
   // Check availability when dashboard data is loaded or business hours are updated
@@ -399,58 +567,47 @@ const Dashboard: React.FC = () => {
   }, [dashboardData]);
 
   const serviceTypes = [
-  'House Cleaning',
-  'Plumbing Repair',
-  'Garden Maintenance',
-  'Electrical Work',
-  'Painting',
-  'General Maintenance',
-  'Barber',
-
-  // 🏠 Home Maintenance & Repair
-  'AC Repair',
-  'Generator Repair',
-  'Carpentry',
-  'Tiling',
-  'Masonry',
-  'Welding',
-  'Pest Control',
-
-  // 🚗 Auto & Mechanical Services
-  'Auto Mechanic',
-  'Panel Beater',
-  'Auto Electrician',
-  'Vulcanizer',
-  'Car Wash',
-
-  // 💇🏾‍♂️ Beauty & Personal Care
-  'Hair Stylist',
-  'Makeup Artist',
-  'Nail Technician',
-  'Massage Therapist',
-  'Tailor',
-
-  // 🧹 Domestic & Household Help
-  'Nanny',
-  'Cook',
-  'Laundry',
-  'Gardener',
-  'Security Guard',
-
-  // 🔌 Smart Home & Modern Needs
-  'CCTV Installer',
-  'Solar Technician',
-  'Inverter Technician',
-  'IT Support',
-  'Interior Designer',
-  'TV Repair',
-
-  'Other'
-];
-
+    'House Cleaning',
+    'Plumbing Repair',
+    'Garden Maintenance',
+    'Electrical Work',
+    'Painting',
+    'General Maintenance',
+    'Barber',
+    'AC Repair',
+    'Generator Repair',
+    'Carpentry',
+    'Tiling',
+    'Masonry',
+    'Welding',
+    'Pest Control',
+    'Auto Mechanic',
+    'Panel Beater',
+    'Auto Electrician',
+    'Vulcanizer',
+    'Car Wash',
+    'Hair Stylist',
+    'Makeup Artist',
+    'Nail Technician',
+    'Massage Therapist',
+    'Tailor',
+    'Nanny',
+    'Cook',
+    'Laundry',
+    'Gardener',
+    'Security Guard',
+    'CCTV Installer',
+    'Solar Technician',
+    'Inverter Technician',
+    'IT Support',
+    'Interior Designer',
+    'TV Repair',
+    'Other'
+  ];
 
   const handleAddAvailability = () => {
     setShowAvailabilityModal(true);
+    setSelectedDays([]);
   };
 
   const handleSaveBusinessHours = async (): Promise<void> => {
@@ -529,6 +686,7 @@ const Dashboard: React.FC = () => {
 
   const handleCloseModal = () => {
     setShowAvailabilityModal(false);
+    setSelectedDays([]);
   };
 
   const formatTime = (timeString: string): string => {
@@ -584,16 +742,30 @@ const Dashboard: React.FC = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
 
+  const handleDaySelection = (day: string) => {
+    setSelectedDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
+
+  const handleSelectAllDays = () => {
+    setSelectedDays(selectedDays.length === daysOfWeek.length ? [] : [...daysOfWeek]);
+  };
+
   const handleServiceTypeToggle = (serviceType: string) => {
-    const currentHours = getHoursForDay(selectedDay);
-    const updatedServiceTypes = currentHours.serviceTypes.includes(serviceType)
-      ? currentHours.serviceTypes.filter(st => st !== serviceType)
-      : [...currentHours.serviceTypes, serviceType];
+    if (selectedDays.length === 0) {
+      alert('Please select at least one day first');
+      return;
+    }
+
+    const currentServiceTypes = getHoursForDay(selectedDays[0]).serviceTypes;
+    const updatedServiceTypes = currentServiceTypes.includes(serviceType)
+      ? currentServiceTypes.filter(st => st !== serviceType)
+      : [...currentServiceTypes, serviceType];
     
-    updateHoursForDay({
-      ...currentHours,
-      serviceTypes: updatedServiceTypes
-    });
+    updateHoursForDays(selectedDays, { serviceTypes: updatedServiceTypes });
   };
 
   const handleViewBooking = (booking: Booking) => {
@@ -886,100 +1058,121 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // FIXED: Enhanced booking status update function with proper status mapping
+  // FIXED: Enhanced booking status update function with verification check
   const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
-    if (status === 'completed') {
-      await handleCompleteBooking(bookingId);
-    } else {
-      try {
-        setError(null);
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        
-        if (!token) {
-          throw new Error('Authentication token not found');
-        }
+  console.log('🔄 handleUpdateBookingStatus called with:', { bookingId, status });
+  
+  // Check if user needs verification for confirm/complete actions
+  if ((status === 'confirmed' || status === 'completed') && !isUserVerified()) {
+    console.log('🚨 VERIFICATION REQUIRED - Blocking action');
+    
+    // Store the pending action
+    setPendingBookingAction({ 
+      bookingId, 
+      action: status as 'confirm' | 'complete' 
+    });
+    
+    // Show verification modal and close booking modal
+    setShowVerificationModal(true);
+    setShowBookingModal(false);
+    
+    // Stop execution completely
+    return;
+  }
 
-        const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        
-        if (result.success) {
-          if (status === 'confirmed' && selectedBooking) {
-            await addBookingToSchedule(selectedBooking);
-            
-            try {
-              const bookingData = {
-                customerName: selectedBooking.customerName,
-                serviceType: selectedBooking.serviceType,
-                location: selectedBooking.location,
-                timeframe: selectedBooking.timeframe,
-                budget: selectedBooking.budget,
-                description: selectedBooking.description,
-                specialRequests: selectedBooking.specialRequests
-              };
-
-              const providerInfo = {
-                name: dashboardData?.user.name || 'Service Provider',
-                phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
-                email: dashboardData?.user.email || ''
-              };
-
-              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-confirmed`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  customerEmail: selectedBooking.customerEmail,
-                  bookingData,
-                  providerInfo
-                }),
-              });
-
-              if (emailResponse.ok) {
-                console.log('✅ Booking confirmation email sent to customer');
-              } else {
-                console.log('⚠️ Failed to send booking confirmation email, but booking was confirmed');
-              }
-            } catch (emailError) {
-              console.error('⚠️ Email notification failed (non-critical):', emailError);
-            }
-          }
-          
-          await fetchDashboardData();
-          setError(null);
-          setShowBookingModal(false);
-          
-          let successMessage = `Booking ${status} successfully!`;
-          if (status === 'confirmed') {
-            successMessage += ' Added to schedule and customer has been notified.';
-          }
-          alert(successMessage);
-        } else {
-          throw new Error(result.message || 'Failed to update booking status');
-        }
-        
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
-        setError(errorMessage);
-        console.error('Booking status update error:', err);
-        alert(`Error: ${errorMessage}`);
+  console.log('✅ Proceeding with booking action');
+  
+  // Rest of the function for when user is verified...
+  if (status === 'completed') {
+    await handleCompleteBooking(bookingId);
+  } else {
+    try {
+      setError(null);
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found');
       }
+
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        if (status === 'confirmed' && selectedBooking) {
+          await addBookingToSchedule(selectedBooking);
+          
+          // Email notification (non-critical)
+          try {
+            const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-confirmed`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                customerEmail: selectedBooking.customerEmail,
+                bookingData: {
+                  customerName: selectedBooking.customerName,
+                  serviceType: selectedBooking.serviceType,
+                  location: selectedBooking.location,
+                  timeframe: selectedBooking.timeframe,
+                  budget: selectedBooking.budget,
+                  description: selectedBooking.description,
+                  specialRequests: selectedBooking.specialRequests
+                },
+                providerInfo: {
+                  name: dashboardData?.user.name || 'Service Provider',
+                  phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
+                  email: dashboardData?.user.email || ''
+                }
+              }),
+            });
+
+            if (!emailResponse.ok) {
+              console.log('⚠️ Failed to send booking confirmation email');
+            }
+          } catch (emailError) {
+            console.error('⚠️ Email notification failed:', emailError);
+          }
+        }
+        
+        await fetchDashboardData();
+        setError(null);
+        setShowBookingModal(false);
+        
+        let successMessage = `Booking ${status} successfully!`;
+        if (status === 'confirmed') {
+          successMessage += ' Added to schedule and customer has been notified.';
+        }
+        alert(successMessage);
+      } else {
+        throw new Error(result.message || 'Failed to update booking status');
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
+      setError(errorMessage);
+      console.error('Booking status update error:', err);
+      alert(`Error: ${errorMessage}`);
     }
-  };
+  }
+};
+
+
+
 
   const handleRatingSubmit = async (rating: number, comment?: string) => {
     if (!ratingBooking) return;
@@ -1137,17 +1330,34 @@ const Dashboard: React.FC = () => {
             {/* Availability Status Indicator */}
             <div className="flex flex-col sm:flex-row gap-3">
               {currentAvailability !== null && (
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-                  currentAvailability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  <div className={`w-3 h-3 rounded-full ${
-                    currentAvailability ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
-                  <span className="font-medium text-sm">
-                    {currentAvailability ? 'Available Now' : 'Currently Unavailable'}
-                  </span>
-                </div>
-              )}
+    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+      currentAvailability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+    }`}>
+      <div className={`w-3 h-3 rounded-full ${
+        currentAvailability ? 'bg-green-500' : 'bg-red-500'
+      }`}></div>
+      <span className="font-medium text-sm">
+        {currentAvailability ? 'Available Now' : 'Currently Unavailable'}
+      </span>
+    </div>
+  )}
+
+  {/* Verification Status Indicator */}
+  {userVerification && (
+    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+      isUserVerified() ? 'bg-green-100 text-green-800' : 
+      userVerification.hasSubmittedVerification ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+    }`}>
+      <div className={`w-3 h-3 rounded-full ${
+        isUserVerified() ? 'bg-green-500' : 
+        userVerification.hasSubmittedVerification ? 'bg-yellow-500' : 'bg-red-500'
+      }`}></div>
+      <span className="font-medium text-sm">
+        {isUserVerified() ? 'Verified' : 
+         userVerification.hasSubmittedVerification ? 'Verification Pending' : 'Verification Required'}
+      </span>
+    </div>
+  )}
               <button 
                 onClick={handleAddAvailability}
                 className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center justify-center gap-3 w-full sm:w-auto"
@@ -1583,18 +1793,26 @@ const Dashboard: React.FC = () => {
               </div>
               
               <div className="p-6 sm:p-8 space-y-6">
-                {/* Day Selection */}
+                {/* Day Selection - Multiple Days */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Select Day <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Select Days <span className="text-red-500">*</span>
+                    </label>
+                    <button
+                      onClick={handleSelectAllDays}
+                      className="text-xs text-green-600 hover:text-green-700 font-medium"
+                    >
+                      {selectedDays.length === daysOfWeek.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
                   <div className="grid grid-cols-4 gap-2">
                     {daysOfWeek.map((day) => (
                       <button
                         key={day}
-                        onClick={() => setSelectedDay(day)}
+                        onClick={() => handleDaySelection(day)}
                         className={`p-2 text-xs font-medium rounded-lg transition-all ${
-                          selectedDay === day
+                          selectedDays.includes(day)
                             ? 'bg-green-600 text-white shadow-md'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
@@ -1603,6 +1821,11 @@ const Dashboard: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                  {selectedDays.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      Selected: {selectedDays.join(', ')}
+                    </p>
+                  )}
                 </div>
 
                 {/* Time Range */}
@@ -1613,12 +1836,10 @@ const Dashboard: React.FC = () => {
                     </label>
                     <input
                       type="time"
-                      value={getHoursForDay(selectedDay).startTime}
-                      onChange={(e) => updateHoursForDay({
-                        ...getHoursForDay(selectedDay),
-                        startTime: e.target.value
-                      })}
+                      value={selectedDays.length > 0 ? getHoursForDay(selectedDays[0]).startTime : '09:00'}
+                      onChange={(e) => updateHoursForDays(selectedDays, { startTime: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                      disabled={selectedDays.length === 0}
                     />
                   </div>
                   <div>
@@ -1627,12 +1848,10 @@ const Dashboard: React.FC = () => {
                     </label>
                     <input
                       type="time"
-                      value={getHoursForDay(selectedDay).endTime}
-                      onChange={(e) => updateHoursForDay({
-                        ...getHoursForDay(selectedDay),
-                        endTime: e.target.value
-                      })}
+                      value={selectedDays.length > 0 ? getHoursForDay(selectedDays[0]).endTime : '17:00'}
+                      onChange={(e) => updateHoursForDays(selectedDays, { endTime: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                      disabled={selectedDays.length === 0}
                     />
                   </div>
                 </div>
@@ -1640,17 +1859,15 @@ const Dashboard: React.FC = () => {
                 {/* Availability Toggle */}
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-semibold text-gray-700">
-                    Available on this day
+                    Available on selected days
                   </label>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={getHoursForDay(selectedDay).isAvailable}
-                      onChange={(e) => updateHoursForDay({
-                        ...getHoursForDay(selectedDay),
-                        isAvailable: e.target.checked
-                      })}
+                      checked={selectedDays.length > 0 ? getHoursForDay(selectedDays[0]).isAvailable : true}
+                      onChange={(e) => updateHoursForDays(selectedDays, { isAvailable: e.target.checked })}
                       className="sr-only peer"
+                      disabled={selectedDays.length === 0}
                     />
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                   </label>
@@ -1661,9 +1878,9 @@ const Dashboard: React.FC = () => {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Service Types <span className="text-red-500">*</span>
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                     {serviceTypes.map((service) => {
-                      const isSelected = getHoursForDay(selectedDay).serviceTypes.includes(service);
+                      const isSelected = selectedDays.length > 0 && getHoursForDay(selectedDays[0]).serviceTypes.includes(service);
                       return (
                         <button
                           key={service}
@@ -1674,6 +1891,7 @@ const Dashboard: React.FC = () => {
                               ? 'bg-green-100 text-green-700 border border-green-300'
                               : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
                           }`}
+                          disabled={selectedDays.length === 0}
                         >
                           {service}
                         </button>
@@ -1688,14 +1906,12 @@ const Dashboard: React.FC = () => {
                     Notes (Optional)
                   </label>
                   <textarea
-                    value={getHoursForDay(selectedDay).notes}
-                    onChange={(e) => updateHoursForDay({
-                      ...getHoursForDay(selectedDay),
-                      notes: e.target.value
-                    })}
+                    value={selectedDays.length > 0 ? getHoursForDay(selectedDays[0]).notes : ''}
+                    onChange={(e) => updateHoursForDays(selectedDays, { notes: e.target.value })}
                     placeholder="Any special requirements or notes..."
                     rows={3}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all resize-none"
+                    disabled={selectedDays.length === 0}
                   />
                 </div>
               </div>
@@ -1832,57 +2048,66 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Update Status
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'confirmed')}
-                      className="px-4 py-2 bg-blue-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'confirmed'}
-                    >
-                      Accept
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
-                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'completed'}
-                    >
-                      Complete & Rate
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
-                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
-                      disabled={selectedBooking.status === 'cancelled'}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                  {selectedBooking.status === 'completed' && (
-                    <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Rating Status:</strong><br />
-                        Provider Rated: {selectedBooking.ratingStatus?.providerRated ? '✅' : '❌'}<br />
-                        Customer Rated: {selectedBooking.ratingStatus?.customerRated ? '✅' : '❌'}
-                      </p>
-                      {!selectedBooking.ratingStatus?.providerRated && (
-                        <button
-                          onClick={() => {
-                            setRatingBooking(selectedBooking);
-                            setRatingType('customer');
-                            setShowRatingModal(true);
-                            setShowBookingModal(false);
-                          }}
-                          className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
-                        >
-                          Rate Customer
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    Update Status
+  </label>
+  <div className="space-y-2">
+    <button 
+      onClick={() => {
+        console.log('Accept button clicked - verification status:', isUserVerified());
+        handleUpdateBookingStatus(selectedBooking._id, 'confirmed');
+      }}
+      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+        !isUserVerified() 
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+          : 'bg-green-600 text-white hover:bg-green-700'
+      }`}
+      disabled={!isUserVerified() || selectedBooking.status === 'confirmed' || selectedBooking.status === 'completed'}
+    >
+      {!isUserVerified() ? 'Verify Identity to Accept' : 'Accept Booking'}
+    </button>
+    
+    <button 
+      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
+      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+        !isUserVerified() 
+          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+          : 'bg-blue-600 text-white hover:bg-blue-700'
+      }`}
+      disabled={!isUserVerified() || selectedBooking.status === 'completed' || selectedBooking.status !== 'confirmed'}
+    >
+      {!isUserVerified() ? 'Verify Identity to Complete' : 'Complete & Rate'}
+    </button>
+    
+    <button 
+      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
+      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+      disabled={selectedBooking.status === 'cancelled'}
+    >
+      Cancel Booking
+    </button>
+  </div>
+  
+  {!isUserVerified() && (
+    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <p className="text-sm text-yellow-800 text-center">
+        <strong>Identity Verification Required</strong>
+      </p>
+      <button
+        onClick={() => {
+          setShowVerificationModal(true);
+          setShowBookingModal(false);
+        }}
+        className="w-full mt-2 px-4 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 font-medium"
+      >
+        {userVerification?.hasSubmittedVerification ? 'Verification Pending' : 'Start Verification'}
+      </button>
+    </div>
+  )}
+</div>
 
-                <div>
+
+                {/* <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Contact Customer
                   </label>
@@ -1902,13 +2127,13 @@ const Dashboard: React.FC = () => {
                       Call
                     </button>
                   </div>
-                </div>
+                </div> */}
               </div>
 
               <div className="p-6 sm:p-8 border-t border-gray-100">
                 <button
                   onClick={() => setShowBookingModal(false)}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-purple-600 text-white rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 font-semibold"
+                  className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-green-600 text-white rounded-xl sm:rounded-2xl hover:shadow-xl transition-all duration-200 font-semibold"
                 >
                   Close
                 </button>
@@ -1927,6 +2152,18 @@ const Dashboard: React.FC = () => {
           }}
           onSubmit={handleRatingSubmit}
           type={ratingType}
+        />
+
+        {/* Identity Verification Modal */}
+        <IdentityVerificationModal
+          isOpen={showVerificationModal}
+          onClose={() => {
+            setShowVerificationModal(false);
+            setPendingBookingAction(null);
+          }}
+          onVerify={handleIdentityVerify}
+          isSubmitting={isSubmittingVerification}
+          hasSubmittedVerification={userVerification?.hasSubmittedVerification || false}
         />
       </div>
     </div>

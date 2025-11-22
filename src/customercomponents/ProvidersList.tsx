@@ -474,7 +474,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   if (viewMode === 'list') {
     return (
       <div 
-        className="group bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-4 sm:p-6 overflow-hidden relative cursor-pointer"
+        className="group bg-white/90 backdrop-blur-md rounded-2xl border border-gray-200/50 hover:border-green-200/70 hover:shadow-2xl transition-all duration-500 p-4 sm:p-6 overflow-hidden relative cursor-pointer"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handleCardClick}
@@ -496,12 +496,12 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   className="flex items-center gap-2 mb-2 cursor-pointer"
                   onClick={handleViewProfile}
                 >
-                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 group-hover:text-green-600 transition-colors">
                     {provider.name}
                   </h3>
                   {provider.isVerified && (
-                    <div className="w-6 h-6 bg-blue-100 rounded-xl flex items-center justify-center">
-                      <Shield className="w-3 h-3 text-blue-600" />
+                    <div className="w-6 h-6 bg-green-100 rounded-xl flex items-center justify-center">
+                      <Shield className="w-3 h-3 text-green-600" />
                     </div>
                   )}
                   {provider.isTopRated && (
@@ -525,7 +525,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   {provider.services && provider.services.slice(0, 3).map((service, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 text-sm font-medium rounded-xl border border-blue-200/50"
+                      className="px-3 py-1 bg-gradient-to-r from-green-50 to-indigo-50 text-green-700 text-sm font-medium rounded-xl border border-green-200/50"
                     >
                       {service}
                     </span>
@@ -547,7 +547,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                     <MapPin className="w-4 h-4 text-gray-400" />
                     <span className="truncate">{locationText}</span>
                     {provider.distance && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg">
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
                         {formatDistance(provider.distance)}
                       </span>
                     )}
@@ -607,7 +607,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 {onMessage && (
                   <button 
                     onClick={handleMessageClick}
-                    className="p-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105 group"
+                    className="p-3 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-all duration-200 hover:scale-105 group"
                   >
                     <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
@@ -671,7 +671,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
           </div>
         </div>
 
-        <div className={`absolute inset-0 bg-gradient-to-r from-blue-600/5 via-purple-600/5 to-pink-600/5 rounded-2xl transition-opacity duration-500 pointer-events-none ${
+        <div className={`absolute inset-0 bg-gradient-to-r from-green-600/5 via-purple-600/5 to-pink-600/5 rounded-2xl transition-opacity duration-500 pointer-events-none ${
           isHovered ? 'opacity-100' : 'opacity-0'
         }`}></div>
       </div>
@@ -681,7 +681,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   // Grid View
   return (
     <div 
-      className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-blue-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative cursor-pointer"
+      className="group bg-white/90 backdrop-blur-md rounded-3xl border border-gray-200/50 hover:border-green-200/70 hover:shadow-2xl transition-all duration-500 p-6 overflow-hidden relative cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={handleCardClick}
@@ -702,11 +702,11 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
           
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+              <h3 className="text-lg font-bold text-gray-900 group-hover:text-green-600 transition-colors line-clamp-1">
                 {provider.name}
               </h3>
               {provider.isVerified && (
-                <Shield className="w-4 h-4 text-blue-500" />
+                <Shield className="w-4 h-4 text-green-500" />
               )}
               {provider.isTopRated && (
                 <Award className="w-4 h-4 text-amber-500" />

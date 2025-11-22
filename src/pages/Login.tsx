@@ -14,9 +14,9 @@ import {
   MessageSquare,
   CheckCircle,
   XCircle,
-  X
+  X,
 } from "lucide-react";
-import logo from '../../public/HHH.png';
+import logo from "../../public/HHH.png";
 
 interface FormData {
   name: string;
@@ -42,9 +42,11 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [currentStep, setCurrentStep] = useState<"signup" | "verify" | "complete">("signup");
+  const [currentStep, setCurrentStep] = useState<
+    "signup" | "verify" | "complete"
+  >("signup");
   const [showVerificationSuccess, setShowVerificationSuccess] = useState(false);
-  
+
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -54,49 +56,50 @@ const LoginPage = () => {
     country: "NIGERIA",
     phoneNumber: "",
   });
-  
+
   const [verificationData, setVerificationData] = useState<VerificationData>({
     token: "",
     phoneNumber: "",
     country: "",
   });
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
+  const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:3001";
 
   // Check for verification success and pre-populate form
   useEffect(() => {
-    const verified = searchParams.get('verified');
-    const email = searchParams.get('email');
-    const message = searchParams.get('message');
-    const error = searchParams.get('error');
-    
-    if (verified === 'true' && email) {
+    const verified = searchParams.get("verified");
+    const email = searchParams.get("email");
+    const message = searchParams.get("message");
+    const error = searchParams.get("error");
+
+    if (verified === "true" && email) {
       // Show verification success popup
       setShowVerificationSuccess(true);
-      
+
       // Pre-populate the email in the form
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        email: decodeURIComponent(email)
+        email: decodeURIComponent(email),
       }));
-      
+
       // Switch to login mode
       setIsLogin(true);
-      
+
       // Set success message
       if (message) {
         setSuccessMessage(decodeURIComponent(message));
       }
-      
+
       // Clean up URL parameters
       const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
+      window.history.replaceState({}, "", newUrl);
     }
-    
+
     if (message && !verified) {
       setSuccessMessage(decodeURIComponent(message));
     }
-    
+
     if (error) {
       setError(decodeURIComponent(error));
     }
@@ -110,9 +113,11 @@ const LoginPage = () => {
     CANADA: { code: "+1", length: 10, pattern: /^[0-9]{10}$/ },
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
-    
+
     if (name === "phoneNumber") {
       const cleanedValue = value.replace(/\D/g, "");
       setFormData({
@@ -125,12 +130,14 @@ const LoginPage = () => {
         [name]: value,
       });
     }
-    
+
     if (error) setError("");
     if (successMessage) setSuccessMessage("");
   };
 
-  const handleVerificationInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVerificationInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const { name, value } = e.target;
     setVerificationData({
       ...verificationData,
@@ -138,7 +145,10 @@ const LoginPage = () => {
     });
   };
 
-  const validatePhoneNumber = (phone: string, country: string): string | null => {
+  const validatePhoneNumber = (
+    phone: string,
+    country: string
+  ): string | null => {
     const countryInfo = countryData[country as keyof typeof countryData];
     if (!countryInfo) return "Invalid country selected";
 
@@ -155,40 +165,47 @@ const LoginPage = () => {
 
   const makeApiCall = async (endpoint: string, data: any) => {
     console.log(`🌐 Making API call to: ${API_BASE_URL}/api/auth/${endpoint}`);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/${endpoint}`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
       });
 
       const result = await response.json();
-      
+
       if (!response.ok) {
         console.error(`🔴 API Error Response:`, result);
-        
+
         if (result.errors && Array.isArray(result.errors)) {
-          const errorDetails = result.errors.map((err: any) => {
-            if (typeof err === 'string') return err;
-            return `${err.field || ''}: ${err.message || JSON.stringify(err)}`;
-          }).join(', ');
+          const errorDetails = result.errors
+            .map((err: any) => {
+              if (typeof err === "string") return err;
+              return `${err.field || ""}: ${
+                err.message || JSON.stringify(err)
+              }`;
+            })
+            .join(", ");
           throw new Error(`Validation failed: ${errorDetails}`);
         }
-        
-        const errorMessage = result.message || 
-                            result.error ||
-                            `HTTP ${response.status}: ${response.statusText}`;
+
+        const errorMessage =
+          result.message ||
+          result.error ||
+          `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
-      
+
       return result;
     } catch (error: any) {
-      console.error('🔴 API Call Error:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(`Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running.`);
+      console.error("🔴 API Call Error:", error);
+      if (error.name === "TypeError" && error.message.includes("fetch")) {
+        throw new Error(
+          `Cannot connect to server at ${API_BASE_URL}. Please check if the backend is running.`
+        );
       }
       throw error;
     }
@@ -203,7 +220,12 @@ const LoginPage = () => {
 
     try {
       // Validate form data
-      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.phoneNumber.trim()) {
+      if (
+        !formData.name.trim() ||
+        !formData.email.trim() ||
+        !formData.password.trim() ||
+        !formData.phoneNumber.trim()
+      ) {
         setError("Please fill in all required fields.");
         setIsLoading(false);
         return;
@@ -229,14 +251,17 @@ const LoginPage = () => {
       }
 
       // Validate phone number
-      const phoneError = validatePhoneNumber(formData.phoneNumber, formData.country);
+      const phoneError = validatePhoneNumber(
+        formData.phoneNumber,
+        formData.country
+      );
       if (phoneError) {
         setError(phoneError);
         setIsLoading(false);
         return;
       }
 
-      console.log('📝 Starting signup process for:', formData.email);
+      console.log("📝 Starting signup process for:", formData.email);
 
       // Complete signup with email verification
       const signupData = {
@@ -244,24 +269,26 @@ const LoginPage = () => {
         email: formData.email.toLowerCase().trim(),
         password: formData.password,
         confirmPassword: formData.confirmPassword,
-        userType: formData.userType || 'customer',
-        country: formData.country || 'NIGERIA',
-        phoneNumber: formData.phoneNumber
+        userType: formData.userType || "customer",
+        country: formData.country || "NIGERIA",
+        phoneNumber: formData.phoneNumber,
       };
 
-      console.log('📝 Sending signup data:', signupData);
+      console.log("📝 Sending signup data:", signupData);
 
-      const result = await makeApiCall('signup', signupData);
+      const result = await makeApiCall("signup", signupData);
 
       if (result.success) {
-        setSuccessMessage("Account created successfully! Please check your email for the verification link. You'll be redirected to login after verification.");
+        setSuccessMessage(
+          "Account created successfully! Please check your email for the verification link. You'll be redirected to login after verification."
+        );
         setCurrentStep("complete");
-        
+
         // Don't auto-login, wait for email verification
-        console.log('✅ Signup successful, waiting for email verification');
+        console.log("✅ Signup successful, waiting for email verification");
       }
     } catch (error: any) {
-      console.error('❌ Signup error:', error);
+      console.error("❌ Signup error:", error);
       setError(error.message || "Failed to create account. Please try again.");
     } finally {
       setIsLoading(false);
@@ -280,16 +307,21 @@ const LoginPage = () => {
         return;
       }
 
-      const result = await makeApiCall('resend-verification', {
-        email: formData.email.toLowerCase().trim()
+      const result = await makeApiCall("resend-verification", {
+        email: formData.email.toLowerCase().trim(),
       });
 
       if (result.success) {
-        setSuccessMessage("Verification email sent successfully! Please check your email.");
+        setSuccessMessage(
+          "Verification email sent successfully! Please check your email."
+        );
       }
     } catch (error: any) {
-      console.error('❌ Resend verification error:', error);
-      setError(error.message || "Failed to resend verification email. Please try again.");
+      console.error("❌ Resend verification error:", error);
+      setError(
+        error.message ||
+          "Failed to resend verification email. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -300,7 +332,9 @@ const LoginPage = () => {
     try {
       if (!formData.email.trim()) return;
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/verification-status/${formData.email.toLowerCase()}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/verification-status/${formData.email.toLowerCase()}`
+      );
       const result = await response.json();
 
       if (result.success && result.data.isEmailVerified) {
@@ -308,7 +342,7 @@ const LoginPage = () => {
         setCurrentStep("complete");
       }
     } catch (error) {
-      console.error('Error checking verification status:', error);
+      console.error("Error checking verification status:", error);
     }
   };
 
@@ -329,39 +363,46 @@ const LoginPage = () => {
       const loginData = {
         email: formData.email,
         password: formData.password,
-        userType: formData.userType || 'provider'
+        userType: formData.userType || "provider",
       };
 
-      console.log('🔐 Attempting login:', loginData);
+      console.log("🔐 Attempting login:", loginData);
 
-      const result = await makeApiCall('login', loginData);
+      const result = await makeApiCall("login", loginData);
 
       if (result.success) {
-        setSuccessMessage(`Login successful! Welcome back, ${result.data.user.name}!`);
-        
+        setSuccessMessage(
+          `Login successful! Welcome back, ${result.data.user.name}!`
+        );
+
         if (result.data.token) {
-          localStorage.setItem('authToken', result.data.token);
+          localStorage.setItem("authToken", result.data.token);
         }
-        localStorage.setItem('userData', JSON.stringify(result.data.user));
-        
+        localStorage.setItem("userData", JSON.stringify(result.data.user));
+
         setTimeout(() => {
-          if (result.data.user.userType === 'provider' || result.data.user.userType === 'both') {
-            navigate('/provider/dashboard');
+          if (
+            result.data.user.userType === "provider" ||
+            result.data.user.userType === "both"
+          ) {
+            navigate("/provider/dashboard");
           } else {
-            navigate('/customer');
+            navigate("/customer");
           }
         }, 1000);
       }
     } catch (error: any) {
-      console.error('❌ Login error:', error);
-      setError(error.message || 'Something went wrong. Please try again.');
+      console.error("❌ Login error:", error);
+      setError(error.message || "Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const getCurrentCountryCode = () => {
-    return countryData[formData.country as keyof typeof countryData]?.code || "+234";
+    return (
+      countryData[formData.country as keyof typeof countryData]?.code || "+234"
+    );
   };
 
   // Close verification success popup
@@ -379,7 +420,9 @@ const LoginPage = () => {
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-green-500" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Email Verified Successfully!</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Email Verified Successfully!
+              </h3>
               <p className="text-gray-600 mb-6">
                 Your email has been verified. You can now login to your account.
               </p>
@@ -400,23 +443,23 @@ const LoginPage = () => {
         {/* Left Side - Branding */}
         <div className="hidden lg:flex flex-col justify-center space-y-3 animate-fade-in-up">
           <div className="flex items-center space-x-1">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300">
-            <img 
-              src={logo} 
-              alt="HomeHeroes Logo" 
-              className="w-[50px] h-[50px] object-contain"
-            />
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center align-center hover:scale-110 transition-transform duration-300">
+              <img
+                src={logo}
+                alt="HomeHeroes Logo"
+                className="w-[50px] h-[50px]  object-contain"
+              />
             </div>
-<span className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">              Home Heroes
-            </span>
+            {/* <span className="text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
+              {" "}
+              Home Heroes
+            </span> */}
           </div>
 
           <div className="space-y-6">
             <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">
               Welcome to Your
-              <span className="block">
-                Home Services Hub
-              </span>
+              <span className="block">Home Services Hub</span>
             </h1>
             <p className="text-xl text-gray-600 leading-relaxed">
               Connect with trusted service providers today
@@ -464,11 +507,25 @@ const LoginPage = () => {
             {!isLogin && (
               <div className="flex justify-center mb-6">
                 <div className="flex items-center space-x-4">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "signup" ? "bg-green-600 text-white" : "bg-gray-300 text-gray-600"}`}>
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                      currentStep === "signup"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-300 text-gray-600"
+                    }`}
+                  >
                     1
                   </div>
                   <div className="w-12 h-1 bg-gray-300"></div>
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${currentStep === "verify" ? "bg-green-600 text-white" : currentStep === "complete" ? "bg-green-600 text-white" : "bg-gray-300 text-gray-600"}`}>
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                      currentStep === "verify"
+                        ? "bg-green-600 text-white"
+                        : currentStep === "complete"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-300 text-gray-600"
+                    }`}
+                  >
                     2
                   </div>
                 </div>
@@ -477,42 +534,50 @@ const LoginPage = () => {
 
             {/* Toggle Buttons */}
             <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
-  <button
-    onClick={() => {
-      setIsLogin(true);
-      setCurrentStep("signup");
-      setError("");
-      setSuccessMessage("");
-    }}
-    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
-      isLogin
-        ? "bg-white text-green-600 shadow-sm"
-        : "text-gray-600 hover:text-gray-900"
-    }`}
-  >
-    Sign In
-  </button>
+              <button
+                onClick={() => {
+                  setIsLogin(true);
+                  setCurrentStep("signup");
+                  setError("");
+                  setSuccessMessage("");
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                  isLogin
+                    ? "bg-white text-green-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Sign In
+              </button>
 
-  <button
-    onClick={() => {
-      setIsLogin(false);
-      setCurrentStep("signup");
-      setError("");
-      setSuccessMessage("");
-    }}
-    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
-      !isLogin
-        ? "bg-white text-green-600 shadow-sm"
-        : "text-gray-600 hover:text-gray-900"
-    }`}
-  >
-    Sign Up
-  </button>
-</div>
-
+              <button
+                onClick={() => {
+                  setIsLogin(false);
+                  setCurrentStep("signup");
+                  setError("");
+                  setSuccessMessage("");
+                }}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                  !isLogin
+                    ? "bg-white text-green-600 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
 
             {/* Form */}
-            <form onSubmit={isLogin ? handleLogin : (currentStep === "signup" ? handleSignup : (e) => e.preventDefault())} className="space-y-6">
+            <form
+              onSubmit={
+                isLogin
+                  ? handleLogin
+                  : currentStep === "signup"
+                  ? handleSignup
+                  : (e) => e.preventDefault()
+              }
+              className="space-y-6"
+            >
               {!isLogin && currentStep === "signup" && (
                 <>
                   <div className="animate-fade-in-up">
@@ -629,7 +694,9 @@ const LoginPage = () => {
                     <div className="relative">
                       <div className="flex">
                         <div className="flex items-center px-3 border border-r-0 border-gray-300 rounded-l-xl bg-gray-50">
-                          <span className="text-gray-600 text-sm">{getCurrentCountryCode()}</span>
+                          <span className="text-gray-600 text-sm">
+                            {getCurrentCountryCode()}
+                          </span>
                         </div>
                         <input
                           type="tel"
@@ -637,9 +704,17 @@ const LoginPage = () => {
                           value={formData.phoneNumber}
                           onChange={handleInputChange}
                           className="flex-1 pl-3 pr-4 py-3 border border-gray-300 rounded-r-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
-                          placeholder={`Enter your phone number (${countryData[formData.country as keyof typeof countryData]?.length || 10} digits)`}
+                          placeholder={`Enter your phone number (${
+                            countryData[
+                              formData.country as keyof typeof countryData
+                            ]?.length || 10
+                          } digits)`}
                           required
-                          maxLength={countryData[formData.country as keyof typeof countryData]?.length || 10}
+                          maxLength={
+                            countryData[
+                              formData.country as keyof typeof countryData
+                            ]?.length || 10
+                          }
                         />
                       </div>
                     </div>
@@ -655,8 +730,9 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                      
-                      <option value="provider">Provide Services (Provider)</option>
+                      <option value="provider">
+                        Provide Services (Provider)
+                      </option>
                       <option value="customer">Find Services (Customer)</option>
                       <option value="both">Both (Customer & Provider)</option>
                     </select>
@@ -669,10 +745,13 @@ const LoginPage = () => {
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="w-8 h-8 text-green-500" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Check Your Email!</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Check Your Email!
+                  </h3>
                   <p className="text-gray-600 mb-4">
-                    We've sent a verification link to <strong>{formData.email}</strong>. 
-                    Click the link in the email to verify your account.
+                    We've sent a verification link to{" "}
+                    <strong>{formData.email}</strong>. Click the link in the
+                    email to verify your account.
                   </p>
                   <div className="space-y-3">
                     <button
@@ -706,7 +785,6 @@ const LoginPage = () => {
               )}
 
               {isLogin && (
-
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -765,9 +843,8 @@ const LoginPage = () => {
                       onChange={handleInputChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-300 hover:border-gray-400"
                     >
-                     
                       <option value="provider">Service Provider</option>
-                       <option value="customer">Customer</option>
+                      <option value="customer">Customer</option>
                     </select>
                   </div>
 
@@ -812,14 +889,30 @@ const LoginPage = () => {
                 >
                   {isLoading ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Creating Account...
                     </>
                   ) : (
-                    'Create Account'
+                    "Create Account"
                   )}
                 </button>
               )}
@@ -832,14 +925,30 @@ const LoginPage = () => {
                 >
                   {isLoading ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      <svg
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
                       </svg>
                       Signing In...
                     </>
                   ) : (
-                    'Sign In'
+                    "Sign In"
                   )}
                 </button>
               )}

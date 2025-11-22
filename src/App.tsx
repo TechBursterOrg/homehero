@@ -10,6 +10,7 @@ import CustomerLogin from './customerpages/Login';
 import ServicesPage from './pages/ServicesPage';
 import HowItWorks from './components/HowItWorks';
 import HowItWorksPage from './pages/HowItWorksPage';
+import ContactUsPage from './pages/ContactUsPage';
 
 
 // Types
@@ -141,6 +142,14 @@ function App() {
             element={
               <PublicRoute>
                 <ServicesPage />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/contact-us" 
+            element={
+              <PublicRoute>
+                <ContactUsPage />
               </PublicRoute>
             } 
           />

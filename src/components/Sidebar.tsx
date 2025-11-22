@@ -11,7 +11,8 @@ import {
   LogOut,
   X,
   Image,
-  Bell
+  Bell,
+  Shield
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -48,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     total: 0
   });
   
-  const sidebarItems = [
+  const baseSidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/provider/dashboard' },
     { id: 'jobs', label: 'Jobs', icon: Briefcase, path: '/provider/jobs' },
     { id: 'schedule', label: 'Schedule', icon: Calendar, path: '/provider/schedule' },
@@ -58,6 +59,22 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'profile', label: 'Profile', icon: User, path: '/provider/profile' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/provider/settings' },
   ];
+
+  // Admin sidebar item - only shown to Peter
+  const adminSidebarItem = {
+    id: 'admin',
+    label: 'Admin Panel',
+    icon: Shield,
+    path: '/provider/verification'
+  };
+
+  // Check if user is Peter to show admin button
+  const isPeter = userProfile.name.toLowerCase().includes('peter vjj');
+
+  // Combine sidebar items - add admin item if user is Peter
+  const sidebarItems = isPeter 
+    ? [...baseSidebarItems, adminSidebarItem]
+    : baseSidebarItems;
 
   // Fetch user profile data
   const fetchUserProfile = async () => {
@@ -272,11 +289,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                   userProfile.userType === 'provider' 
                     ? 'bg-green-100 text-green-800' 
                     : userProfile.userType === 'both'
-                    ? 'bg-purple-100 text-purple-800'
+                    ? 'bg-green-100 text-green-800'
                     : 'bg-green-100 text-green-800'
                 }`}>
                   {userProfile.userType === 'both' ? 'Provider & Customer' : userProfile.userType}
                 </span>
+                {isPeter && (
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-100 text-green-800">
+                    Admin
+                  </span>
+                )}
                 {notificationCount.total > 0 && (
                   <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-medium animate-pulse">
                     {notificationCount.total} new
@@ -295,6 +317,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               const isActive = location.pathname === item.path;
               const hasBadge = shouldShowBadge(item.id);
               const badgeDisplay = getBadgeDisplay(item.id);
+              const isAdminItem = item.id === 'admin';
               
               return (
                 <Link
@@ -303,18 +326,24 @@ const Sidebar: React.FC<SidebarProps> = ({
                   onClick={handleLinkClick}
                   className={`group relative flex items-center space-x-4 px-4 py-3 rounded-xl transition-all duration-200 ${
                     isActive
-                      ? 'bg-gradient-to-r from-green-500 to-green-500 text-white shadow-lg transform scale-[1.02]'
+                      ? isAdminItem
+                        ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg transform scale-[1.02]'
+                        : 'bg-gradient-to-r from-green-500 to-green-500 text-white shadow-lg transform scale-[1.02]'
+                      : isAdminItem
+                      ? 'text-purple-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-purple-50 hover:text-purple-900 hover:shadow-md border border-purple-200'
                       : 'text-gray-600 hover:bg-gradient-to-r hover:from-green-50 hover:to-green-50 hover:text-gray-900 hover:shadow-md'
                   }`}
                 >
                   <IconComponent className={`w-5 h-5 transition-colors relative z-10 flex-shrink-0 ${
                     isActive 
                       ? 'text-white' 
+                      : isAdminItem
+                      ? 'text-purple-500 group-hover:text-purple-600'
                       : 'text-gray-400 group-hover:text-green-600'
                   }`} />
                   
                   <span className={`font-medium relative z-10 flex-1 ${
-                    isActive ? 'text-white' : 'text-gray-700'
+                    isActive ? 'text-white' : isAdminItem ? 'text-purple-700' : 'text-gray-700'
                   }`}>
                     {item.label}
                   </span>
@@ -323,10 +352,19 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {hasBadge && (
                     <span className={`relative z-10 text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center flex-shrink-0 ${
                       isActive
-                        ? 'bg-white text-green-600'
+                        ? isAdminItem
+                          ? 'bg-white text-purple-600'
+                          : 'bg-white text-green-600'
                         : 'bg-red-500 text-white animate-pulse'
                     }`}>
                       {badgeDisplay}
+                    </span>
+                  )}
+
+                  {/* Admin Badge */}
+                  {isAdminItem && !hasBadge && (
+                    <span className="relative z-10 text-xs font-bold px-2 py-1 rounded-full bg-purple-100 text-purple-600 flex-shrink-0">
+                      Admin
                     </span>
                   )}
                 </Link>
@@ -336,9 +374,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Quick Stats & Logout Section */}
-        <div className="p-4 border-t border-gray-200 bg-gradient-to-b from-white to-gray-50">
-          {/* Quick Stats */}
-          
+        <div className="p-4 border-t border-gray-200 ">
+          {/* Admin Notice for Peter */}
+          {/* {isPeter && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Shield className="w-4 h-4 text-green-600" />
+                <span className="text-xs text-green-700 font-medium">
+                  Admin Access
+                </span>
+              </div>
+              <p className="text-xs text-green-600 mt-1">
+                You can verify providers in the Admin Panel
+              </p>
+            </div>
+          )} */}
           
           {/* Logout Button */}
           <button 
@@ -350,9 +400,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <span className="font-medium group-hover:text-red-500 transition-colors flex-1 text-left">Sign Out</span>
           </button>
-          
-          {/* Version Info */}
-         
         </div>
       </div>
     </>

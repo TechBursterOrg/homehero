@@ -95,7 +95,7 @@ const PaymentStatus = ({ booking, onReleasePayment }: { booking: Booking; onRele
       },
       held: {
         icon: Shield,
-        color: 'blue',
+        color: 'green',
         title: 'Payment Held in Escrow',
         description: 'Funds are secured until service completion'
       },
@@ -168,7 +168,7 @@ const PaymentStatus = ({ booking, onReleasePayment }: { booking: Booking; onRele
           </p>
           
           {booking.payment.status === 'held' && booking.autoRefundAt && (
-            <p className="text-xs text-blue-600 mt-1">
+            <p className="text-xs text-green-600 mt-1">
               Auto-refund in {calculateTimeRemaining(booking.autoRefundAt)}
             </p>
           )}
@@ -197,8 +197,8 @@ const AcceptBookingButton = ({ booking, onAccept, loading = false }: {
   
   if (showConfirmation) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-sm text-blue-800 mb-2">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <p className="text-sm text-green-800 mb-2">
           Accept this {booking.serviceType} booking from {booking.customerName}?
         </p>
         <div className="flex gap-2">
@@ -306,7 +306,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
     
     switch (status) {
       case 'pending': return `${baseClasses} bg-yellow-100 text-yellow-800`;
-      case 'accepted': return `${baseClasses} bg-blue-100 text-blue-800`;
+      case 'accepted': return `${baseClasses} bg-green-100 text-green-800`;
       case 'awaiting_payment': return `${baseClasses} bg-orange-100 text-orange-800`;
       case 'confirmed': return `${baseClasses} bg-green-100 text-green-800`;
       case 'in-progress': return `${baseClasses} bg-purple-100 text-purple-800`;
@@ -486,7 +486,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
         <div className="flex flex-col sm:hidden space-y-4">
           {/* Header */}
           <div className="flex items-start gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-lg">
               {isCustomer ? getProviderInitials(booking.providerName) : 'C'}
             </div>
             
@@ -529,7 +529,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                           }}
                           className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded flex items-center gap-2"
                         >
-                          <Eye className="w-4 h-4 text-blue-600" />
+                          <Eye className="w-4 h-4 text-green-600" />
                           View Details
                         </button>
                         
@@ -574,9 +574,9 @@ const BookingCard: React.FC<BookingCardProps> = ({
           </div>
 
           {/* Date & Time with Price */}
-          <div className="bg-blue-50 rounded-lg p-3">
+          <div className="bg-gree-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-blue-700">
+              <div className="flex items-center gap-2 text-green-700">
                 <Calendar className="w-4 h-4" />
                 <span className="font-semibold text-sm">
                   {formatDateTime(booking.date, booking.time)}
@@ -624,7 +624,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => onContact(booking.id, 'message')}
-                className="p-2 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-lg transition-all duration-200"
+                className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
               >
                 <MessageCircle className="w-4 h-4" />
               </button>
@@ -681,7 +681,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <button
                   onClick={handleSeenProvider}
                   disabled={seenProviderLoading}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm disabled:opacity-50 flex items-center gap-2"
                 >
                   <UserCheck className="w-4 h-4" />
                   {seenProviderLoading ? 'Confirming...' : 'Seen Provider'}
@@ -705,7 +705,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
               {isCustomer && booking.status === 'pending' && !shouldShowPaymentButton && (
                 <button
                   onClick={() => onReschedule(booking.id)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold text-sm"
                 >
                   Reschedule
                 </button>
@@ -725,7 +725,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
         {/* Desktop Layout */}
         <div className="hidden sm:flex items-start gap-4">
-          <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+          <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
             {isCustomer ? getProviderInitials(booking.providerName) : 'C'}
           </div>
           
@@ -804,7 +804,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => onContact(booking.id, 'message')}
-                    className="p-3 bg-blue-100 text-blue-600 hover:bg-blue-200 rounded-lg transition-all duration-200"
+                    className="p-3 bg-gren-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
                   >
                     <MessageCircle className="w-5 h-5" />
                   </button>
@@ -862,7 +862,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   <button
                     onClick={handleSeenProvider}
                     disabled={seenProviderLoading}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 flex items-center gap-2"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold disabled:opacity-50 flex items-center gap-2"
                   >
                     <UserCheck className="w-4 h-4" />
                     {seenProviderLoading ? 'Confirming...' : 'Confirm Seen Provider'}
@@ -887,7 +887,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 {isCustomer && booking.status === 'pending' && !shouldShowPaymentButton && (
                   <button
                     onClick={() => onReschedule(booking.id)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
                   >
                     Reschedule Booking
                   </button>
@@ -945,7 +945,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Share your experience (optional)"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
               />
             </div>
             
@@ -959,7 +959,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
               <button
                 onClick={handleSubmitRating}
                 disabled={rating === 0}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Rating
               </button>

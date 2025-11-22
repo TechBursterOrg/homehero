@@ -20,25 +20,22 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo Section */}
-          <Link to="/" className="flex items-center space-x-1">
+          <Link to="/" className="flex items-center space-x-1 outline-none focus:outline-none">
             <img 
               src={logo} 
               alt="HomeHeroes Logo" 
               className="w-14 h-14 object-contain rounded-lg"
             />
-            {/* <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
-              Home Heroes
-            </span> */}
           </Link>
 
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2">
             <Link 
               to="/" 
               className={`${
                 isActive('/') 
                   ? 'text-green-600' 
                   : 'text-gray-700 hover:text-green-600'
-              } transition-colors font-medium`}
+              } transition-colors font-medium outline-none focus:outline-none`}
             >
               Home
             </Link>
@@ -48,7 +45,7 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
                 isActive('/services') 
                   ? 'text-green-600' 
                   : 'text-gray-700 hover:text-green-600'
-              } transition-colors font-medium`}
+              } transition-colors font-medium outline-none focus:outline-none`}
             >
               Services
             </Link>
@@ -58,36 +55,34 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
                 isActive('/how-it-works') 
                   ? 'text-green-600' 
                   : 'text-gray-700 hover:text-green-600'
-              } transition-colors font-medium`}
+              } transition-colors font-medium outline-none focus:outline-none`}
             >
               How It Works
             </Link>
-            {/* <Link 
-              to="/providers-login" 
-              className={`${
-                isActive('/providers-login') 
-                  ? 'text-green-600' 
-                  : 'text-gray-700 hover:text-green-600'
-              } transition-colors font-medium`}
-            >
-              Become a Provider
-            </Link> */}
-             <Link 
+            <Link 
+                to="/contact-us" 
+                className={`${
+                  isActive('/contact-us') 
+                    ? 'text-green-600' 
+                    : 'text-gray-700 hover:text-green-600'
+                } transition-colors font-medium outline-none focus:outline-none`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Contact Us
+              </Link>
+          </nav>
+
+          <div className="hidden md:flex items-center">
+            <Link 
               to="/login" 
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium outline-none focus:outline-none"
             >
               Find Services
             </Link>
-            {/* <Link 
-              to="/waitlist" 
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Join Waitlist
-            </Link> */}
-          </nav>
+          </div>
 
           <button
-            className="md:hidden"
+            className="md:hidden outline-none focus:outline-none"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -103,7 +98,7 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
                   isActive('/') 
                     ? 'text-green-600' 
                     : 'text-gray-700 hover:text-green-600'
-                } transition-colors`}
+                } transition-colors outline-none focus:outline-none`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Home
@@ -114,7 +109,7 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
                   isActive('/services') 
                     ? 'text-green-600' 
                     : 'text-gray-700 hover:text-green-600'
-                } transition-colors`}
+                } transition-colors outline-none focus:outline-none`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 Services
@@ -125,25 +120,25 @@ const Header: React.FC<HeaderProps> = ({ scrollY }) => {
                   isActive('/how-it-works') 
                     ? 'text-green-600' 
                     : 'text-gray-700 hover:text-green-600'
-                } transition-colors`}
+                } transition-colors outline-none focus:outline-none`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 How It Works
               </Link>
-              {/* <Link 
-                to="/providers" 
+              <Link 
+                to="/contact-us" 
                 className={`block px-3 py-2 ${
-                  isActive('/providers') 
+                  isActive('/contact-us') 
                     ? 'text-green-600' 
                     : 'text-gray-700 hover:text-green-600'
-                } transition-colors`}
+                } transition-colors outline-none focus:outline-none`}
                 onClick={() => setIsMenuOpen(false)}
               >
-                Become a Provider
-              </Link> */}
+                Contact Us
+              </Link>
               <Link 
                 to="/login" 
-                className="block w-full text-left bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                className="block w-full text-left bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors outline-none focus:outline-none"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Find Services

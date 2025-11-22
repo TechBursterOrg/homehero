@@ -285,7 +285,7 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
         </button>
         <button
           onClick={() => navigate('/login')}
-          className="mt-4 ml-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="mt-4 ml-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
         >
           Login Again
         </button>
@@ -300,7 +300,7 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-green-400 to-blue-600 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-green-400 to-green-600 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
         </div>
         
         <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -635,7 +635,7 @@ const JobsPage: React.FC<JobsPageProps> = ({ authToken, userId }) => {
                             ? 'bg-green-100 text-green-800'
                             : proposal.status === 'rejected'
                             ? 'bg-red-100 text-red-800'
-                            : 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
                         }`}>
                           {proposal.status}
                         </span>

@@ -10,6 +10,7 @@ import Earnings from './Earnings';
 import Profile from './Profile';
 import Settings from './Settings';
 import Gallery from './Gallery';
+import AdminVerificationPanel from '../pages/AdminVerificationPanel'
 
 // Types
 interface UserData {
@@ -76,6 +77,7 @@ const ProviderLayout: React.FC = () => {
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+<Route path="/verification" element={<AdminVerificationPanel />} />
             
             {/* Catch-all redirect to dashboard */}
             <Route path="*" element={<Navigate to="/provider/dashboard" replace />} />

@@ -348,7 +348,7 @@ const Earnings: React.FC = () => {
   const getPaymentMethodIcon = (method: string) => {
     switch (method) {
       case 'Credit Card':
-        return <CreditCard className="w-4 h-4 text-blue-500" />;
+        return <CreditCard className="w-4 h-4 text-green-500" />;
       case 'Bank Transfer':
         return <Wallet className="w-4 h-4 text-emerald-500" />;
       case 'Cash':
@@ -474,9 +474,9 @@ const Earnings: React.FC = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading earnings data...</p>
         </div>
       </div>
@@ -486,14 +486,14 @@ const Earnings: React.FC = () => {
   // Authentication error
   if (!authToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
-          <AlertCircleIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <AlertCircleIcon className="w-12 h-12 text-green-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Authentication Required</h3>
           <p className="text-gray-600 mb-4">Please log in to view your earnings.</p>
           <button
             onClick={handleLogin}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
           >
             Log In
           </button>
@@ -503,7 +503,7 @@ const Earnings: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         
         {/* Header */}
@@ -537,7 +537,7 @@ const Earnings: React.FC = () => {
                     onClick={() => handlePeriodChange(period)}
                     className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-xl sm:rounded-2xl font-medium transition-all duration-200 whitespace-nowrap ${
                       selectedPeriod === period
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                        ? 'bg-green-600 text-white shadow-lg shadow-green-200'
                         : 'bg-white/80 backdrop-blur-sm border border-gray-200 text-gray-700 hover:bg-white hover:shadow-md'
                     }`}
                   >
@@ -560,7 +560,7 @@ const Earnings: React.FC = () => {
                 <button 
                   onClick={handleExportData}
                   disabled={exportLoading || transactions.length === 0}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {exportLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -623,10 +623,10 @@ const Earnings: React.FC = () => {
 
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
                 <Calendar className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div className="text-blue-600">
+              <div className="text-green-600">
                 <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             </div>
@@ -634,7 +634,7 @@ const Earnings: React.FC = () => {
               <p className="text-xs sm:text-sm font-medium text-gray-600">{getPeriodLabel()}</p>
               <p className="text-2xl sm:text-3xl font-bold text-gray-900">₦{getCurrentPeriodAmount().toLocaleString()}</p>
               <div className="flex items-center gap-1 text-xs sm:text-sm">
-                <span className="text-blue-600 font-semibold">+{earningsData.growth}%</span>
+                <span className="text-green-600 font-semibold">+{earningsData.growth}%</span>
                 <span className="text-gray-500">growth</span>
               </div>
             </div>
@@ -660,10 +660,10 @@ const Earnings: React.FC = () => {
 
           <div className="group bg-white/80 backdrop-blur-sm p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
                 <Target className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
               </div>
-              <div className="text-purple-600">
+              <div className="text-green-600">
                 <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
             </div>

@@ -46,14 +46,21 @@ interface Job {
 }
 
 interface UserVerification {
-  isNinVerified: boolean;
-  isNepaVerified: boolean;
-  verificationStatus: string;
   hasSubmittedVerification: boolean;
-  userDetails?: {
-    fullName: string;
-    gender: string;
-    state: string;
+  verificationStatus: string;
+  isVerified: boolean;
+  details: {
+    ninVerified: boolean;
+    nepaVerified: boolean;
+    selfieVerified: boolean;
+    submittedAt: string;
+    reviewedAt: string;
+    notes: string;
+  };
+  requiredDocuments: {
+    nin: boolean;
+    selfie: boolean;
+    utilityBill: boolean;
   };
 }
 
@@ -68,10 +75,6 @@ const JobDetailsModal: React.FC<{
   userVerification: UserVerification | null;
 }> = ({ job, isOpen, onClose, onApply, userVerification }) => {
   if (!isOpen || !job) return null;
-
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
-  const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
-
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -215,7 +218,7 @@ const JobDetailsModal: React.FC<{
           </div>
 
           {/* Verification Notice */}
-          {job.status === 'pending' && !userVerification?.isNinVerified && (
+          {job.status === 'pending' && !userVerification?.isVerified && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-start space-x-3">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -246,7 +249,7 @@ const JobDetailsModal: React.FC<{
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
               >
                 <CheckCircle className="w-5 h-5 mr-2" />
-                {userVerification?.isNinVerified ? 'Apply Now' : 'Verify & Apply'}
+                {userVerification?.isVerified ? 'Apply Now' : 'Verify & Apply'}
               </button>
             )}
           </div>
@@ -281,7 +284,7 @@ const ProviderJobBoard: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
 
-  // Fetch user verification status
+  // Fetch user verification status - UPDATED ENDPOINT
   const fetchUserVerification = async () => {
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -291,7 +294,7 @@ const ProviderJobBoard: React.FC = () => {
       }
 
       console.log('Fetching verification status...');
-      const response = await fetch(`${API_BASE_URL}/api/auth/verification-status`, {
+      const response = await fetch(`${API_BASE_URL}/api/verification/status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -366,8 +369,8 @@ const ProviderJobBoard: React.FC = () => {
       console.log('HandleApply called for job:', jobId);
       console.log('User verification status:', userVerification);
       
-      // Check if user needs verification
-      if (!userVerification?.isNinVerified) {
+      // Check if user needs verification - UPDATED CHECK
+      if (!userVerification?.isVerified) {
         console.log('User needs verification, opening modal');
         setSelectedJobId(jobId);
         setShowVerificationModal(true);
@@ -412,66 +415,75 @@ const ProviderJobBoard: React.FC = () => {
     }
   };
 
-  // Updated to handle the new verification data structure
-  const handleIdentityVerify = async (verificationData: { 
-    nin: string; 
-    nepaBill: File | null;
-    selfie: File | null;
-    consent: boolean;
-  }) => {
-    console.log('HandleIdentityVerify called with:', verificationData);
-    setIsSubmittingVerification(true);
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const formData = new FormData();
+  // UPDATED: Use the new verification endpoint
+  // UPDATED: Use the correct verification endpoint
+const handleIdentityVerify = async (verificationData: { 
+  nin: string; 
+  nepaBill: File | null;
+  selfie: File | null;
+  consent: boolean;
+}) => {
+  console.log('HandleIdentityVerify called with:', verificationData);
+  setIsSubmittingVerification(true);
+  try {
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const formData = new FormData();
+    
+    formData.append('nin', verificationData.nin);
+    formData.append('consent', verificationData.consent.toString());
+    
+    if (verificationData.selfie) {
+      formData.append('selfie', verificationData.selfie);
+    }
+    
+    if (verificationData.nepaBill) {
+      formData.append('nepaBill', verificationData.nepaBill);
+    }
+
+    // ✅ CORRECT ENDPOINT - Use /api/verification/submit
+    const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type for FormData - browser will set it with boundary
+      },
+      body: formData,
+    });
+
+    if (response.ok) {
+      const result = await response.json();
       
-      formData.append('nin', verificationData.nin);
-      formData.append('consent', verificationData.consent.toString());
+      // Update user verification status
+      await fetchUserVerification(); // Refresh the status
       
-      if (verificationData.selfie) {
-        formData.append('selfie', verificationData.selfie);
+      setShowVerificationModal(false);
+      
+      // If there was a selected job, apply for it now
+      if (selectedJobId) {
+        await applyForJob(selectedJobId);
+        setSelectedJobId(null);
       }
       
-      if (verificationData.nepaBill) {
-        formData.append('nepaBill', verificationData.nepaBill);
-      }
-
-      // Use the new verification endpoint
-      const response = await fetch(`${API_BASE_URL}/api/verification/verify-identity`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type for FormData - browser will set it with boundary
-        },
-        body: formData,
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Update user verification status with the new data structure
-        setUserVerification(result.data);
-        
-        setShowVerificationModal(false);
-        
-        // If there was a selected job, apply for it now
-        if (selectedJobId) {
-          await applyForJob(selectedJobId);
-          setSelectedJobId(null);
-        }
-        
-        alert('Identity verified successfully! You can now apply for jobs.');
+      alert('Verification submitted successfully! Your documents will be reviewed.');
+    } else {
+      // Handle different HTTP status codes
+      if (response.status === 404) {
+        throw new Error('Verification endpoint not found. Please contact support.');
+      } else if (response.status === 500) {
+        throw new Error('Server error. Please try again later.');
       } else {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Verification failed');
+        throw new Error(errorData.message || 'Verification submission failed');
       }
-    } catch (error) {
-      console.error('Verification error:', error);
-      alert(error instanceof Error ? error.message : 'Verification failed. Please try again.');
-    } finally {
-      setIsSubmittingVerification(false);
     }
-  };
+  } catch (error) {
+    console.error('Verification error:', error);
+    alert(error instanceof Error ? error.message : 'Verification failed. Please try again.');
+    throw error; // Re-throw to let the modal handle the error
+  } finally {
+    setIsSubmittingVerification(false);
+  }
+};
 
   // View job details
   const handleViewDetails = (job: Job) => {
@@ -483,37 +495,34 @@ const ProviderJobBoard: React.FC = () => {
     if (!userVerification) return null;
 
     const status = userVerification.verificationStatus;
-    const isNinVerified = userVerification.isNinVerified;
-    const isNepaVerified = userVerification.isNepaVerified;
+    const isVerified = userVerification.isVerified;
 
     if (status === 'verified') {
-      if (isNepaVerified) {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <ShieldCheck className="w-3 h-3 mr-1" />
-            Fully Verified
-          </span>
-        );
-      } else {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            <Shield className="w-3 h-3 mr-1" />
-            Basic Verification
-          </span>
-        );
-      }
-    } else if (status === 'pending') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <ShieldCheck className="w-3 h-3 mr-1" />
+          Verified
+        </span>
+      );
+    } else if (status === 'pending_review' || status === 'submitted') {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
           <ShieldAlert className="w-3 h-3 mr-1" />
-          Verification Pending
+          Under Review
+        </span>
+      );
+    } else if (status === 'rejected') {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+          <ShieldAlert className="w-3 h-3 mr-1" />
+          Verification Failed
         </span>
       );
     } else {
       return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
           <ShieldAlert className="w-3 h-3 mr-1" />
-          Unverified
+          Not Verified
         </span>
       );
     }
@@ -586,7 +595,7 @@ const ProviderJobBoard: React.FC = () => {
           {userVerification && (
             <div className="flex items-center space-x-2">
               {getVerificationBadge()}
-              {!userVerification.isNinVerified && (
+              {!userVerification.isVerified && (
                 <button
                   onClick={() => {
                     console.log('Verify Now button clicked');
@@ -602,7 +611,7 @@ const ProviderJobBoard: React.FC = () => {
         </div>
 
         {/* Verification Info Banner */}
-        {userVerification && !userVerification.isNinVerified && (
+        {userVerification && !userVerification.isVerified && (
           <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center">
               <ShieldAlert className="w-5 h-5 text-yellow-600 mr-2" />

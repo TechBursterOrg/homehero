@@ -1077,31 +1077,43 @@ const BookingsPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-white" />
-                </div>
-                <h1 className="text-4xl font-bold text-gray-900">
-                  My Bookings
-                </h1>
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 rounded-3xl p-8 mb-7">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-72 h-72 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-green-400 to-blue-600 rounded-full blur-3xl transform translate-x-1/2 translate-y-1/2"></div>
+        </div>
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Calendar className="w-6 h-6 text-white" />
               </div>
-              <p className="text-gray-700 text-lg font-medium">
-                Manage your service appointments and track your booking history
-              </p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-emerald-800 to-teal-800 bg-clip-text text-transparent">
+                My Bookings
+              </h1>
             </div>
+            <p className="text-gray-700 text-lg font-medium max-w-md">
+             Manage your service appointments and track your booking history
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-3">
             
-            <button 
-              onClick={handleBookNewService}
-              className="bg-blue-600 text-white px-8 py-3 rounded-2xl hover:bg-blue-700 transition-colors flex items-center space-x-2 font-semibold"
+            
+            <button
+              
+              className="group bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg"
             >
-              <Plus className="w-5 h-5" />
-              <span>Book New Service</span>
+              <Plus className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+             <span>Book New Service</span>
             </button>
           </div>
         </div>
+        
+      </div>
+        
+       
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

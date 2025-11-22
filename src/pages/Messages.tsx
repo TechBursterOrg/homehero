@@ -253,11 +253,11 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
     if (message.isMe) {
       switch (message.status) {
         case 'sent':
-          return <Clock className="w-3 h-3 text-blue-300" />;
+          return <Clock className="w-3 h-3 text-green-300" />;
         case 'delivered':
-          return <Check className="w-3 h-3 text-blue-300" />;
+          return <Check className="w-3 h-3 text-green-300" />;
         case 'read':
-          return <CheckCheck className="w-3 h-3 text-blue-200" />;
+          return <CheckCheck className="w-3 h-3 text-green-200" />;
         default:
           return null;
       }
@@ -274,14 +274,14 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
     const alignment = getMessageAlignment(message);
     
     if (alignment === 'right') {
-      return 'bg-gradient-to-r from-blue-600 to-purple-600 text-white';
+      return 'bg-gradient-to-r from-green-600 to-green-600 text-white';
     } else {
       return 'bg-white/90 backdrop-blur-sm text-gray-900 border border-gray-200';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-green-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-[calc(100vh-200px)] flex">
           {/* Conversations List */}
@@ -297,7 +297,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                     placeholder="Search conversations..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                    className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                   />
                 </div>
               </div>
@@ -306,7 +306,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                 </div>
               ) : filteredConversations.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 px-4">
@@ -326,30 +326,30 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                         onClick={() => handleSelectConversation(conversation)}
                         className={`w-full p-4 rounded-2xl text-left transition-all duration-300 group ${
                           selectedConversation?._id === conversation._id 
-                            ? 'bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 shadow-sm' 
-                            : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 hover:shadow-sm'
+                            ? 'bg-gradient-to-r from-green-50 to-green-50 border border-green-200 shadow-sm' 
+                            : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-green-50 hover:shadow-sm'
                         }`}
                       >
                         <div className="flex items-start space-x-4">
                           <div className="relative flex-shrink-0">
                             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
-                              'bg-gradient-to-br from-blue-500 to-purple-600'
+                              'bg-gradient-to-br from-green-500 to-green-600'
                             }`}>
                               {otherParticipant?.name?.charAt(0) || 'U'}
                             </div>
                             <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
-                              'bg-blue-500'
+                              'bg-green-500'
                             }`}></div>
                           </div>
                           
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                                <h4 className="font-bold text-gray-900 group-hover:text-green-600 transition-colors truncate">
                                   {otherParticipant?.name || 'Unknown User'}
                                 </h4>
                                 <span className={`text-xs px-2 py-1 rounded-full ${
-                                  'bg-blue-100 text-blue-800'
+                                  'bg-green-100 text-green-800'
                                 }`}>
                                   Customer
                                 </span>
@@ -390,7 +390,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       
                       <div className="relative flex-shrink-0">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg ${
-                          'bg-gradient-to-br from-blue-500 to-purple-600'
+                          'bg-gradient-to-br from-green-500 to-green-600'
                         }`}>
                           {getOtherParticipant(selectedConversation)?.name?.charAt(0) || 'U'}
                         </div>
@@ -402,14 +402,14 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                             {getOtherParticipant(selectedConversation)?.name || 'Unknown User'}
                           </h3>
                           <span className={`text-xs px-2 py-1 rounded-full ${
-                            'bg-blue-100 text-blue-800'
+                            'bg-green-100 text-green-800'
                           }`}>
                             Customer
                           </span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <span className={`w-2 h-2 rounded-full ${
-                            'bg-blue-500'
+                            'bg-green-500'
                           }`}></span>
                           <span>Online</span>
                         </div>
@@ -420,7 +420,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       <button className="w-12 h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200">
                         <Phone className="w-5 h-5" />
                       </button>
-                      <button className="w-12 h-12 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-2xl flex items-center justify-center transition-all duration-200">
+                      <button className="w-12 h-12 bg-green-100 hover:bg-green-200 text-green-600 rounded-2xl flex items-center justify-center transition-all duration-200">
                         <Video className="w-5 h-5" />
                       </button>
                     </div>
@@ -428,10 +428,10 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                 </div>
 
                 {/* Messages Area - SIMPLE ALIGNMENT */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-white/30 to-green-50/30">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
                     </div>
                   ) : messages.length === 0 ? (
                     <div className="text-center py-12 text-gray-500">
@@ -489,7 +489,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50 transition-all duration-200"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-gray-50 transition-all duration-200"
                         disabled={sending}
                       />
                     </div>
@@ -499,7 +499,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       disabled={!newMessage.trim() || sending}
                       className={`w-12 h-12 rounded-2xl transition-all duration-200 flex items-center justify-center ${
                         newMessage.trim() && !sending
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-110'
+                          ? 'bg-gradient-to-r from-green-600 to-green-600 text-white hover:scale-110'
                           : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                       }`}
                     >
@@ -509,7 +509,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                 </div>
               </>
             ) : (
-              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-100">
+              <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100">
                 <div className="text-center">
                   <MessageSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-bold text-gray-900 mb-2">Select a Conversation</h3>

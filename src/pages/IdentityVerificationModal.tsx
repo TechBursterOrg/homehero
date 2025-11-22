@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Upload, FileText, CheckCircle, AlertCircle, Loader, Camera, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, FileText, CheckCircle, AlertCircle, Loader, Camera, User, Shield } from 'lucide-react';
 
 interface IdentityVerificationModalProps {
   isOpen: boolean;
@@ -11,6 +11,8 @@ interface IdentityVerificationModalProps {
     consent: boolean;
   }) => Promise<void>;
   isSubmitting?: boolean;
+  showStatus?: boolean;
+  hasSubmittedVerification?: boolean
 }
 
 interface FormData {
@@ -20,22 +22,12 @@ interface FormData {
   consent: boolean;
 }
 
-interface NINValidationResult {
-  isValid: boolean;
-  error?: string;
-  details?: {
-    state: string;
-    gender: string;
-    fullName?: string;
-    photoUrl?: string;
-  };
-}
-
 const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({ 
   isOpen, 
   onClose, 
   onVerify, 
-  isSubmitting = false 
+  isSubmitting = false,
+  showStatus = true
 }) => {
   const [formData, setFormData] = useState<FormData>({
     nin: '',
@@ -44,158 +36,47 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
     consent: false
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [validationResult, setValidationResult] = useState<NINValidationResult | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [nepaBillPreview, setNepaBillPreview] = useState<string | null>(null);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
+  const [ninValid, setNinValid] = useState(false);
 
-  const handleNINChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Reset form when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ nin: '', nepaBill: null, selfie: null, consent: false });
+      setErrors({});
+      setNinValid(false);
+      setSelfiePreview(null);
+      setNepaBillPreview(null);
+    }
+  }, [isOpen]);
+
+  const handleNINChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value.replace(/\D/g, '');
     setFormData(prev => ({ ...prev, nin: value }));
-    
-    setValidationResult(null);
     
     if (errors.nin) {
       setErrors(prev => ({ ...prev, nin: '' }));
     }
 
     if (value.length === 11) {
-      await validateNINWithDojah(value);
+      const isValid = /^\d{11}$/.test(value);
+      setNinValid(isValid);
+      if (!isValid) {
+        setErrors(prev => ({ ...prev, nin: 'NIN must contain only numbers' }));
+      } else {
+        setErrors(prev => ({ ...prev, nin: '' }));
+      }
     } else if (value.length > 0 && value.length < 11) {
       setErrors(prev => ({ 
         ...prev, 
         nin: `NIN must be 11 digits (${value.length}/11)`
       }));
+      setNinValid(false);
+    } else {
+      setNinValid(false);
     }
-  };
-
-  const handleVerifyIdentity = async (verificationData: {
-    nin: string;
-    nepaBill: File | null;
-    selfie: File | null;
-    consent: boolean;
-  }) => {
-    setIsSubmittingVerification(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('nin', verificationData.nin);
-      formData.append('consent', verificationData.consent.toString());
-      
-      if (verificationData.selfie) {
-        formData.append('selfie', verificationData.selfie);
-      }
-      
-      if (verificationData.nepaBill) {
-        formData.append('nepaBill', verificationData.nepaBill);
-      }
-
-      const response = await fetch('/api/verification/verify-nin-selfie', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: formData
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        // Handle successful verification
-        console.log('Verification successful:', result.data);
-        setIsVerificationModalOpen(false);
-        // Show success message or update UI
-      } else {
-        throw new Error(result.message || 'Verification failed');
-      }
-    } catch (error) {
-      console.error('Verification error:', error);
-      throw error;
-    } finally {
-      setIsSubmittingVerification(false);
-    }
-  };
-
-  const validateNINWithDojah = async (nin: string) => {
-    setIsValidating(true);
-    try {
-      // Basic format validation first
-      const basicValidation = validateNINFormat(nin);
-      if (!basicValidation.isValid) {
-        setValidationResult(basicValidation);
-        setErrors(prev => ({ ...prev, nin: basicValidation.error! }));
-        return;
-      }
-
-      // Call backend to verify with Dojah
-      const response = await fetch('/api/verification/verify-nin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ nin })
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        setValidationResult({
-          isValid: true,
-          details: {
-            state: result.data.state || 'Unknown',
-            gender: result.data.gender || 'Unknown',
-            fullName: result.data.full_name,
-          }
-        });
-        setErrors(prev => ({ ...prev, nin: '' }));
-      } else {
-        setValidationResult({
-          isValid: false,
-          error: result.message || 'NIN verification failed'
-        });
-        setErrors(prev => ({ ...prev, nin: result.message || 'NIN verification failed' }));
-      }
-    } catch (error) {
-      console.error('NIN validation error:', error);
-      setValidationResult({
-        isValid: false,
-        error: 'Verification service unavailable. Please try again.'
-      });
-      setErrors(prev => ({ 
-        ...prev, 
-        nin: 'Verification service unavailable. Please try again.' 
-      }));
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const validateNINFormat = (nin: string): NINValidationResult => {
-    const cleanNIN = nin.replace(/\D/g, '');
-    
-    if (cleanNIN.length !== 11) {
-      return {
-        isValid: false,
-        error: 'NIN must be exactly 11 digits'
-      };
-    }
-
-    if (!/^\d{11}$/.test(cleanNIN)) {
-      return {
-        isValid: false,
-        error: 'NIN must contain only numbers'
-      };
-    }
-
-    return {
-      isValid: true,
-      details: {
-        state: 'Verifying...',
-        gender: 'Verifying...'
-      }
-    };
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fileType: 'nepaBill' | 'selfie') => {
@@ -231,14 +112,16 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
       setFormData(prev => ({ ...prev, [fileType]: file }));
       setErrors(prev => ({ ...prev, [fileType]: '' }));
 
-      // Create preview for selfie
-      if (fileType === 'selfie') {
-        const reader = new FileReader();
-        reader.onload = (e) => {
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (fileType === 'selfie') {
           setSelfiePreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
+        } else {
+          setNepaBillPreview(e.target?.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -248,6 +131,8 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
     
     if (fileType === 'selfie') {
       setSelfiePreview(null);
+    } else {
+      setNepaBillPreview(null);
     }
   };
 
@@ -261,21 +146,18 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    // NIN validation
     if (!formData.nin.trim()) {
       newErrors.nin = 'NIN is required';
     } else if (formData.nin.length !== 11) {
       newErrors.nin = 'NIN must be exactly 11 digits';
-    } else if (validationResult && !validationResult.isValid) {
-      newErrors.nin = validationResult.error || 'Invalid NIN';
+    } else if (!ninValid) {
+      newErrors.nin = 'Please enter a valid NIN';
     }
 
-    // Selfie validation
     if (!formData.selfie) {
       newErrors.selfie = 'Selfie photo is required for verification';
     }
 
-    // Consent validation
     if (!formData.consent) {
       newErrors.consent = 'You must consent to identity verification';
     }
@@ -289,6 +171,7 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
     
     if (!validateForm()) return;
 
+    setIsSubmittingVerification(true);
     try {
       await onVerify(formData);
     } catch (error) {
@@ -297,15 +180,18 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
         ...prev, 
         submit: error instanceof Error ? error.message : 'Failed to submit verification. Please try again.' 
       }));
+    } finally {
+      setIsSubmittingVerification(false);
     }
   };
 
   const handleClose = () => {
-    if (!isSubmitting) {
+    if (!isSubmitting && !isSubmittingVerification) {
       setFormData({ nin: '', nepaBill: null, selfie: null, consent: false });
       setErrors({});
-      setValidationResult(null);
+      setNinValid(false);
       setSelfiePreview(null);
+      setNepaBillPreview(null);
       onClose();
     }
   };
@@ -321,7 +207,7 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
           <button
             onClick={handleClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSubmittingVerification}
             type="button"
           >
             <X className="w-6 h-6" />
@@ -343,11 +229,11 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
               <div className="flex items-start">
                 <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
                 <div>
-                  <p className="text-sm text-blue-800 font-medium">Enhanced Verification Required</p>
+                  <p className="text-sm text-blue-800 font-medium">Document Requirements</p>
                   <ul className="text-xs text-blue-700 mt-1 space-y-1">
-                    <li>• <strong>NIN + Selfie:</strong> Required for job applications</li>
-                    <li>• <strong>Utility Bill:</strong> Optional but increases trust score</li>
-                    <li>• <strong>Real-time Verification:</strong> We verify with official databases</li>
+                    <li>• <strong>NIN:</strong> 11-digit National Identification Number</li>
+                    <li>• <strong>Selfie:</strong> Clear photo for identity confirmation</li>
+                    <li>• <strong>Utility Bill:</strong> Optional for address verification</li>
                   </ul>
                 </div>
               </div>
@@ -370,16 +256,11 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                   placeholder="Enter your 11-digit NIN"
                   className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                     errors.nin ? 'border-red-300' : 
-                    validationResult?.isValid ? 'border-green-300' : 'border-gray-300'
+                    ninValid ? 'border-green-300' : 'border-gray-300'
                   } pr-10`}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSubmittingVerification}
                 />
-                {isValidating && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <Loader className="w-4 h-4 text-gray-400 animate-spin" />
-                  </div>
-                )}
-                {validationResult?.isValid && !isValidating && (
+                {ninValid && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
                   </div>
@@ -393,16 +274,11 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                 </p>
               )}
               
-              {validationResult?.isValid && validationResult.details && (
+              {ninValid && (
                 <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                  <p className="text-green-800 font-medium">✓ NIN Verified Successfully</p>
-                  {validationResult.details.fullName && (
-                    <p className="text-green-700">
-                      {validationResult.details.fullName}
-                    </p>
-                  )}
+                  <p className="text-green-800 font-medium">✓ NIN Format Valid</p>
                   <p className="text-green-600 text-xs mt-1">
-                    Verified with official database
+                    Your NIN will be saved for verification
                   </p>
                 </div>
               )}
@@ -423,13 +299,13 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                     accept="image/*"
                     capture="user"
                     className="hidden"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSubmittingVerification}
                   />
                   <label htmlFor="selfie" className="cursor-pointer block">
                     <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600">Take a clear selfie photo</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Required for face verification • Max 5MB
+                      Required for identity confirmation • Max 5MB
                     </p>
                     <p className="text-xs text-blue-600 mt-2">
                       📱 Use camera for best results
@@ -457,7 +333,7 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                       type="button"
                       onClick={() => removeFile('selfie')}
                       className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isSubmittingVerification}
                     >
                       Retake
                     </button>
@@ -473,14 +349,14 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
               )}
               
               <p className="text-xs text-gray-500 mt-1">
-                Take a clear selfie for face matching with your NIN record
+                Take a clear selfie for identity confirmation
               </p>
             </div>
 
             {/* Utility Bill Field */}
             <div>
               <label htmlFor="nepaBill" className="block text-sm font-medium text-gray-700 mb-1">
-                Utility Bill (Optional - Increases Trust Score)
+                Utility Bill (Optional - For Address Verification)
               </label>
               
               {!formData.nepaBill ? (
@@ -491,7 +367,7 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                     onChange={(e) => handleFileChange(e, 'nepaBill')}
                     accept=".jpg,.jpeg,.png,.pdf"
                     className="hidden"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isSubmittingVerification}
                   />
                   <label htmlFor="nepaBill" className="cursor-pointer block">
                     <Upload className="w-6 h-6 text-gray-400 mx-auto mb-1" />
@@ -503,7 +379,15 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                 <div className="border border-blue-200 bg-blue-50 rounded-lg p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                      <FileText className="w-4 h-4 text-blue-600 mr-2" />
+                      {nepaBillPreview && nepaBillPreview.startsWith('data:image/') ? (
+                        <img 
+                          src={nepaBillPreview} 
+                          alt="Utility bill preview" 
+                          className="w-8 h-8 object-cover rounded mr-2"
+                        />
+                      ) : (
+                        <FileText className="w-4 h-4 text-blue-600 mr-2" />
+                      )}
                       <span className="text-sm font-medium text-blue-800">
                         {formData.nepaBill.name}
                       </span>
@@ -512,7 +396,7 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                       type="button"
                       onClick={() => removeFile('nepaBill')}
                       className="text-red-600 hover:text-red-800 text-sm font-medium"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isSubmittingVerification}
                     >
                       Remove
                     </button>
@@ -537,13 +421,13 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                   checked={formData.consent}
                   onChange={handleConsentChange}
                   className="mt-1 mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isSubmittingVerification}
                 />
                 <label htmlFor="consent" className="text-sm text-gray-700">
                   <span className="font-medium">I consent to identity verification</span>
                   <p className="text-xs text-gray-600 mt-1">
-                    I authorize HomeHeroes to verify my NIN with official databases for the purpose of service provider verification. 
-                    I understand this information is encrypted and stored securely in compliance with NDPR regulations.
+                    I authorize HomeHeroes to store my verification documents for provider verification purposes. 
+                    I understand this information is encrypted and stored securely in compliance with data protection regulations.
                   </p>
                 </label>
               </div>
@@ -571,23 +455,22 @@ const IdentityVerificationModal: React.FC<IdentityVerificationModalProps> = ({
                 type="button"
                 onClick={handleClose}
                 className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSubmittingVerification}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting || !formData.nin || !validationResult?.isValid || !formData.selfie || !formData.consent}
+                disabled={isSubmitting || isSubmittingVerification || !formData.nin || !ninValid || !formData.selfie || !formData.consent}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                onClick={() => setIsVerificationModalOpen(true)}
               >
-                {isSubmitting ? (
+                {isSubmitting || isSubmittingVerification ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Verifying...
+                    <Loader className="w-4 h-4 text-white mr-2 animate-spin" />
+                    Saving...
                   </>
                 ) : (
-                  'Verify Identity'
+                  'Save Verification'
                 )}
               </button>
             </div>

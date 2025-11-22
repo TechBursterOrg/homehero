@@ -341,9 +341,9 @@ const GalleryPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <Loader className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading gallery...</p>
           <p className="text-sm text-gray-500 mt-2">{API_BASE_URL}</p>
         </div>
@@ -353,12 +353,12 @@ const GalleryPage = () => {
 
   if (error && error.includes('Cannot connect')) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center max-w-md mx-4">
           <AlertCircle className="w-16 h-16 text-red-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold mb-2">Connection Error</h3>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button onClick={fetchGalleryImages} className="bg-blue-600 text-white px-6 py-3 rounded-lg">
+          <button onClick={fetchGalleryImages} className="bg-green-600 text-white px-6 py-3 rounded-lg">
             Try Again
           </button>
         </div>
@@ -367,11 +367,11 @@ const GalleryPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 py-8">
         
         <div className="mb-8 flex items-center gap-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
+          <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center">
             <Images className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -389,11 +389,11 @@ const GalleryPage = () => {
                 placeholder="Search projects..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 bg-gray-50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-12 pr-4 py-4 bg-gray-50 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
 
-            <button onClick={() => setShowUploadModal(true)} className="bg-blue-600 text-white px-6 py-4 rounded-2xl hover:bg-blue-700 flex items-center gap-2">
+            <button onClick={() => setShowUploadModal(true)} className="bg-green-600 text-white px-6 py-4 rounded-2xl hover:bg-green-700 flex items-center gap-2">
               <Plus className="w-5 h-5" />
               Add Image
             </button>
@@ -526,7 +526,7 @@ const GalleryPage = () => {
                 
                 <div className="flex gap-3">
                   <button onClick={() => setShowUploadModal(false)} className="flex-1 bg-gray-200 px-6 py-3 rounded-lg">Cancel</button>
-                  <button onClick={handleUploadSubmit} disabled={uploading} className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg disabled:opacity-50">
+                  <button onClick={handleUploadSubmit} disabled={uploading} className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg disabled:opacity-50">
                     {uploading ? 'Uploading...' : 'Upload'}
                   </button>
                 </div>
@@ -549,7 +549,7 @@ const GalleryPage = () => {
                 <p className="text-gray-700 mb-6">{selectedImage.description}</p>
                 <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
                   <div className="text-center">
-                    <Eye className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+                    <Eye className="w-5 h-5 mx-auto mb-1 text-green-600" />
                     <p className="font-medium">{selectedImage.views || 0}</p>
                     <p className="text-xs text-gray-500">Views</p>
                   </div>

@@ -298,7 +298,7 @@ const ProviderBankAccount = () => {
   // Show message if user is not a provider
   if (userType && !userType.includes('provider')) {
     return (
-      <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-blue-200">
+      <div className="p-6 bg-gradient-to-br from-green-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-green-200">
         <h2 className="text-2xl font-bold mb-6">Bank Account Settings</h2>
         <div className="bg-red-50 p-4 rounded-lg">
           <p className="text-red-800">
@@ -310,7 +310,7 @@ const ProviderBankAccount = () => {
   }
 
   return (
-    <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-blue-200">
+    <div className="p-6 bg-gradient-to-br from-green-50 to-indigo-50 rounded-xl lg:rounded-2xl border border-green-200">
       <h2 className="text-2xl font-bold mb-6">Bank Account Settings</h2>
       
       {existingAccount ? (
@@ -338,7 +338,7 @@ const ProviderBankAccount = () => {
           <select
             value={bankDetails.bankCode}
             onChange={handleBankChange}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+            className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
             required
           >
             <option value="">Choose a bank</option>
@@ -360,7 +360,7 @@ const ProviderBankAccount = () => {
               value={bankDetails.accountNumber}
               onChange={handleAccountNumberChange}
               placeholder="10-digit account number"
-              className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full border border-gray-300 rounded-md p-2 focus:ring-green-500 focus:border-green-500"
               maxLength={10}
               required
             />
@@ -368,7 +368,7 @@ const ProviderBankAccount = () => {
               type="button"
               onClick={handleAccountVerification}
               disabled={verifying || !bankDetails.accountNumber || !bankDetails.bankCode}
-              className="mt-1 px-4 py-2 bg-blue-600 text-white rounded-md disabled:opacity-50 whitespace-nowrap"
+              className="mt-1 px-4 py-2 bg-green-600 text-white rounded-md disabled:opacity-50 whitespace-nowrap"
             >
               {verifying ? 'Verifying...' : 'Verify'}
             </button>
@@ -398,7 +398,7 @@ const ProviderBankAccount = () => {
           <button
             type="submit"
             disabled={loading || !bankDetails.accountName}
-            className="w-full bg-blue-600 text-white px-4 py-3 rounded-md disabled:opacity-50 font-medium hover:bg-blue-700 transition-colors"
+            className="w-full bg-green-600 text-white px-4 py-3 rounded-md disabled:opacity-50 font-medium hover:bg-green-700 transition-colors"
           >
             {loading ? 'Adding Bank Account...' : 'Save Bank Account'}
           </button>
@@ -497,16 +497,16 @@ const Settings: React.FC = () => {
       id: "general",
       label: "General",
       icon: SettingsIcon,
-      color: "from-blue-500 to-indigo-600",
-      bgColor: "from-blue-50 to-indigo-50",
+      color: "from-blue-500 to-green-600",
+      bgColor: "from-green-50 to-green-50",
       description: "App preferences & display",
     },
     {
       id: "notifications",
       label: "Notifications",
       icon: Bell,
-      color: "from-purple-500 to-pink-600",
-      bgColor: "from-purple-50 to-pink-50",
+      color: "from-green-500 to-pink-600",
+      bgColor: "from-green-50 to-green-50",
       description: "Alerts & communications",
     },
     {
@@ -537,8 +537,8 @@ const Settings: React.FC = () => {
       id: "account",
       label: "Account",
       icon: User,
-      color: "from-purple-500 to-blue-600",
-      bgColor: "from-purple-50 to-blue-50",
+      color: "from-green-500 to-green-600",
+      bgColor: "from-green-50 to-green-50",
       description: "Personal information",
     },
   ];
@@ -1046,9 +1046,9 @@ const Settings: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading settings...</p>
         </div>
       </div>
@@ -1056,14 +1056,14 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
         {/* Header */}
         <div className="mb-6 lg:mb-8">
           <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl sm:rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-indigo-500 to-green-600 rounded-xl sm:rounded-2xl lg:rounded-3xl flex items-center justify-center shadow-lg flex-shrink-0">
                   <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-white" />
                 </div>
                 <div className="min-w-0">
@@ -1248,9 +1248,9 @@ const Settings: React.FC = () => {
                           </select>
                         </div>
 
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
+                        <div className="bg-gradient-to-br from-green-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-green-200">
                           <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-pink-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
                               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                             </div>
                             <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
@@ -1260,7 +1260,7 @@ const Settings: React.FC = () => {
                           <select 
                             value={generalSettings.timeZone}
                             onChange={(e) => setGeneralSettings(prev => ({...prev, timeZone: e.target.value}))}
-                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm sm:text-base"
+                            className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-green-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-sm sm:text-base"
                           >
                             <option value="America/New_York">🕐 Eastern Time (ET)</option>
                             <option value="America/Chicago">🕑 Central Time (CT)</option>
@@ -1283,14 +1283,12 @@ const Settings: React.FC = () => {
                             onChange={(e) => setGeneralSettings(prev => ({...prev, currency: e.target.value}))}
                             className="w-full p-3 sm:p-3 bg-white/80 backdrop-blur-sm border border-blue-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm sm:text-base"
                           >
-                            <option value="USD">💵 US Dollar (USD)</option>
-                            <option value="EUR">💶 Euro (EUR)</option>
-                            <option value="GBP">💷 British Pound (GBP)</option>
+                            
                             <option value="NGN">🇳🇬 Nigerian Naira (NGN)</option>
                           </select>
                         </div>
 
-                        <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-orange-200">
+                        {/* <div className="bg-gradient-to-br from-orange-50 to-red-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-orange-200">
                           <div className="flex items-center gap-3 mb-3 sm:mb-4">
                             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg sm:rounded-2xl flex items-center justify-center flex-shrink-0">
                               <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -1308,7 +1306,7 @@ const Settings: React.FC = () => {
                             <option value="dark">🌙 Dark</option>
                             <option value="auto">⚙️ Auto</option>
                           </select>
-                        </div>
+                        </div> */}
                       </div>
 
                       <div className="flex justify-end">
@@ -1327,9 +1325,9 @@ const Settings: React.FC = () => {
                   {activeSection === "notifications" && (
                     <div className="space-y-6 lg:space-y-8">
                       {/* Delivery Methods */}
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
+                      <div className="bg-gradient-to-br from-green-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-green-200">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
                             <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
                           <div className="min-w-0">
@@ -1442,7 +1440,7 @@ const Settings: React.FC = () => {
                               label: "Payment Updates",
                               description: "Get notified about payment confirmations and issues",
                               icon: CreditCard,
-                              color: "from-purple-500 to-pink-600",
+                              color: "from-green-500 to-pink-600",
                             },
                             {
                               key: "reminders",
@@ -1604,9 +1602,9 @@ const Settings: React.FC = () => {
                       </div>
 
                       {/* Two-Factor Authentication */}
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
+                      <div className="bg-gradient-to-br from-green-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-green-200">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
                             <Key className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
                           <div className="min-w-0">
@@ -1646,7 +1644,7 @@ const Settings: React.FC = () => {
                               className={`w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg sm:rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 font-medium text-sm ${
                                 securityData.twoFactorEnabled
                                   ? 'bg-gray-600 text-white'
-                                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
+                                  : 'bg-gradient-to-r from-green-600 to-pink-600 text-white'
                               }`}
                             >
                               {securityData.twoFactorEnabled ? 'Disable' : 'Enable'}
@@ -1742,7 +1740,7 @@ const Settings: React.FC = () => {
                           <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-lg sm:rounded-xl border border-white/50">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                               <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                                <div className="w-12 h-8 sm:w-16 sm:h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0">
+                                <div className="w-12 h-8 sm:w-16 sm:h-10 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0">
                                   <span className="text-white font-bold text-xs">BANK</span>
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -1934,9 +1932,9 @@ const Settings: React.FC = () => {
                       </div>
 
                       {/* Working Hours */}
-                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200">
+                      <div className="bg-gradient-to-br from-green-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-green-200">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4 sm:mb-6">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
                             <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                           </div>
                           <div className="min-w-0">
@@ -1961,7 +1959,7 @@ const Settings: React.FC = () => {
                                 ...prev,
                                 workingHours: {...prev.workingHours, start: e.target.value}
                               }))}
-                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm"
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-sm"
                             />
                           </div>
                           <div>
@@ -1975,7 +1973,7 @@ const Settings: React.FC = () => {
                                 ...prev,
                                 workingHours: {...prev.workingHours, end: e.target.value}
                               }))}
-                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium text-sm"
+                              className="w-full p-3 bg-white/80 backdrop-blur-sm border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-medium text-sm"
                             />
                           </div>
                         </div>
@@ -2231,8 +2229,8 @@ const Settings: React.FC = () => {
                           </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-purple-200 text-center">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
+                        <div className="bg-gradient-to-br from-green-50 to-pink-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-green-200 text-center">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
                             <Activity className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
                           <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
@@ -2255,8 +2253,8 @@ const Settings: React.FC = () => {
                           </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200 text-center">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
+                        <div className="bg-gradient-to-br from-green-50 to-cyan-50 p-4 sm:p-6 rounded-xl lg:rounded-2xl border border-blue-200 text-center">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-cyan-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg mx-auto mb-3 sm:mb-4">
                             <User className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                           </div>
                           <h3 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">

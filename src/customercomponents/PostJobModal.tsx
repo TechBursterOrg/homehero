@@ -156,7 +156,7 @@ const PostJobModal: React.FC<PostJobModalProps> = ({ isOpen, onClose, onSubmit }
                 Budget *
               </label>
               <div className="relative">
-                <DollarSign className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                <h1 className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" > ₦</h1>
                 <input
                   type="text"
                   required

@@ -453,7 +453,7 @@ const Schedule: React.FC = () => {
       case "low":
         return "border-green-400";
       default:
-        return "border-blue-400";
+        return "border-green-400";
     }
   };
 
@@ -500,9 +500,9 @@ const Schedule: React.FC = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-green-100 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-green-600 animate-spin mx-auto mb-4" />
           <p className="text-gray-600">Loading your schedule...</p>
         </div>
       </div>
@@ -512,9 +512,9 @@ const Schedule: React.FC = () => {
   // Authentication error
   if (!authToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-green-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
-          <AlertCircleIcon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <AlertCircleIcon className="w-12 h-12 text-green-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Authentication Required
           </h3>
@@ -523,7 +523,7 @@ const Schedule: React.FC = () => {
           </p>
           <button
             onClick={handleLogin}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
           >
             Log In
           </button>
@@ -535,7 +535,7 @@ const Schedule: React.FC = () => {
   // Error state (other than auth)
   if (error && appointments.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-green-100 flex items-center justify-center">
         <div className="text-center max-w-md p-6 bg-white rounded-xl shadow-lg">
           <AlertCircleIcon className="w-12 h-12 text-red-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -545,7 +545,7 @@ const Schedule: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
             <button
               onClick={handleRetry}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               Retry
             </button>
@@ -562,14 +562,14 @@ const Schedule: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Modern Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-6">
             <div className="space-y-2">
               <div className="flex items-center gap-3 sm:gap-4">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-blue-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-600 to-green-700 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-lg">
                   <Calendar className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -601,7 +601,7 @@ const Schedule: React.FC = () => {
               </button>
               <button 
                 onClick={() => setShowAddModal(true)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto"
+                className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto"
               >
                 <div className="w-5 h-5 sm:w-6 sm:h-6 bg-white/20 rounded-md sm:rounded-lg flex items-center justify-center">
                   <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -666,7 +666,7 @@ const Schedule: React.FC = () => {
             </p>
             <button 
               onClick={() => setShowAddModal(true)}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+              className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
             >
               Create Your First Appointment
             </button>
@@ -680,10 +680,10 @@ const Schedule: React.FC = () => {
             {/* Stats cards code remains the same */}
             <div className="group bg-white/80 backdrop-blur-sm p-6 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-400 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
                   <Calendar className="w-7 h-7 text-white" />
                 </div>
-                <div className="text-blue-600">
+                <div className="text-green-600">
                   <Activity className="w-5 h-5" />
                 </div>
               </div>
@@ -793,7 +793,7 @@ const Schedule: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="Enter appointment title"
                 />
               </div>
@@ -803,7 +803,7 @@ const Schedule: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   placeholder="Enter client name"
                 />
               </div>
@@ -813,7 +813,7 @@ const Schedule: React.FC = () => {
                 </label>
                 <input
                   type="date"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                 />
               </div>
               <div className="flex gap-4">
@@ -823,7 +823,7 @@ const Schedule: React.FC = () => {
                   </label>
                   <input
                     type="time"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div className="flex-1">
@@ -832,7 +832,7 @@ const Schedule: React.FC = () => {
                   </label>
                   <input
                     type="time"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                   />
                 </div>
               </div>
@@ -846,7 +846,7 @@ const Schedule: React.FC = () => {
                 <button
                   onClick={() => handleAddAppointment({})}
                   disabled={actionLoading === "new"}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
                   {actionLoading === "new" ? (
                     <Loader2 className="w-4 h-4 animate-spin mx-auto" />

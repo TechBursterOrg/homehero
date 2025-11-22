@@ -16,9 +16,11 @@ import {
   Clock as ClockIcon,
   AlertTriangle,
   User,
-  MessageCircle
+  MessageCircle,
+  FileText,
+  Send
 } from 'lucide-react';
-import IdentityVerificationModal from './IdentityVerificationModal';
+import IdentityVerificationModal from '../pages/IdentityVerificationModal';
 
 interface Job {
   _id: string;
@@ -46,6 +48,7 @@ interface Job {
   };
 }
 
+
 interface UserVerification {
   isNinVerified: boolean;
   isNepaVerified: boolean;
@@ -56,6 +59,14 @@ interface UserVerification {
     gender: string;
     state: string;
   };
+}
+
+
+
+interface ProposalFormData {
+  proposedBudget: string;
+  timeline: string;
+  message: string;
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
@@ -85,7 +96,7 @@ const JobDetailsModal: React.FC<{
     switch (urgency) {
       case 'urgent': return 'bg-red-100 text-red-800';
       case 'high': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-blue-100 text-blue-800';
+      default: return 'bg-green-100 text-green-800';
     }
   };
 
@@ -93,7 +104,7 @@ const JobDetailsModal: React.FC<{
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'accepted': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-blue-100 text-blue-800';
+      case 'completed': return 'bg-green-100 text-green-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -189,7 +200,7 @@ const JobDetailsModal: React.FC<{
           <div className="border-t pt-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Information</h3>
             <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
+              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold text-lg">
                 {customerName.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1">
@@ -230,7 +241,7 @@ const JobDetailsModal: React.FC<{
                 <div>
                   <p className="text-yellow-800 font-medium">Verification Required</p>
                   <p className="text-yellow-700 text-sm mt-1">
-                    You need to verify your identity before applying for this job. 
+                    You need to verify your identity with your NIN before applying for jobs. 
                     This helps build trust with customers.
                   </p>
                 </div>
@@ -267,17 +278,17 @@ const JobDetailsModal: React.FC<{
               <button
                 onClick={handleApplyClick}
                 disabled={isApplying || !userVerification?.isNinVerified}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               >
                 {isApplying ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Applying...
+                    Submitting...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-5 h-5 mr-2" />
-                    {userVerification?.isNinVerified ? 'Accept Job' : 'Verify & Apply'}
+                    <FileText className="w-5 h-5 mr-2" />
+                    {userVerification?.isNinVerified ? 'Submit Proposal' : 'Verify & Apply'}
                   </>
                 )}
               </button>
@@ -291,6 +302,203 @@ const JobDetailsModal: React.FC<{
                 Call Customer
               </a>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Proposal Modal Component
+const ProposalModal: React.FC<{
+  job: Job | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (proposalData: ProposalFormData) => Promise<void>;
+  isSubmitting: boolean;
+}> = ({ job, isOpen, onClose, onSubmit, isSubmitting }) => {
+  const [formData, setFormData] = useState<ProposalFormData>({
+    proposedBudget: '',
+    timeline: '',
+    message: ''
+  });
+
+  useEffect(() => {
+    if (job && isOpen) {
+      // Pre-fill budget with job's budget as a starting point
+      setFormData({
+        proposedBudget: job.budget || '',
+        timeline: job.timeframe || '',
+        message: `I would like to help with your ${job.serviceType} service. I have experience in this area and can deliver quality work.`
+      });
+    }
+  }, [job, isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(formData);
+  };
+
+  const handleClose = () => {
+    setFormData({
+      proposedBudget: '',
+      timeline: '',
+      message: ''
+    });
+    onClose();
+  };
+
+  if (!isOpen || !job) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Submit Proposal</h2>
+            <p className="text-gray-600 text-sm mt-1">Apply for: {job.serviceType}</p>
+          </div>
+          <button
+            onClick={handleClose}
+            disabled={isSubmitting}
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          >
+            <AlertCircle className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Job Summary */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-medium text-gray-900 mb-2">Job Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2">
+                <MapPin className="w-4 h-4" />
+                <span>{job.location}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <DollarSign className="w-4 h-4" />
+                <span>Customer's Budget: {job.budget}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Clock className="w-4 h-4" />
+                <span>Timeframe: {job.timeframe}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Zap className="w-4 h-4" />
+                <span>Urgency: {job.urgency}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Proposal Form */}
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="proposedBudget" className="block text-sm font-medium text-gray-700 mb-2">
+                Your Proposed Budget *
+              </label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" >
+                N
+                </div>
+                <input
+                  type="text"
+                  id="proposedBudget"
+                  required
+                  value={formData.proposedBudget}
+                  onChange={(e) => setFormData({ ...formData, proposedBudget: e.target.value })}
+                  placeholder="e.g., ₦15,000 or $150"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Consider the customer's budget of {job.budget} when making your proposal
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="timeline" className="block text-sm font-medium text-gray-700 mb-2">
+                Proposed Timeline *
+              </label>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  id="timeline"
+                  required
+                  value={formData.timeline}
+                  onChange={(e) => setFormData({ ...formData, timeline: e.target.value })}
+                  placeholder="e.g., 2-3 days, Within 1 week, ASAP"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-2">
+                Your Proposal Message *
+              </label>
+              <textarea
+                id="message"
+                required
+                rows={6}
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                placeholder="Introduce yourself and explain why you're the right fit for this job. Mention your relevant experience and how you plan to approach the work..."
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-vertical"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                A good proposal increases your chances of being hired. Be specific about your approach and qualifications.
+              </p>
+            </div>
+          </div>
+
+          {/* Tips */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-medium text-green-900 mb-2 flex items-center">
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Tips for a Great Proposal
+            </h4>
+            <ul className="text-sm text-green-800 space-y-1">
+              <li>• Mention specific experience relevant to this job</li>
+              <li>• Explain your approach to the work</li>
+              <li>• Be professional and friendly</li>
+              <li>• Highlight what makes you the best choice</li>
+            </ul>
+          </div>
+        </form>
+
+        {/* Footer Actions */}
+        <div className="border-t px-6 py-4 bg-gray-50">
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5 mr-2" />
+                  Submit Proposal
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -320,9 +528,11 @@ const ProviderJobBoard: React.FC = () => {
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
   const [applyingJobs, setApplyingJobs] = useState<Set<string>>(new Set());
   
-  // New state for job details modal
+  // New state for job details modal and proposal modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
+  const [showProposalModal, setShowProposalModal] = useState(false);
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
 
   // Fetch user verification status
   const fetchUserVerification = async () => {
@@ -403,7 +613,7 @@ const ProviderJobBoard: React.FC = () => {
     fetchUserVerification();
   }, [filters, page]);
 
-  // Fixed handleApply function
+  // Updated handleApply function to open proposal modal
   const handleApply = async (jobId: string) => {
     try {
       console.log('HandleApply called for job:', jobId);
@@ -417,61 +627,69 @@ const ProviderJobBoard: React.FC = () => {
         return;
       }
 
-      console.log('User is verified, applying directly');
-      await applyForJob(jobId);
+      console.log('User is verified, opening proposal modal');
+      const job = jobs.find(j => j._id === jobId);
+      if (job) {
+        setSelectedJob(job);
+        setShowProposalModal(true);
+      }
     } catch (error) {
       console.error('Apply error:', error);
       alert('Error applying for job');
     }
   };
 
-  const applyForJob = async (jobId: string) => {
+  // New function to handle proposal submission
+  const handleSubmitProposal = async (proposalData: ProposalFormData) => {
+    if (!selectedJob) return;
+
     try {
-      setApplyingJobs(prev => new Set(prev).add(jobId));
-      
+      setIsSubmittingProposal(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
-      const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/apply`, {
+      console.log('Submitting proposal for job:', selectedJob._id);
+      console.log('Proposal data:', proposalData);
+
+      const response = await fetch(`${API_BASE_URL}/api/jobs/${selectedJob._id}/apply`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: 'I would like to help with this service request.'
+          proposedBudget: proposalData.proposedBudget,
+          timeline: proposalData.timeline,
+          message: proposalData.message
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Update the local state to reflect the job is now accepted
+        // Update the local state to reflect the job application
         setJobs(prevJobs => 
           prevJobs.map(job => 
-            job._id === jobId 
-              ? { ...job, status: 'accepted', providerId: { _id: 'current-user', name: 'You', email: '' } }
+            job._id === selectedJob._id 
+              ? { ...job, status: 'applied' } // Or whatever status indicates application submitted
               : job
           )
         );
         
-        setShowJobDetails(false);
-        alert('Successfully applied for the job! The customer has been notified.');
+        setShowProposalModal(false);
+        setSelectedJob(null);
+        alert('Proposal submitted successfully! The customer will review your application.');
       } else {
-        throw new Error(data.message || 'Failed to apply for the job');
+        throw new Error(data.message || 'Failed to submit proposal');
       }
     } catch (error) {
-      console.error('Apply error:', error);
-      alert(error instanceof Error ? error.message : 'Error applying for job');
+      console.error('Proposal submission error:', error);
+      alert(error instanceof Error ? error.message : 'Error submitting proposal');
     } finally {
-      setApplyingJobs(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(jobId);
-        return newSet;
-      });
+      setIsSubmittingProposal(false);
     }
   };
 
-  // Updated to handle the new verification data structure
+  // Updated verification handler
   const handleIdentityVerify = async (verificationData: { 
     nin: string; 
     nepaBill: File | null;
@@ -495,8 +713,7 @@ const ProviderJobBoard: React.FC = () => {
         formData.append('nepaBill', verificationData.nepaBill);
       }
 
-      // Use the new verification endpoint
-      const response = await fetch(`${API_BASE_URL}/api/verification/verify-identity`, {
+      const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -507,25 +724,36 @@ const ProviderJobBoard: React.FC = () => {
       if (response.ok) {
         const result = await response.json();
         
-        // Update user verification status with the new data structure
-        setUserVerification(result.data);
+        // Update user verification status
+        await fetchUserVerification();
         
         setShowVerificationModal(false);
         
-        // If there was a selected job, apply for it now
+        // If there was a selected job, open proposal modal now
         if (selectedJobId) {
-          await applyForJob(selectedJobId);
+          const job = jobs.find(j => j._id === selectedJobId);
+          if (job) {
+            setSelectedJob(job);
+            setShowProposalModal(true);
+          }
           setSelectedJobId(null);
         }
         
-        alert('Identity verified successfully! You can now apply for jobs.');
+        alert('Verification submitted successfully! Your documents will be reviewed.');
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Verification failed');
+        if (response.status === 404) {
+          throw new Error('Verification endpoint not found. Please contact support.');
+        } else if (response.status === 500) {
+          throw new Error('Server error. Please try again later.');
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Verification submission failed');
+        }
       }
     } catch (error) {
       console.error('Verification error:', error);
       alert(error instanceof Error ? error.message : 'Verification failed. Please try again.');
+      throw error;
     } finally {
       setIsSubmittingVerification(false);
     }
@@ -554,7 +782,7 @@ const ProviderJobBoard: React.FC = () => {
         );
       } else {
         return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
             <Shield className="w-3 h-3 mr-1" />
             Basic Verification
           </span>
@@ -581,7 +809,7 @@ const ProviderJobBoard: React.FC = () => {
     switch (urgency) {
       case 'urgent': return 'bg-red-100 text-red-800 border-red-200';
       case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
-      default: return 'bg-blue-100 text-blue-800 border-blue-200';
+      default: return 'bg-green-100 text-green-800 border-green-200';
     }
   };
 
@@ -589,7 +817,7 @@ const ProviderJobBoard: React.FC = () => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'accepted': return 'bg-green-100 text-green-800 border-green-200';
-      case 'completed': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -612,7 +840,7 @@ const ProviderJobBoard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
       </div>
     );
   }
@@ -650,7 +878,7 @@ const ProviderJobBoard: React.FC = () => {
                     console.log('Verify Now button clicked');
                     setShowVerificationModal(true);
                   }}
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  className="text-sm text-green-600 hover:text-gren-800 font-medium"
                 >
                   Verify Now
                 </button>
@@ -684,7 +912,7 @@ const ProviderJobBoard: React.FC = () => {
             <select
               value={filters.status}
               onChange={(e) => setFilters({...filters, status: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             >
               <option value="pending">Available</option>
               <option value="accepted">My Accepted Jobs</option>
@@ -700,7 +928,7 @@ const ProviderJobBoard: React.FC = () => {
               placeholder="e.g., Plumbing, Cleaning"
               value={filters.serviceType}
               onChange={(e) => setFilters({...filters, serviceType: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             />
           </div>
 
@@ -711,7 +939,7 @@ const ProviderJobBoard: React.FC = () => {
               placeholder="City or area"
               value={filters.location}
               onChange={(e) => setFilters({...filters, location: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             />
           </div>
 
@@ -720,7 +948,7 @@ const ProviderJobBoard: React.FC = () => {
             <select
               value={filters.sortBy}
               onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             >
               <option value="createdAt">Newest First</option>
               <option value="urgency">Urgency</option>
@@ -774,7 +1002,7 @@ const ProviderJobBoard: React.FC = () => {
 
                     {/* Customer Info */}
                     <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
                         {customerInfo.name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -799,17 +1027,17 @@ const ProviderJobBoard: React.FC = () => {
                       <button
                         onClick={() => handleApply(job._id)}
                         disabled={isApplying || !userVerification?.isNinVerified}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                       >
                         {isApplying ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Applying...
+                            Submitting...
                           </>
                         ) : (
                           <>
-                            <CheckCircle className="w-5 h-5 mr-2" />
-                            {userVerification?.isNinVerified ? 'Accept Job' : 'Verify & Apply'}
+                            <FileText className="w-5 h-5 mr-2" />
+                            {userVerification?.isNinVerified ? 'Submit Proposal' : 'Verify & Apply'}
                           </>
                         )}
                       </button>
@@ -823,7 +1051,7 @@ const ProviderJobBoard: React.FC = () => {
                         {customerInfo.phoneNumber && (
                           <a
                             href={`tel:${customerInfo.phoneNumber}`}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors w-full flex items-center justify-center"
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors w-full flex items-center justify-center"
                           >
                             <Phone className="w-4 h-4 mr-2" />
                             Call Customer
@@ -834,7 +1062,7 @@ const ProviderJobBoard: React.FC = () => {
                     
                     <button 
                       onClick={() => handleViewDetails(job)}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center justify-center"
+                      className="text-green-600 hover:text-green-800 text-sm font-medium flex items-center justify-center"
                     >
                       View Details
                     </button>
@@ -868,7 +1096,7 @@ const ProviderJobBoard: React.FC = () => {
               onClick={() => setPage(pageNum)}
               className={`px-4 py-2 border rounded-md ${
                 page === pageNum
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-green-600 text-white border-green-600'
                   : 'border-gray-300 text-gray-700'
               }`}
             >
@@ -905,6 +1133,18 @@ const ProviderJobBoard: React.FC = () => {
         onClose={() => setShowJobDetails(false)}
         onApply={handleApply}
         userVerification={userVerification}
+      />
+
+      {/* Proposal Modal */}
+      <ProposalModal
+        job={selectedJob}
+        isOpen={showProposalModal}
+        onClose={() => {
+          setShowProposalModal(false);
+          setSelectedJob(null);
+        }}
+        onSubmit={handleSubmitProposal}
+        isSubmitting={isSubmittingProposal}
       />
     </div>
   );
