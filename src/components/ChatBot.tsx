@@ -495,58 +495,58 @@ Here are some topics I can help with:`,
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 transition-all duration-300 z-50 hover:scale-110 animate-bounce"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-green-600 text-white p-3 sm:p-4 rounded-full shadow-2xl hover:bg-green-700 transition-all duration-300 z-50 hover:scale-110 animate-bounce"
           style={{ animationDuration: '2s' }}
         >
-          <MessageCircle className="w-6 h-6" />
+          <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
       )}
 
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-gray-200">
-          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-t-2xl flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Bot className="w-6 h-6" />
+        <div className="fixed bottom-4 right-4 w-[calc(100vw-2rem)] max-w-96 h-[500px] sm:h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-gray-200">
+          <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-3 sm:p-4 rounded-t-2xl flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <Bot className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h3 className="font-semibold">HomeHero Assistant</h3>
+                <h3 className="font-semibold text-sm sm:text-base">HomeHero Assistant</h3>
                 <p className="text-xs text-green-100">Online • Always here to help</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="hover:bg-white/20 p-2 rounded-full transition-colors"
+              className="hover:bg-white/20 p-1.5 sm:p-2 rounded-full transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50">
             {messages.map((message, index) => (
               <div key={index}>
                 <div className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex items-start space-x-2 max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${message.type === 'user' ? 'bg-green-600' : 'bg-gray-200'}`}>
+                  <div className={`flex items-start space-x-2 max-w-[85%] sm:max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${message.type === 'user' ? 'bg-green-600' : 'bg-gray-200'}`}>
                       {message.type === 'user' ? (
-                        <User className="w-5 h-5 text-white" />
+                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                       ) : (
-                        <Bot className="w-5 h-5 text-gray-700" />
+                        <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                       )}
                     </div>
-                    <div className={`p-3 rounded-2xl ${message.type === 'user' ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
-                      <div className="whitespace-pre-line text-sm" dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/•/g, '•') }} />
+                    <div className={`p-2.5 sm:p-3 rounded-2xl ${message.type === 'user' ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
+                      <div className="whitespace-pre-line text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/•/g, '•') }} />
                     </div>
                   </div>
                 </div>
 
                 {message.options && (
-                  <div className="mt-3 flex flex-wrap gap-2 ml-10">
+                  <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2 ml-9 sm:ml-10">
                     {message.options.map((option, optIndex) => (
                       <button
                         key={optIndex}
                         onClick={() => handleOptionClick(option)}
-                        className="bg-white border-2 border-green-600 text-green-600 px-3 py-1.5 rounded-full text-xs font-medium hover:bg-green-600 hover:text-white transition-all duration-200 hover:scale-105"
+                        className="bg-white border-2 border-green-600 text-green-600 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-medium hover:bg-green-600 hover:text-white transition-all duration-200 hover:scale-105 active:scale-95"
                       >
                         {option}
                       </button>
@@ -558,7 +558,7 @@ Here are some topics I can help with:`,
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 border-t border-gray-200 bg-white rounded-b-2xl">
+          <div className="p-3 sm:p-4 border-t border-gray-200 bg-white rounded-b-2xl">
             <div className="flex items-center space-x-2">
               <input
                 type="text"
@@ -566,13 +566,13 @@ Here are some topics I can help with:`,
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Ask me anything..."
-                className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent text-sm"
+                className="flex-1 border border-gray-300 rounded-full px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent text-xs sm:text-sm"
               />
               <button
                 onClick={handleSendMessage}
-                className="bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors"
+                className="bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition-colors active:scale-95"
               >
-                <Send className="w-5 h-5" />
+                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">
