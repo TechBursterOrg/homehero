@@ -15,8 +15,6 @@ import {
   Mail,
   Clock as ClockIcon,
   AlertTriangle,
-  User,
-  MessageCircle,
   FileText,
   Send
 } from 'lucide-react';
@@ -48,20 +46,26 @@ interface Job {
   };
 }
 
-
 interface UserVerification {
   isNinVerified: boolean;
   isNepaVerified: boolean;
   verificationStatus: string;
   hasSubmittedVerification: boolean;
+  isVerified?: boolean; // Added optional property
+  details?: {
+    ninVerified: boolean;
+    nepaVerified: boolean;
+    selfieVerified: boolean;
+    submittedAt?: string;
+    reviewedAt?: string;
+    notes?: string;
+  };
   userDetails?: {
     fullName: string;
     gender: string;
     state: string;
   };
 }
-
-
 
 interface ProposalFormData {
   proposedBudget: string;
@@ -526,7 +530,7 @@ const ProviderJobBoard: React.FC = () => {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [isSubmittingVerification, setIsSubmittingVerification] = useState(false);
-  const [applyingJobs, setApplyingJobs] = useState<Set<string>>(new Set());
+  const [applyingJobs] = useState<Set<string>>(new Set()); // Removed setApplyingJobs since it's unused
   
   // New state for job details modal and proposal modal
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -543,22 +547,50 @@ const ProviderJobBoard: React.FC = () => {
         return;
       }
 
-      console.log('Fetching verification status...');
+      console.log('🔍 Fetching verification status...');
       const response = await fetch(`${API_BASE_URL}/api/auth/verification-status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
+      console.log('📥 Verification status response:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        console.log('Verification data received:', data.data);
+        console.log('✅ Verification data received:', data.data);
         setUserVerification(data.data);
       } else {
-        console.log('Failed to fetch verification status:', response.status);
+        console.log('❌ Failed to fetch verification status:', response.status);
+        // Set default verification state if fetch fails
+        setUserVerification({
+          hasSubmittedVerification: false,
+          verificationStatus: 'not_submitted',
+          isNinVerified: false,
+          isNepaVerified: false,
+          isVerified: false,
+          details: {
+            ninVerified: false,
+            nepaVerified: false,
+            selfieVerified: false
+          }
+        });
       }
     } catch (error) {
-      console.error('Error fetching verification status:', error);
+      console.error('❌ Error fetching verification status:', error);
+      // Set default verification state on error
+      setUserVerification({
+        hasSubmittedVerification: false,
+        verificationStatus: 'not_submitted',
+        isNinVerified: false,
+        isNepaVerified: false,
+        isVerified: false,
+        details: {
+          ninVerified: false,
+          nepaVerified: false,
+          selfieVerified: false
+        }
+      });
     }
   };
 
@@ -696,7 +728,13 @@ const ProviderJobBoard: React.FC = () => {
     selfie: File | null;
     consent: boolean;
   }) => {
-    console.log('HandleIdentityVerify called with:', verificationData);
+    console.log('🔐 HandleIdentityVerify called with:', {
+      nin: verificationData.nin,
+      hasSelfie: !!verificationData.selfie,
+      hasNepaBill: !!verificationData.nepaBill,
+      consent: verificationData.consent
+    });
+    
     setIsSubmittingVerification(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
@@ -707,24 +745,42 @@ const ProviderJobBoard: React.FC = () => {
       
       if (verificationData.selfie) {
         formData.append('selfie', verificationData.selfie);
+        console.log('📸 Selfie file details:', {
+          name: verificationData.selfie.name,
+          size: verificationData.selfie.size,
+          type: verificationData.selfie.type
+        });
       }
       
       if (verificationData.nepaBill) {
         formData.append('nepaBill', verificationData.nepaBill);
+        console.log('📄 NEPA bill file details:', {
+          name: verificationData.nepaBill.name,
+          size: verificationData.nepaBill.size,
+          type: verificationData.nepaBill.type
+        });
       }
 
+      console.log('📤 Sending verification request to:', `${API_BASE_URL}/api/verification/submit`);
+      
       const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
+          // NOTE: Don't set Content-Type for FormData - let browser set it with boundary
         },
         body: formData,
       });
 
+      console.log('📥 Response status:', response.status);
+      
+      const result = await response.json();
+      console.log('📥 Response data:', result);
+
       if (response.ok) {
-        const result = await response.json();
+        console.log('✅ Verification submitted successfully');
         
-        // Update user verification status
+        // Update user verification status immediately
         await fetchUserVerification();
         
         setShowVerificationModal(false);
@@ -741,18 +797,32 @@ const ProviderJobBoard: React.FC = () => {
         
         alert('Verification submitted successfully! Your documents will be reviewed.');
       } else {
-        if (response.status === 404) {
-          throw new Error('Verification endpoint not found. Please contact support.');
+        console.error('❌ Verification submission failed:', result);
+        
+        let errorMessage = result.message || 'Verification submission failed';
+        
+        if (response.status === 400) {
+          errorMessage = `Validation error: ${result.message}`;
+        } else if (response.status === 404) {
+          errorMessage = 'Verification endpoint not found. Please contact support.';
         } else if (response.status === 500) {
-          throw new Error('Server error. Please try again later.');
-        } else {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Verification submission failed');
+          errorMessage = 'Server error. Please try again later.';
         }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Verification error:', error);
-      alert(error instanceof Error ? error.message : 'Verification failed. Please try again.');
+      console.error('❌ Verification error:', error);
+      
+      let userMessage = 'Verification failed. Please try again.';
+      
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        userMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error instanceof Error) {
+        userMessage = error.message;
+      }
+      
+      alert(userMessage);
       throw error;
     } finally {
       setIsSubmittingVerification(false);
@@ -878,7 +948,7 @@ const ProviderJobBoard: React.FC = () => {
                     console.log('Verify Now button clicked');
                     setShowVerificationModal(true);
                   }}
-                  className="text-sm text-green-600 hover:text-gren-800 font-medium"
+                  className="text-sm text-green-600 hover:text-green-800 font-medium"
                 >
                   Verify Now
                 </button>

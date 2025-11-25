@@ -6,6 +6,7 @@ import HowItWorks from '../components/HowItWorks';
 import Services from '../components/Services';
 import ProviderOpportunity from '../components/ProviderOpportunity';
 import Footer from '../components/Footer';
+import ChatBot from'../components/ChatBot'; // Add this import
 
 function Home() {
   const [scrollY, setScrollY] = useState(0);
@@ -31,6 +32,7 @@ function Home() {
         <ProviderOpportunity />
       </div>
       <Footer />
+      <ChatBot /> {/* Add the chatbot component */}
     </div>
   )
 }

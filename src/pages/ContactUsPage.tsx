@@ -512,7 +512,7 @@ const ContactUsPage = () => {
                   <p className="text-gray-500 text-sm mb-4">{mapError}</p>
                   <div className="bg-white rounded-lg p-4 text-left">
                     <p className="font-semibold text-gray-900 mb-2">Our Location:</p>
-                    <p className="text-gray-600">123 Business District</p>
+                    <p className="text-gray-600">6, Sam Iyamu , Genesis Estate, Aboru</p>
                     <p className="text-gray-600">Lagos, Nigeria</p>
                     <a 
                       href="https://maps.google.com/?q=6.5244,3.3792" 
@@ -539,7 +539,7 @@ const ContactUsPage = () => {
             <div className="bg-white rounded-xl p-6 shadow-md border text-center">
               <div className="text-4xl mb-3">📍</div>
               <h3 className="font-bold text-gray-900 mb-2">Address</h3>
-              <p className="text-gray-600 text-sm">123 Business District</p>
+              <p className="text-gray-600 text-sm">6, Sam Iyamu , Genesis Estate, Aboru</p>
               <p className="text-gray-600 text-sm">Lagos, Nigeria</p>
             </div>
             
