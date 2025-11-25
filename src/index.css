@@ -66,6 +66,10 @@ html {
   background-image: url(../public/howitworks.jpg);
   background-size: cover;
 }
+.contactus{
+  background-image: url(../public/contactus.jpg);
+  background-size: cover;
+}
 
 button:focus,
 input:focus,

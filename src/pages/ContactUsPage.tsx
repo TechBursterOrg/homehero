@@ -222,7 +222,7 @@ const ContactUsPage = () => {
       <Header scrollY={scrollY} />
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-20 mt-16">
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-20 mt-16 contactus">
         <div className="max-w-7xl md:h-[400px] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col justify-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">Get In Touch</h1>
           <p className="text-xl md:text-2xl text-green-50 max-w-3xl mx-auto">

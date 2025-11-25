@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TrendingUp, Clock, Shield, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
 
 const ProviderOpportunity: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -42,7 +41,7 @@ const ProviderOpportunity: React.FC = () => {
   ];
 
   return (
-    <section ref={sectionRef} id="providers" className="py-20 bg-gradient-to-r from-green-600 to-green-700 relative overflow-hidden">
+    <section ref={sectionRef} id="providers" className="py-20 bg-gradient-to-r from-green-600 to-green-700 relative">
       <div className="absolute inset-0 bg-black/10"></div>
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className={`text-center text-white mb-16 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
@@ -58,10 +57,10 @@ const ProviderOpportunity: React.FC = () => {
           {benefits.map((benefit, index) => (
             <div 
               key={index} 
-              className={`text-center text-white transition-all duration-700 transform hover:scale-110 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+              className={`text-center text-white transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
               style={{ transitionDelay: `${200 + index * 150}ms` }}
             >
-              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 hover:bg-white/30 transition-all duration-300 hover:rotate-12">
+              <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mx-auto mb-4 hover:bg-white/30 transition-colors duration-300">
                 <benefit.icon className="w-8 h-8 text-white" />
               </div>
               <h3 className="text-xl font-semibold mb-2">{benefit.title}</h3>
@@ -80,32 +79,32 @@ const ProviderOpportunity: React.FC = () => {
                 Join our community of trusted service providers and start earning money doing what you love. Our simple onboarding process gets you up and running in no time.
               </p>
               <ul className="space-y-3 mb-8">
-                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5'}`} style={{ transitionDelay: '1000ms' }}>
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: '1000ms' }}>
+                  <div className="w-2 h-2 bg-white rounded-full flex-shrink-0"></div>
                   <span>Create your professional profile</span>
                 </li>
-                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5'}`} style={{ transitionDelay: '1100ms' }}>
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: '1100ms' }}>
+                  <div className="w-2 h-2 bg-white rounded-full flex-shrink-0"></div>
                   <span>Get verified and background checked</span>
                 </li>
-                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-5'}`} style={{ transitionDelay: '1200ms' }}>
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                <li className={`flex items-center space-x-3 transition-all duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`} style={{ transitionDelay: '1200ms' }}>
+                  <div className="w-2 h-2 bg-white rounded-full flex-shrink-0"></div>
                   <span>Start booking job requests</span>
                 </li>
               </ul>
             </div>
-            <div className={`text-center transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-10'}`}>
-              <div className="bg-white rounded-2xl p-8 shadow-2xl transform hover:scale-105 transition-all duration-300">
+            <div className={`text-center transition-all duration-1000 delay-1000 ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+              <div className="bg-white rounded-2xl p-8 shadow-2xl transition-shadow duration-300 hover:shadow-3xl">
                 <h4 className="text-2xl font-bold text-gray-900 mb-4">
                   Join Today
                 </h4>
                 <p className="text-gray-600 mb-6">
                   Start earning flexible income with your skills
                 </p>
-                <Link to='/provider-login' className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                <button className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl">
                   Become a Provider
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Link>
+                </button>
               </div>
             </div>
           </div>
