@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Home } from 'lucide-react';
-import logo from '../../public/HH.png';
+import logo from '../../src/images/HH.png';
 
 interface HeaderProps {
   scrollY: number;

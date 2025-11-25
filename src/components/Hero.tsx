@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowRight, Star, Shield, Clock, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import cleaning from '../../public/heroImgg.jpg'
-import hairStylist from '../../public/hairStylist.jpg'
-import electrician  from '../../public/electrician.jpg'
+import cleaning from '../../src/images/heroImgg.jpg'
+import hairStylist from '../../src/images/hairStylist.jpg'
+import electrician  from '../../src/images/electrician.jpg'
 
 
 
@@ -12,17 +12,17 @@ const Hero = () => {
   
   const images = [
     {
-      url: [cleaning],
+      url: cleaning,
       title: "Cleaning",
       rating: "4.9"
     },
     {
-      url: [hairStylist],
+      url: hairStylist,
       title: "Hair Stylist",
       rating: "4.8"
     },
     {
-      url: [electrician],
+      url: electrician,
       title: "Electrician",
       rating: "5.0"
     }

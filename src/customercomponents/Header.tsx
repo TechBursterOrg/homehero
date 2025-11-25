@@ -15,7 +15,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { UserProfile } from '../types';
-import logo from '../../public/HH.png';
+import logo from '../../src/images/HH.png';
 import { Link } from 'react-router-dom';
 
 interface HeaderProps {

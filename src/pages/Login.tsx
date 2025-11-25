@@ -16,7 +16,7 @@ import {
   XCircle,
   X,
 } from "lucide-react";
-import logo from "../../public/HHH.png";
+import logo from "../../src/images/HHH.png";
 
 interface FormData {
   name: string;

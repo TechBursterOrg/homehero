@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Phone, Mail, MapPin, MessageSquare, Clock, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { googleMapsService } from "../utils/googleMaps";
@@ -165,55 +166,55 @@ const ContactUsPage = () => {
 
   const contactMethods = [
     {
-      icon: "📞",
+      icon: Phone,
       title: "Phone",
       detail: "+234 806 998 0777",
       description: "Mon-Fri from 8am to 5pm",
       link: "tel:+2348069980777",
+      gradient: "from-blue-500 to-blue-600"
     },
     {
-      icon: "✉️",
+      icon: Mail,
       title: "Email",
       detail: "support@homeheroes.help",
       description: "We'll respond within 24 hours",
-      link: "mailto:support@serviceplatform.com",
+      link: "mailto:support@homeheroes.help",
+      gradient: "from-purple-500 to-purple-600"
     },
     {
-      icon: "📍",
+      icon: MapPin,
       title: "Office",
       detail: "Genesis Estate, Aboru",
       description: "Iyanu Ipaja, Lagos, Nigeria",
       link: "https://maps.google.com/?q=6.5675,3.2565",
+      gradient: "from-green-500 to-green-600"
     },
     {
-      icon: "💬",
+      icon: MessageSquare,
       title: "Live Chat",
       detail: "Chat with our team",
       description: "Available 24/7 for urgent matters",
       link: "#",
+      gradient: "from-orange-500 to-orange-600"
     },
   ];
 
   const faqItems = [
     {
       question: "How quickly will I get a response?",
-      answer:
-        "We aim to respond to all inquiries within 24 hours during business days. Urgent matters are prioritized and typically receive responses within 2-4 hours.",
+      answer: "We aim to respond to all inquiries within 24 hours during business days. Urgent matters are prioritized and typically receive responses within 2-4 hours.",
     },
     {
       question: "Can I schedule a call with your team?",
-      answer:
-        "Yes! Simply mention your preferred time in the message form, and our team will reach out to confirm a convenient time for both parties.",
+      answer: "Yes! Simply mention your preferred time in the message form, and our team will reach out to confirm a convenient time for both parties.",
     },
     {
       question: "Do you offer customer support in multiple languages?",
-      answer:
-        "Currently, we offer support in English. However, we're working on expanding our language support to better serve our diverse customer base.",
+      answer: "Currently, we offer support in English. However, we're working on expanding our language support to better serve our diverse customer base.",
     },
     {
       question: "What information should I include in my message?",
-      answer:
-        "Please include your account details (if applicable), a clear description of your inquiry or issue, and any relevant screenshots or documents that might help us assist you better.",
+      answer: "Please include your account details (if applicable), a clear description of your inquiry or issue, and any relevant screenshots or documents that might help us assist you better.",
     },
   ];
 
@@ -221,62 +222,67 @@ const ContactUsPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <Header scrollY={scrollY} />
 
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white py-20 mt-16 contactus h-[650px]">
-        <div className="max-w-7xl md:h-[400px] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col justify-center">
+      {/* Hero Section - Matching HowItWorks Style */}
+      <div className="bg-gradient-to-r from-green-600 to-green-600 text-white py-20 contactus mt-14">
+        <div className="max-w-7xl md:h-[500px] mx-auto px-4 sm:px-6 lg:px-8 text-center flex flex-col justify-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">Get In Touch</h1>
-          <p className="text-xl md:text-2xl text-green-50 max-w-3xl mx-auto">
+          <p className="text-xl md:text-2xl text-green-50 max-w-3xl mx-auto text-gray-500">
             Have questions? We'd love to hear from you. Send us a message and
             we'll respond as soon as possible.
           </p>
         </div>
       </div>
 
-      {/* Contact Methods */}
-      <section className="py-16 -mt-12">
+      {/* Contact Methods - Updated Design */}
+      <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {contactMethods.map((method, index) => (
-              <a
-                key={index}
-                href={method.link}
-                className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-center"
-              >
-                <div className="text-5xl mb-4">{method.icon}</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  {method.title}
-                </h3>
-                <p className="text-green-600 font-semibold mb-2">
-                  {method.detail}
-                </p>
-                <p className="text-gray-600 text-sm">{method.description}</p>
-              </a>
-            ))}
+            {contactMethods.map((method, index) => {
+              const Icon = method.icon;
+              return (
+                <a
+                  key={index}
+                  href={method.link}
+                  className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-green-100"
+                >
+                  <div className={`bg-gradient-to-br ${method.gradient} w-14 h-14 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                    <Icon className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                    {method.title}
+                  </h3>
+                  <p className="text-green-600 font-semibold mb-2">
+                    {method.detail}
+                  </p>
+                  <p className="text-gray-600 text-sm">{method.description}</p>
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Contact Form & Info Section */}
-      <section ref={sectionRef} className="py-20 bg-white">
+      {/* Contact Form & Info Section - Matching HowItWorks Style */}
+      <section ref={sectionRef} className="py-20 bg-gradient-to-br from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
             <div
               className={`transition-all duration-1000 ${
-                isVisible
-                  ? "opacity-100 translate-x-0"
-                  : "opacity-0 -translate-x-10"
+                isVisible ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-10"
               }`}
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
+              <div className="inline-flex items-center justify-center px-4 py-2 bg-green-100 rounded-full mb-4">
+                <span className="text-green-700 font-semibold text-sm">Contact Form</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 Send Us a Message
               </h2>
               <p className="text-gray-600 mb-8">
-                Fill out the form below and our team will get back to you
-                shortly.
+                Fill out the form below and our team will get back to you shortly.
               </p>
 
-              <div className="space-y-6">
+              <div className="space-y-6 bg-white rounded-2xl p-8 shadow-lg border-2 border-green-100">
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
                     Full Name *
@@ -286,7 +292,7 @@ const ContactUsPage = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                     placeholder="John Doe"
                   />
                 </div>
@@ -300,7 +306,7 @@ const ContactUsPage = () => {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                     placeholder="john@example.com"
                   />
                 </div>
@@ -314,7 +320,7 @@ const ContactUsPage = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                     placeholder="+234 123 456 7890"
                   />
                 </div>
@@ -328,7 +334,7 @@ const ContactUsPage = () => {
                     name="subject"
                     value={formData.subject}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all"
                     placeholder="How can we help?"
                   />
                 </div>
@@ -342,7 +348,7 @@ const ContactUsPage = () => {
                     value={formData.message}
                     onChange={handleInputChange}
                     rows={5}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-all resize-none"
                     placeholder="Tell us more about your inquiry..."
                   ></textarea>
                 </div>
@@ -350,104 +356,123 @@ const ContactUsPage = () => {
                 <button
                   onClick={handleSubmit}
                   disabled={formStatus === "sending"}
-                  className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-4 rounded-xl font-bold text-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {formStatus === "sending" ? "Sending..." : "Send Message"}
+                  {formStatus === "sending" ? (
+                    "Sending..."
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Send Message
+                    </>
+                  )}
                 </button>
 
                 {formStatus === "success" && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl">
-                    ✓ Message sent successfully! We'll get back to you soon.
+                  <div className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    Message sent successfully! We'll get back to you soon.
                   </div>
                 )}
 
                 {formStatus === "error" && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
-                    ⚠ Please fill in all required fields.
+                  <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5" />
+                    Please fill in all required fields.
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Additional Info */}
+            {/* Additional Info - Updated Design */}
             <div
               className={`transition-all duration-1000 delay-300 ${
-                isVisible
-                  ? "opacity-100 translate-x-0"
-                  : "opacity-0 translate-x-10"
+                isVisible ? "opacity-100 translate-x-0" : "opacity-0 translate-x-10"
               }`}
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">
+              <div className="inline-flex items-center justify-center px-4 py-2 bg-green-100 rounded-full mb-4">
+                <span className="text-green-700 font-semibold text-sm">Why Us</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
                 Why Contact Us?
               </h2>
 
               <div className="space-y-6 mb-8">
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl mr-4">
-                    🎯
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      Expert Support
-                    </h3>
-                    <p className="text-gray-600">
-                      Our dedicated support team has years of experience and is
-                      ready to help with any questions or concerns.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl mr-4">
-                    ⚡
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      Quick Response
-                    </h3>
-                    <p className="text-gray-600">
-                      We prioritize your inquiries and aim to respond within 24
-                      hours during business days.
-                    </p>
+                <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-100 hover:shadow-xl transition-all">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        Expert Support
+                      </h3>
+                      <p className="text-gray-600">
+                        Our dedicated support team has years of experience and is ready to help with any questions or concerns.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl mr-4">
-                    💡
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      Personalized Solutions
-                    </h3>
-                    <p className="text-gray-600">
-                      Every inquiry is unique. We provide tailored solutions
-                      that meet your specific needs.
-                    </p>
+                <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-100 hover:shadow-xl transition-all">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        Quick Response
+                      </h3>
+                      <p className="text-gray-600">
+                        We prioritize your inquiries and aim to respond within 24 hours during business days.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center text-2xl mr-4">
-                    🔒
+                <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-100 hover:shadow-xl transition-all">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        Personalized Solutions
+                      </h3>
+                      <p className="text-gray-600">
+                        Every inquiry is unique. We provide tailored solutions that meet your specific needs.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      Secure & Private
-                    </h3>
-                    <p className="text-gray-600">
-                      Your information is protected with industry-standard
-                      security measures and kept confidential.
-                    </p>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-100 hover:shadow-xl transition-all">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mr-4">
+                      <CheckCircle2 className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        Secure & Private
+                      </h3>
+                      <p className="text-gray-600">
+                        Your information is protected with industry-standard security measures and kept confidential.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Business Hours */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-4">
-                  Business Hours
-                </h3>
+              <div className="bg-gradient-to-br from-green-50 to-white border-2 border-green-100 rounded-2xl p-6 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-green-100 p-3 rounded-xl">
+                    <Clock className="w-6 h-6 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Business Hours
+                  </h3>
+                </div>
                 <div className="space-y-2 text-gray-700">
                   <div className="flex justify-between">
                     <span>Monday - Friday:</span>
@@ -471,16 +496,22 @@ const ContactUsPage = () => {
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section className="py-20 bg-gray-50">
+      {/* FAQ Section - Matching HowItWorks Style */}
+      <section className="py-20 bg-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-12">
-            Frequently Asked Questions
-          </h2>
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center px-4 py-2 bg-green-100 rounded-full mb-4">
+              <span className="text-green-700 font-semibold text-sm">FAQ</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
+              Frequently Asked Questions
+            </h2>
+          </div>
           <div className="space-y-6">
             {faqItems.map((item, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 shadow-md">
-                <h3 className="text-xl font-bold text-gray-900 mb-3">
+              <div key={index} className="bg-gradient-to-br from-green-50 to-white border-2 border-green-100 rounded-2xl p-6 hover:shadow-lg transition-all">
+                <h3 className="text-xl font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-green-600" />
                   {item.question}
                 </h3>
                 <p className="text-gray-600">{item.answer}</p>
@@ -490,13 +521,18 @@ const ContactUsPage = () => {
         </div>
       </section>
 
-      {/* Map Section with Google Maps Integration */}
-      <section className="py-20 bg-white">
+      {/* Map Section */}
+      <section className="py-20 bg-gradient-to-br from-gray-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-12">
-            Find Us
-          </h2>
-          <div className="bg-white rounded-2xl overflow-hidden shadow-xl border">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center justify-center px-4 py-2 bg-green-100 rounded-full mb-4">
+              <span className="text-green-700 font-semibold text-sm">Location</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Find Us
+            </h2>
+          </div>
+          <div className="bg-white rounded-2xl overflow-hidden shadow-2xl border-2 border-green-100">
             {!isMapLoaded && !mapError && (
               <div className="h-96 flex items-center justify-center bg-gray-100">
                 <div className="text-center">
@@ -538,23 +574,29 @@ const ContactUsPage = () => {
           
           {/* Location Details */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl p-6 shadow-md border text-center">
-              <div className="text-4xl mb-3">📍</div>
-              <h3 className="font-bold text-gray-900 mb-2">Address</h3>
+            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-green-100 text-center">
+              <div className="bg-green-100 w-14 h-14 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform">
+                <MapPin className="w-7 h-7 text-green-600" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2 text-xl">Address</h3>
               <p className="text-gray-600 text-sm">6, Sam Iyamu , Genesis Estate, Aboru</p>
               <p className="text-gray-600 text-sm">Lagos, Nigeria</p>
             </div>
             
-            <div className="bg-white rounded-xl p-6 shadow-md border text-center">
-              <div className="text-4xl mb-3">🚗</div>
-              <h3 className="font-bold text-gray-900 mb-2">Parking</h3>
+            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-green-100 text-center">
+              <div className="bg-green-100 w-14 h-14 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-7 h-7 text-green-600" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2 text-xl">Parking</h3>
               <p className="text-gray-600 text-sm">Free parking available</p>
               <p className="text-gray-600 text-sm">Ground floor & basement</p>
             </div>
             
-            <div className="bg-white rounded-xl p-6 shadow-md border text-center">
-              <div className="text-4xl mb-3">🚇</div>
-              <h3 className="font-bold text-gray-900 mb-2">Public Transport</h3>
+            <div className="group bg-white rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-green-100 text-center">
+              <div className="bg-green-100 w-14 h-14 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-7 h-7 text-green-600" />
+              </div>
+              <h3 className="font-bold text-gray-900 mb-2 text-xl">Public Transport</h3>
               <p className="text-gray-600 text-sm">Bus stop: 2 mins walk</p>
               <p className="text-gray-600 text-sm">Metro: 5 mins walk</p>
             </div>

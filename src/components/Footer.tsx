@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Home, Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import logo from '../../public/HH.png';
+import logo from '../../src/images/HH.png';
 
 const Footer: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);

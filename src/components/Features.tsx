@@ -25,7 +25,7 @@ const Features = () => {
   const customerFeatures = [
     {
       icon: Shield,
-      image: "./public/verified.jpg",
+      image: "./src/images/verified.jpg",
       title: "Verified Providers",
       description: "All service providers are background-checked and verified for your peace of mind.",
       color: "green"
