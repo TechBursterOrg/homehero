@@ -3,7 +3,7 @@ import { ArrowRight, Star, Shield, Clock, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import cleaning from '../../public/heroImgg.jpg'
 import hairStylist from '../../public/hairStylist.jpg'
-import electrician  from '../../public/heroImgg.jpg'
+import electrician  from '../../public/electrician.jpg'
 
 
 
