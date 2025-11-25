@@ -112,8 +112,7 @@ What can I help you with?`,
       ]
     },
     'explain payment system': {
-      text: `**💳 Escrow Payment System:**
-
+      text: `
 Our secure payment process protects everyone:
 
 **Step 1:** Customer pays immediately after booking
