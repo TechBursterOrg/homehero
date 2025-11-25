@@ -1,23 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Star, Shield, Clock, Award } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import cleaning from '../../public/heroImgg.jpg'
+import hairStylist from '../../public/hairStylist.jpg'
+import electrician  from '../../public/heroImgg.jpg'
+
+
 
 const Hero = () => {
   const [currentImage, setCurrentImage] = useState(0);
   
   const images = [
     {
-      url: "./public/heroImgg.jpg",
+      url: [cleaning],
       title: "Cleaning",
       rating: "4.9"
     },
     {
-      url: "./public/hairStylist.jpg",
+      url: [hairStylist],
       title: "Hair Stylist",
       rating: "4.8"
     },
     {
-      url: "./public/electrician.jpg",
+      url: [electrician],
       title: "Electrician",
       rating: "5.0"
     }
