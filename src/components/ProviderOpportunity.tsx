@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TrendingUp, Clock, Shield, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ProviderOpportunity: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -101,10 +102,10 @@ const ProviderOpportunity: React.FC = () => {
                 <p className="text-gray-600 mb-6">
                   Start earning flexible income with your skills
                 </p>
-                <button className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl">
+                <Link to= '/provider-login' className="w-full bg-green-600 text-white px-8 py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-lg flex items-center justify-center group shadow-lg hover:shadow-xl">
                   Become a Provider
                   <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </Link>
               </div>
             </div>
           </div>

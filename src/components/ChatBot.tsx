@@ -40,6 +40,51 @@ const ChatBot = () => {
   }, [messages]);
 
   const responses: Record<string, Response> = {
+    'hi': {
+      text: `👋 Hello there! Great to see you!
+
+I'm your Home Heroes assistant, here to help you with anything you need to know about our platform.
+
+What would you like to learn about today?`,
+      options: [
+        'How does booking work?',
+        'Explain payment system',
+        'How to become a provider?',
+        'Customer journey',
+        'Provider journey',
+        'Contact support'
+      ]
+    },
+    'hello': {
+      text: `👋 Hello there! Great to see you!
+
+I'm your Home Heroes assistant, here to help you with anything you need to know about our platform.
+
+What would you like to learn about today?`,
+      options: [
+        'How does booking work?',
+        'Explain payment system',
+        'How to become a provider?',
+        'Customer journey',
+        'Provider journey',
+        'Contact support'
+      ]
+    },
+    'hey': {
+      text: `👋 Hey! How's it going?
+
+I'm your Home Heroes assistant, ready to help you with any questions about our platform.
+
+What can I help you with?`,
+      options: [
+        'How does booking work?',
+        'Explain payment system',
+        'How to become a provider?',
+        'Customer journey',
+        'Provider journey',
+        'Contact support'
+      ]
+    },
     'how does booking work?': {
       text: `**📅 Booking Process:**
 
@@ -408,8 +453,8 @@ All refunds are fast and hassle-free! ✅`,
 Need help? We're here 24/7!
 
 **Ways to Reach Us:**
-• Email: support@homehero.com
-• Phone: +234-XXX-XXXX-XXX
+• Email: support@homeheroes.help
+• Phone: +234-806-8890-777
 • Live Chat: Available in app
 • Help Center: Browse FAQs
 
@@ -440,11 +485,11 @@ We're committed to helping you! 💚`,
     const userMessage: Message = { type: 'user', text: inputValue };
     setMessages(prev => [...prev, userMessage]);
 
-    const searchQuery = inputValue.toLowerCase();
+    const searchQuery = inputValue.toLowerCase().trim();
     let response: Response | null = null;
 
     for (const [key, value] of Object.entries(responses)) {
-      if (searchQuery.includes(key.split(' ')[0]) || key.includes(searchQuery)) {
+      if (searchQuery === key || searchQuery.includes(key.split(' ')[0]) || key.includes(searchQuery)) {
         response = value;
         break;
       }
@@ -510,7 +555,7 @@ Here are some topics I can help with:`,
                 <Bot className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm sm:text-base">HomeHero Assistant</h3>
+                <h3 className="font-semibold text-sm sm:text-base">Home Heroes Assistant</h3>
                 <p className="text-xs text-green-100">Online • Always here to help</p>
               </div>
             </div>
