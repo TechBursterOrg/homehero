@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, Users, Clock, Shield, TrendingUp, Zap } from 'lucide-react';
+import verified from '../../src/images/verified.jpg'
 
 const Features = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -25,7 +26,7 @@ const Features = () => {
   const customerFeatures = [
     {
       icon: Shield,
-      image: "./src/images/verified.jpg",
+      image: {verified},
       title: "Verified Providers",
       description: "All service providers are background-checked and verified for your peace of mind.",
       color: "green"
