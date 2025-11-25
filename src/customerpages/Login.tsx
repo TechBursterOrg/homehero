@@ -493,12 +493,13 @@ const LoginPage = () => {
           <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-200 p-8 animate-fade-in-up">
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center justify-center space-x-3 mb-8">
-              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-500 rounded-xl flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
-                HomeHero
-              </span>
+               <div className="  flex items-center justify-center hover:scale-110 transition-transform duration-300">
+              <img
+                src={logo}
+                alt="HomeHeroes Logo"
+                className="w-[40px] h-[40px] object-contain"
+              />
+            </div>
             </div>
 
             {/* Step Indicator */}
