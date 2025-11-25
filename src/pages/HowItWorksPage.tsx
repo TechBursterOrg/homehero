@@ -275,7 +275,7 @@ const HowItWorksPage = () => {
                 key={index}
                 className={`flex flex-col ${
                   index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse"
-                } gap-8 items-center transition-all duration-1000 ${
+                } gap-8 items-center  ${
                   isVisible
                     ? "opacity-100 translate-y-0"
                     : "opacity-0 translate-y-10"

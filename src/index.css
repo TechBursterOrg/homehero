@@ -69,6 +69,7 @@ html {
 .contactus{
   background-image: url(../public/contactus.jpg);
   background-size: cover;
+  width: 100%;
 }
 
 button:focus,

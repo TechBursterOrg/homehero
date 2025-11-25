@@ -14,6 +14,7 @@ import {
   Bell,
   Shield
 } from 'lucide-react';
+import logo from '../../public/HHH.png'
 
 interface SidebarProps {
   sidebarOpen: boolean;
@@ -258,17 +259,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       `}>
         {/* Logo & Close Button */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-green-50 to-white">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Home className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <span className="text-md font-bold bg-gradient-to-r from-green-600 to-green-600 bg-clip-text text-transparent">
-                Home Heroes
-              </span>
-              <p className="text-xs text-gray-500 mt-1">Service Provider</p>
-            </div>
-          </div>
+          <Link to="/" className="flex items-center outline-none focus:outline-none">
+            <img 
+              src={logo} 
+              alt="HomeHeroes Logo" 
+              className="w-8 h-8 object-contain rounded-lg"
+            />
+          </Link>
+          
           <button 
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
