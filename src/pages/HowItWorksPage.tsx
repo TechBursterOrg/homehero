@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { Link } from "react-router-dom";
+import ChatBot from '../components/ChatBot'
 
 const HowItWorksPage = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -469,6 +470,7 @@ const HowItWorksPage = () => {
         </div>
       </section>
       <Footer />
+      <ChatBot /> {/* Add the chatbot component */}
     </div>
   );
 };

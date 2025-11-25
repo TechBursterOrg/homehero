@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { googleMapsService } from "../utils/googleMaps";
+import ChatBot from '../components/ChatBot'
+
 
 const ContactUsPage = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -561,6 +563,7 @@ const ContactUsPage = () => {
       </section>
 
       <Footer />
+      <ChatBot />
     </div>
   );
 };

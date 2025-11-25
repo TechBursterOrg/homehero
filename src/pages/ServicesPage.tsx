@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import ChatBot from '../components/ChatBot'
+
 
 // Mock components - replace with your actual imports
 
@@ -330,6 +332,7 @@ const ServicesPage = () => {
       </section>
 
       <Footer />
+      <ChatBot />
     </div>
   );
 };
