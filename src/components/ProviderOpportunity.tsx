@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { TrendingUp, Clock, Shield, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ProviderOpportunity: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -49,7 +50,7 @@ const ProviderOpportunity: React.FC = () => {
             Turn Your Skills Into Income
           </h2>
           <p className="text-base sm:text-lg md:text-xl opacity-90 max-w-3xl mx-auto px-4">
-            Join thousands of skilled professionals earning flexible income through HomeHero. Start your journey today.
+            Join thousands of skilled professionals earning flexible income through Home Heroes. Start your journey today.
           </p>
         </div>
 
@@ -101,10 +102,10 @@ const ProviderOpportunity: React.FC = () => {
                 <p className="text-sm sm:text-base text-gray-600 mb-5 sm:mb-6">
                   Start earning flexible income with your skills
                 </p>
-                <button className="w-full bg-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-base sm:text-lg flex items-center justify-center group shadow-lg hover:shadow-xl">
+                <Link to='/provider-login' className="w-full bg-green-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:bg-green-700 transition-all duration-300 font-semibold text-base sm:text-lg flex items-center justify-center group shadow-lg hover:shadow-xl">
                   Become a Provider
                   <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </button>
+                </Link>
               </div>
             </div>
           </div>

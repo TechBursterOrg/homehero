@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Star, Plus, X, Phone, Mail, Lock, Shield, CheckCircle, AlertCircle, CreditCard, RefreshCw } from 'lucide-react';
+import { Calendar, Star, Plus, X, Phone, Mail, Lock, Shield, CheckCircle, AlertCircle, CreditCard, RefreshCw, UserCheck } from 'lucide-react';
 import BookingCard from '../customercomponents/BookingCard';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement } from '@stripe/react-stripe-js';
@@ -58,6 +58,13 @@ interface ApiBooking {
     phoneNumber: string;
     profileImage?: string;
   };
+  // NEW FIELDS FOR HERO HERE FLOW
+  providerArrived?: boolean;
+  providerArrivedAt?: string;
+  showHeroHereButton?: boolean;
+  customerConfirmedHeroHere?: boolean;
+  customerConfirmedAt?: string;
+  heroHereConfirmed?: boolean;
 }
 
 interface RescheduleFormData {
@@ -103,7 +110,14 @@ const convertApiBookingToCardFormat = (apiBooking: ApiBooking): any => {
     autoRefundAt: apiBooking.autoRefundAt,
     serviceConfirmedByCustomer: apiBooking.serviceConfirmedByCustomer,
     serviceConfirmedAt: apiBooking.serviceConfirmedAt,
-    provider: apiBooking.provider
+    provider: apiBooking.provider,
+    // NEW HERO HERE FIELDS
+    providerArrived: apiBooking.providerArrived,
+    providerArrivedAt: apiBooking.providerArrivedAt,
+    showHeroHereButton: apiBooking.showHeroHereButton,
+    customerConfirmedHeroHere: apiBooking.customerConfirmedHeroHere,
+    customerConfirmedAt: apiBooking.customerConfirmedAt,
+    heroHereConfirmed: apiBooking.heroHereConfirmed
   };
 };
 
@@ -396,6 +410,99 @@ const PaymentSuccess: React.FC<{
   );
 };
 
+// Hero Here Confirmation Modal
+const HeroHereConfirmationModal: React.FC<{
+  booking: ApiBooking;
+  onConfirm: () => void;
+  onClose: () => void;
+  loading: boolean;
+}> = ({ booking, onConfirm, onClose, loading }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Confirm Hero Arrival</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            disabled={loading}
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <UserCheck className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-blue-900 mb-1">Confirm Your Hero is Here</h4>
+                <p className="text-sm text-blue-700">
+                  Please confirm that {booking.providerName} has arrived at your location.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border border-gray-200 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3">Booking Details</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Service:</span>
+                <span className="font-medium">{booking.serviceType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Provider:</span>
+                <span className="font-medium">{booking.providerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Location:</span>
+                <span className="font-medium">{booking.location}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-yellow-600" />
+              <p className="text-sm text-yellow-700">
+                <strong>Note:</strong> Once confirmed, the 4-hour auto-refund timer will stop and service can begin.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors font-medium disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-4 h-4" />
+                  Yes, My Hero is Here
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main BookingsPage Component
 const BookingsPage: React.FC = () => {
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
@@ -421,38 +528,53 @@ const BookingsPage: React.FC = () => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
+  // Hero Here Modal State
+  const [showHeroHereModal, setShowHeroHereModal] = useState(false);
+  const [selectedBookingForHeroHere, setSelectedBookingForHeroHere] = useState<ApiBooking | null>(null);
+  const [heroHereLoading, setHeroHereLoading] = useState(false);
+
   // Manual refresh state
   const [refreshingBooking, setRefreshingBooking] = useState<string | null>(null);
 
-  // Add this useEffect to handle the redirect when returning from Paystack
+  // Enhanced payment status detection
   useEffect(() => {
-    const checkPaymentStatus = async () => {
-      // Check if we're returning from a payment
+    const checkPaymentStatusFromURL = async () => {
       const urlParams = new URLSearchParams(window.location.search);
       const paymentStatus = urlParams.get('payment');
       const bookingId = urlParams.get('bookingId');
       const reference = urlParams.get('reference');
       const trxref = urlParams.get('trxref');
       
-      console.log('🔍 Checking URL parameters:', { paymentStatus, bookingId, reference, trxref });
+      console.log('🔍 Checking URL parameters for payment status:', { 
+        paymentStatus, 
+        bookingId, 
+        reference, 
+        trxref 
+      });
       
-      if ((paymentStatus === 'success' && bookingId) || reference || trxref) {
-        console.log('✅ Payment successful detected, refreshing bookings...');
+      // If we have any indication of a payment completion, refresh bookings
+      if (paymentStatus === 'success' || reference || trxref) {
+        console.log('✅ Payment completion detected, refreshing bookings...');
         
-        // Wait a moment for the backend to process the payment
+        // Show loading state
+        setLoading(true);
+        
+        // Wait a moment for backend to process
         setTimeout(async () => {
           await fetchUserBookings();
           
-          // Show success message
-          alert('Payment completed successfully! Your booking is now confirmed.');
+          // Show success message if we have clear success indicators
+          if (paymentStatus === 'success' || (reference && trxref)) {
+            alert('Payment completed successfully! Your booking is now confirmed.');
+          }
           
           // Clean URL - remove payment parameters
           window.history.replaceState({}, '', '/customer');
-        }, 3000);
+        }, 2000);
       }
     };
 
-    checkPaymentStatus();
+    checkPaymentStatusFromURL();
   }, []);
 
   useEffect(() => {
@@ -495,7 +617,10 @@ const BookingsPage: React.FC = () => {
           id: b._id,
           status: b.status,
           paymentStatus: b.payment?.status,
-          provider: b.providerName
+          provider: b.providerName,
+          providerArrived: b.providerArrived,
+          showHeroHereButton: b.showHeroHereButton,
+          heroHereConfirmed: b.heroHereConfirmed
         })));
         
         setBookings(fetchedBookings);
@@ -510,7 +635,7 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  // Manual payment status check for a specific booking
+  // Enhanced payment status check
   const checkPaymentStatus = async (bookingId: string) => {
     try {
       setRefreshingBooking(bookingId);
@@ -698,6 +823,68 @@ const BookingsPage: React.FC = () => {
     }
   };
 
+  // Handle Hero Here Confirmation
+  const handleConfirmHeroHere = async (bookingId: string) => {
+    try {
+      setHeroHereLoading(true);
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      console.log('👥 Confirming Hero Here for booking:', bookingId);
+
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/confirm-hero-here`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        console.log('✅ Hero Here confirmed successfully');
+        
+        // Update the booking in state
+        setBookings(prev => prev.map(booking => 
+          booking._id === bookingId 
+            ? { 
+                ...booking, 
+                customerConfirmedHeroHere: true,
+                heroHereConfirmed: true,
+                customerConfirmedAt: new Date().toISOString(),
+                showHeroHereButton: false,
+                autoRefundAt: result.data?.autoRefundAt || booking.autoRefundAt
+              }
+            : booking
+        ));
+        
+        setShowHeroHereModal(false);
+        setSelectedBookingForHeroHere(null);
+        alert('Hero arrival confirmed! The 4-hour refund timer has been stopped and service can begin.');
+      } else {
+        throw new Error(result.message || 'Failed to confirm hero arrival');
+      }
+    } catch (error) {
+      console.error('❌ Error confirming hero here:', error);
+      alert('Failed to confirm hero arrival: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setHeroHereLoading(false);
+    }
+  };
+
+  // Open Hero Here confirmation modal
+  const handleOpenHeroHereModal = (bookingId: string) => {
+    const booking = bookings.find(b => b._id === bookingId);
+    if (booking) {
+      setSelectedBookingForHeroHere(booking);
+      setShowHeroHereModal(true);
+    }
+  };
+
   const handleReleasePayment = async (bookingId: string) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -816,6 +1003,9 @@ const BookingsPage: React.FC = () => {
           return;
         case 'check-payment-status':
           checkPaymentStatus(bookingId);
+          return;
+        case 'confirm-hero-here':
+          handleOpenHeroHereModal(bookingId);
           return;
         default:
           console.log('Unknown action:', action, bookingId);
@@ -1074,8 +1264,8 @@ const BookingsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 py-2 px-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-2 lg:px-8">
         {/* Header Section */}
         <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 rounded-3xl p-8 mb-7">
         {/* Background Pattern */}
@@ -1099,10 +1289,8 @@ const BookingsPage: React.FC = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            
-            
             <button
-              
+              onClick={handleBookNewService}
               className="group bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg"
             >
               <Plus className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
@@ -1230,6 +1418,7 @@ const BookingsPage: React.FC = () => {
                       onRetryPayment={handleRetryPaymentClick}
                       onReleasePayment={handleReleasePayment}
                       onSeenProvider={handleSeenProvider}
+                      onConfirmHeroHere={(id: string) => handleBookingAction(id, 'confirm-hero-here')}
                       userType="customer"
                     />
                   </div>
@@ -1625,6 +1814,19 @@ const BookingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Hero Here Confirmation Modal */}
+      {showHeroHereModal && selectedBookingForHeroHere && (
+        <HeroHereConfirmationModal
+          booking={selectedBookingForHeroHere}
+          onConfirm={() => handleConfirmHeroHere(selectedBookingForHeroHere._id)}
+          onClose={() => {
+            setShowHeroHereModal(false);
+            setSelectedBookingForHeroHere(null);
+          }}
+          loading={heroHereLoading}
+        />
       )}
     </div>
   );

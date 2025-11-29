@@ -112,7 +112,8 @@ What can I help you with?`,
       ]
     },
     'explain payment system': {
-      text: `
+      text: `💳 **Payment System:**
+
 Our secure payment process protects everyone:
 
 **Step 1:** Customer pays immediately after booking
@@ -579,7 +580,7 @@ Here are some topics I can help with:`,
                       )}
                     </div>
                     <div className={`p-2.5 sm:p-3 rounded-2xl ${message.type === 'user' ? 'bg-green-600 text-white' : 'bg-white text-gray-800 border border-gray-200'}`}>
-                      <div className="whitespace-pre-line text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/•/g, '•') }} />
+                      <div className="whitespace-pre-line text-sm" dangerouslySetInnerHTML={{ __html: message.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/•/g, '•') }} />
                     </div>
                   </div>
                 </div>
@@ -610,7 +611,8 @@ Here are some topics I can help with:`,
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Ask me anything..."
-                className="flex-1 border border-gray-300 rounded-full px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent text-xs sm:text-sm"
+                className="flex-1 border border-gray-300 rounded-full px-3 sm:px-4 py-2 focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent text-base"
+                style={{ fontSize: '16px' }}
               />
               <button
                 onClick={handleSendMessage}

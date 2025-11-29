@@ -7,6 +7,7 @@ import {
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ChatBot from '../components/ChatBot';
+import { Link } from 'react-router-dom';
 
 const ServicesPage = () => {
   const [scrollY, setScrollY] = useState(0);
@@ -411,10 +412,10 @@ const ServicesPage = () => {
 
                     {/* Hover Action Button */}
                     <div className={`absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 to-transparent transform transition-all duration-300 ${isHovered ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>
-                      <button className={`w-full ${getColorClasses(service.color)} text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 hover:brightness-110 transition-all`}>
+                      <Link to='/login' className={`w-full ${getColorClasses(service.color)} text-white py-3 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 hover:brightness-110 transition-all`}>
                         <CheckCircle className="w-4 h-4" />
                         Book Now
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 </div>

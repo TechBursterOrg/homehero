@@ -64,6 +64,13 @@ interface Booking {
     email: string;
     profileImage?: string;
   };
+  // NEW: Add Hero Here fields
+  providerArrived?: boolean;
+  providerArrivedAt?: string;
+  showHeroHereButton?: boolean;
+  customerConfirmedHeroHere?: boolean;
+  customerConfirmedAt?: string;
+  heroHereConfirmed?: boolean;
 }
 
 interface BookingCardProps {
@@ -78,6 +85,8 @@ interface BookingCardProps {
   onSeenProvider: (bookingId: string) => void;
   onAcceptBooking?: (bookingId: string) => void;
   onRetryPayment: (bookingId: string) => void;
+  // NEW: Add onConfirmHeroHere prop
+  onConfirmHeroHere?: (bookingId: string) => void;
   userType?: 'customer' | 'provider';
 }
 
@@ -240,6 +249,63 @@ const AcceptBookingButton = ({ booking, onAccept, loading = false }: {
   );
 };
 
+// Hero Here Button Component
+const HeroHereButton = ({ 
+  booking, 
+  onConfirm, 
+  loading = false 
+}: { 
+  booking: Booking;
+  onConfirm: (bookingId: string) => void;
+  loading: boolean;
+}) => {
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  
+  if (showConfirmation) {
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-sm text-blue-800 mb-2">
+          Confirm that {booking.providerName} has arrived at your location?
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowConfirmation(false)}
+            disabled={loading}
+            className="flex-1 px-3 py-1 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm(booking.id);
+              setShowConfirmation(false);
+            }}
+            disabled={loading}
+            className="flex-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+          >
+            {loading ? (
+              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <UserCheck className="w-3 h-3" />
+            )}
+            Confirm Arrival
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setShowConfirmation(true)}
+      className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+    >
+      <UserCheck className="w-4 h-4" />
+      Hero Here - Confirm Arrival
+    </button>
+  );
+};
+
 // Main BookingCard Component
 const BookingCard: React.FC<BookingCardProps> = ({
   booking,
@@ -253,6 +319,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onSeenProvider,
   onAcceptBooking,
   onRetryPayment,
+  onConfirmHeroHere, // NEW: Add this prop
   userType = 'customer'
 }) => {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
@@ -262,6 +329,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   const [comment, setComment] = useState('');
   const [seenProviderLoading, setSeenProviderLoading] = useState(false);
   const [acceptLoading, setAcceptLoading] = useState(false);
+  const [heroHereLoading, setHeroHereLoading] = useState(false); // NEW: Loading state for hero here
 
   const moreOptionsRef = useRef<HTMLDivElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
@@ -417,6 +485,20 @@ const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
+  // NEW: Handle Hero Here confirmation
+  const handleConfirmHeroHere = async () => {
+    if (!onConfirmHeroHere) return;
+    
+    setHeroHereLoading(true);
+    try {
+      await onConfirmHeroHere(booking.id);
+    } catch (error) {
+      console.error('Error confirming hero here:', error);
+    } finally {
+      setHeroHereLoading(false);
+    }
+  };
+
   // Price calculation
   const calculatePrice = (): number => {
     if (booking.payment?.amount && booking.payment.amount > 0) {
@@ -470,6 +552,14 @@ const BookingCard: React.FC<BookingCardProps> = ({
     booking.payment?.status === 'confirmed' &&
     !booking.serviceConfirmedByCustomer &&
     onSeenProvider;
+
+  // NEW: Check if should show Hero Here button
+  const shouldShowHeroHereButton = 
+    isCustomer &&
+    booking.showHeroHereButton &&
+    !booking.customerConfirmedHeroHere &&
+    !booking.heroHereConfirmed &&
+    onConfirmHeroHere;
 
   // Use the improved price calculation
   const price = calculatePrice();
@@ -574,7 +664,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           </div>
 
           {/* Date & Time with Price */}
-          <div className="bg-gree-50 rounded-lg p-3">
+          <div className="bg-green-50 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-green-700">
                 <Calendar className="w-4 h-4" />
@@ -608,6 +698,15 @@ const BookingCard: React.FC<BookingCardProps> = ({
             />
           )}
 
+          {/* Hero Here Button */}
+          {shouldShowHeroHereButton && (
+            <HeroHereButton 
+              booking={booking}
+              onConfirm={handleConfirmHeroHere}
+              loading={heroHereLoading}
+            />
+          )}
+
           {/* Debug Information */}
           {process.env.NODE_ENV === 'development' && (
             <div className="bg-gray-100 p-2 mt-2 rounded text-xs">
@@ -616,6 +715,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
               <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
               <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
               <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
+              <div>Show Hero Here: {shouldShowHeroHereButton ? 'Yes' : 'No'}</div>
             </div>
           )}
 
@@ -786,6 +886,17 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </div>
             )}
 
+            {/* Hero Here Button for Desktop */}
+            {shouldShowHeroHereButton && (
+              <div className="mb-4">
+                <HeroHereButton 
+                  booking={booking}
+                  onConfirm={handleConfirmHeroHere}
+                  loading={heroHereLoading}
+                />
+              </div>
+            )}
+
             {/* Debug Information for Desktop */}
             {process.env.NODE_ENV === 'development' && (
               <div className="bg-gray-100 p-3 mt-2 rounded text-xs mb-4">
@@ -795,6 +906,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                   <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
                   <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
                   <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
+                  <div>Show Hero Here: {shouldShowHeroHereButton ? 'Yes' : 'No'}</div>
                 </div>
               </div>
             )}
@@ -804,7 +916,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => onContact(booking.id, 'message')}
-                    className="p-3 bg-gren-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
+                    className="p-3 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition-all duration-200"
                   >
                     <MessageCircle className="w-5 h-5" />
                   </button>

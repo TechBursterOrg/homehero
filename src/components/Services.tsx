@@ -154,10 +154,10 @@ const Services = () => {
 
                 {/* Hover Action Button */}
                 <div className={`absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 to-transparent transform transition-all duration-300 ${hoveredIndex === index ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0'}`}>
-                  <button className={`w-full ${colorClasses.bg} text-white py-2 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 hover:brightness-110 transition-all`}>
+                  <Link to='/login' className={`w-full ${colorClasses.bg} text-white py-2 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 hover:brightness-110 transition-all`}>
                     Book Now
                     <ArrowRight className="w-4 h-4" />
-                  </button>
+                  </Link>
                 </div>
               </div>
             );
