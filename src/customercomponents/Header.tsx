@@ -241,7 +241,7 @@ const Header: React.FC<HeaderProps> = ({
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'message':
-        return <MessageSquare className="w-4 h-4 text-blue-500" />;
+        return <MessageSquare className="w-4 h-4 text-green-500" />;
       case 'booking':
         return <Calendar className="w-4 h-4 text-green-500" />;
       case 'job_accepted':
@@ -442,7 +442,7 @@ const Header: React.FC<HeaderProps> = ({
                       {unreadCount > 0 && (
                         <button
                           onClick={markAllAsRead}
-                          className="text-sm text-blue-600 hover:text-blue-800"
+                          className="text-sm text-green-600 hover:text-green-800"
                         >
                           Mark all as read
                         </button>
@@ -462,7 +462,7 @@ const Header: React.FC<HeaderProps> = ({
                           <div
                             key={notification._id}
                             className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                              !notification.isRead ? 'bg-blue-50' : ''
+                              !notification.isRead ? 'bg-green-50' : ''
                             }`}
                             onClick={() => handleNotificationClick(notification)}
                           >
@@ -483,7 +483,7 @@ const Header: React.FC<HeaderProps> = ({
                               </div>
                               {!notification.isRead && (
                                 <div className="flex-shrink-0">
-                                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                 </div>
                               )}
                             </div>
@@ -499,7 +499,7 @@ const Header: React.FC<HeaderProps> = ({
                         navigate('/customer/notifications');
                         setShowNotifications(false);
                       }}
-                      className="block w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      className="block w-full text-center text-sm text-green-600 hover:text-green-800 font-medium"
                     >
                       View all notifications
                     </button>
@@ -585,7 +585,7 @@ const Header: React.FC<HeaderProps> = ({
                 key={item.id}
                 onClick={() => handleNavigation(item.path)}
                 className={`flex items-center justify-between w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none ${
-                  isActivePath(item.path) ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                  isActivePath(item.path) ? 'bg-green-50 text-green-600' : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 <span>{item.label}</span>
