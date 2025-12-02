@@ -1339,15 +1339,15 @@ const ProviderProfilePage: React.FC = () => {
               >
                 Book Now
               </button>
-              <button
+              {/* <button
                 onClick={handleSendMessage}
                 className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none hover:border-green-300 hover:text-green-600"
               >
                 <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Send Message</span>
                 <span className="sm:hidden">Message</span>
-              </button>
-              {provider.phoneNumber && (
+              </button> */}
+              {/* {provider.phoneNumber && (
                 <a
                   href={`tel:${provider.phoneNumber}`}
                   className="bg-green-50 text-green-700 px-6 py-3 rounded-xl font-semibold hover:bg-green-100 transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none"
@@ -1356,7 +1356,7 @@ const ProviderProfilePage: React.FC = () => {
                   <span className="hidden sm:inline">Call Provider</span>
                   <span className="sm:hidden">Call</span>
                 </a>
-              )}
+              )} */}
             </div>
           </div>
         </div>

@@ -740,16 +740,16 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   <span className="text-sm font-medium">Profile</span>
                 </button>
                 
-                {onMessage && (
+                {/* {onMessage && (
                   <button 
                     onClick={handleMessageClick}
                     className="p-3 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl transition-all duration-200 hover:scale-105 group"
                   >
                     <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   </button>
-                )}
+                )} */}
                 
-                {onCall && (
+                {/* {onCall && (
                   <div className="relative">
                     <button 
                       ref={callButtonRef}
@@ -790,7 +790,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                       </div>
                     )}
                   </div>
-                )}
+                )} */}
                 
                 {onBook && (
                   <button
@@ -953,16 +953,16 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
             <Eye className="w-4 h-4" />
           </button>
           
-          {onMessage && (
+          {/* {onMessage && (
             <button 
               onClick={handleMessageClick}
               className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all duration-200 hover:scale-105"
             >
               <MessageCircle className="w-4 h-4" />
             </button>
-          )}
+          )} */}
           
-          {onCall && (
+          {/* {onCall && (
             <div className="relative">
               <button 
                 ref={callButtonRef}
@@ -1003,7 +1003,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                 </div>
               )}
             </div>
-          )}
+          )} */}
           
           {onBook && (
             <button
