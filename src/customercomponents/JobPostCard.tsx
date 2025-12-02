@@ -28,6 +28,7 @@ export interface JobPost {
   serviceType?: string;
   urgency?: string;
   timeframe?: string;
+  proposalCount?: number; // Add this field
 }
 
 interface JobPostCardProps {
@@ -96,6 +97,9 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
     return 'bg-gradient-to-br from-green-600 to-blue-600';
   };
 
+  // Calculate proposal count - use proposalCount if available, otherwise use proposals
+  const proposalCount = jobPost.proposalCount || jobPost.proposals || 0;
+
   return (
     <>
       <div className="group bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-300 p-4 relative">
@@ -147,7 +151,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             </div>
             <div className="flex items-center gap-1">
               <Users className="w-3 h-3" />
-              <span>{jobPost.proposals} proposals</span>
+              <span>{proposalCount} proposals</span>
             </div>
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
@@ -163,7 +167,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => onViewProposals(jobPost.id)}
+                onClick={() => onViewProposals(jobPost._id || jobPost.id)}
                 className="flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-600 text-sm rounded-lg hover:bg-blue-100"
               >
                 <Eye className="w-3 h-3" />
@@ -172,7 +176,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             </div>
             
             <button
-              onClick={() => onEdit(jobPost.id)}
+              onClick={() => onEdit(jobPost._id || jobPost.id)}
               className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
             >
               Edit
@@ -229,7 +233,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="w-4 h-4 text-purple-600" />
-                  <span>{jobPost.proposals} proposals</span>
+                  <span>{proposalCount} proposals</span>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -241,7 +245,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => onViewProposals(jobPost.id)}
+                  onClick={() => onViewProposals(jobPost._id || jobPost.id)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200"
                 >
                   <Eye className="w-4 h-4" />
@@ -251,13 +255,13 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
               
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => onEdit(jobPost.id)}
+                  onClick={() => onEdit(jobPost._id || jobPost.id)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
                 >
                   Edit Job
                 </button>
                 <button
-                  onClick={() => onDelete(jobPost.id)}
+                  onClick={() => onDelete(jobPost._id || jobPost.id)}
                   className="px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 text-sm"
                 >
                   Delete
@@ -272,7 +276,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
           <div className="absolute right-4 top-12 bg-white border border-gray-200 rounded-lg shadow-lg p-2 z-50 min-w-32">
             <button
               onClick={() => {
-                onViewProposals(jobPost.id);
+                onViewProposals(jobPost._id || jobPost.id);
                 setShowMoreOptions(false);
               }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md flex items-center gap-2"
@@ -282,7 +286,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             </button>
             <button
               onClick={() => {
-                onEdit(jobPost.id);
+                onEdit(jobPost._id || jobPost.id);
                 setShowMoreOptions(false);
               }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-md flex items-center gap-2"
@@ -292,7 +296,7 @@ const JobPostCard: React.FC<JobPostCardProps> = ({
             </button>
             <button
               onClick={() => {
-                onDelete(jobPost.id);
+                onDelete(jobPost._id || jobPost.id);
                 setShowMoreOptions(false);
               }}
               className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-md flex items-center gap-2 text-red-600"

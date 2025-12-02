@@ -371,7 +371,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-200/50 shadow-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-6 text-white">
+        <div className="bg-gradient-to-r from-green-600 via-green-600 to-pink-600 p-6 text-white">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold">
               Book {provider.name}
@@ -403,7 +403,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-lg font-semibold text-white">{provider.name}</h3>
                 {provider.isVerified && (
-                  <Shield className="w-4 h-4 text-blue-200" />
+                  <Shield className="w-4 h-4 text-green-200" />
                 )}
                 {provider.isTopRated && (
                   <Award className="w-4 h-4 text-amber-300" />
@@ -454,12 +454,12 @@ const BookingModal: React.FC<BookingModalProps> = ({
               )}
 
               {/* Escrow Explanation */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                 <div className="flex items-start gap-3">
-                  <Lock className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <Lock className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <h4 className="font-semibold text-blue-900 mb-2">Secure Escrow Payment</h4>
-                    <div className="text-sm text-blue-700 space-y-1">
+                    <h4 className="font-semibold text-green-900 mb-2">Secure Escrow Payment</h4>
+                    <div className="text-sm text-green-700 space-y-1">
                       <div className="flex items-start gap-2">
                         <span className="font-medium">1.</span>
                         <span>Pay now - funds held securely in escrow</span>
@@ -490,7 +490,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   name="serviceType"
                   value={formData.serviceType}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                   required
                   disabled={isSubmitting}
                 >
@@ -513,7 +513,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   onChange={handleInputChange}
                   placeholder="Describe what you need help with..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
                   disabled={isSubmitting}
                 />
               </div>
@@ -532,7 +532,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                       value={formData.date}
                       onChange={handleInputChange}
                       min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -548,7 +548,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                       name="time"
                       value={formData.time}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                       disabled={isSubmitting}
                     />
                   </div>
@@ -567,7 +567,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   value={formData.location}
                   onChange={handleInputChange}
                   placeholder="Enter your address where service is needed"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                   required
                   disabled={isSubmitting}
                 />
@@ -588,7 +588,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   value={formData.budget}
                   onChange={handleInputChange}
                   placeholder="e.g., ₦5,000 - ₦10,000"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                   disabled={isSubmitting}
                 />
               </div>
@@ -637,7 +637,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                     value={formData.contactPhone}
                     onChange={handleInputChange}
                     placeholder="Enter your phone number"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm"
                     required
                     disabled={isSubmitting}
                   />
@@ -655,7 +655,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
                   onChange={handleInputChange}
                   placeholder="Any special requirements, tools needed, or additional information..."
                   rows={2}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white/80 backdrop-blur-sm resize-none"
                   disabled={isSubmitting}
                 />
               </div>
@@ -672,7 +672,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 min-w-[200px]"
+                className="px-6 py-3 bg-gradient-to-r from-green-600 via-purple-600 to-pink-600 text-white rounded-xl hover:scale-105 transition-all duration-300 font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 min-w-[200px]"
               >
                 {isSubmitting ? (
                   <>
@@ -686,7 +686,7 @@ const BookingModal: React.FC<BookingModalProps> = ({
             </div>
 
               {/* Booking Summary */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/50 rounded-2xl p-4">
+              <div className="bg-gradient-to-r from-green-50 to-green-50 border border-green-200/50 rounded-2xl p-4">
                 <h3 className="font-semibold text-gray-900 mb-2">Booking Summary</h3>
                 <div className="space-y-1 text-sm text-gray-700">
                   <div className="flex justify-between">
@@ -1190,9 +1190,9 @@ const ProviderProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-green-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading provider profile...</p>
         </div>
       </div>
@@ -1201,7 +1201,7 @@ const ProviderProfilePage: React.FC = () => {
 
   if (error || !provider) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100 flex items-center justify-center px-4">
         <div className="text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Eye className="w-8 h-8 text-red-600" />
@@ -1214,7 +1214,7 @@ const ProviderProfilePage: React.FC = () => {
           </p>
           <button
             onClick={() => navigate(-1)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
           >
             Go Back
           </button>
@@ -1224,7 +1224,7 @@ const ProviderProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-green-50 to-indigo-100">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-4">
@@ -1249,7 +1249,7 @@ const ProviderProfilePage: React.FC = () => {
             {/* Profile Image and Basic Info */}
             <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
               <div className="relative mx-auto sm:mx-0">
-                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden relative">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden relative">
                   {provider.profileImage ? (
                     <>
                       <img
@@ -1260,7 +1260,7 @@ const ProviderProfilePage: React.FC = () => {
                         onLoad={handleImageLoad}
                       />
                       <div
-                        className="fallback-initials absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl sm:text-2xl"
+                        className="fallback-initials absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center text-white font-bold text-xl sm:text-2xl"
                         style={{ display: "none" }}
                       >
                         {provider.name.charAt(0).toUpperCase()}
@@ -1284,7 +1284,7 @@ const ProviderProfilePage: React.FC = () => {
                   </h2>
                   <div className="flex items-center justify-center sm:justify-start gap-2">
                     {provider.isVerified && (
-                      <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500" />
+                      <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-500" />
                     )}
                     {provider.isTopRated && (
                       <Award className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
@@ -1335,13 +1335,13 @@ const ProviderProfilePage: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleBookNow}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex-1 sm:flex-none"
+                className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 flex-1 sm:flex-none"
               >
                 Book Now
               </button>
               <button
                 onClick={handleSendMessage}
-                className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none hover:border-blue-300 hover:text-blue-600"
+                className="bg-white border border-gray-300 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 flex-1 sm:flex-none hover:border-green-300 hover:text-green-600"
               >
                 <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Send Message</span>
@@ -1371,7 +1371,7 @@ const ProviderProfilePage: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`py-3 sm:py-4 px-4 sm:px-6 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                     activeTab === tab.id
-                      ? "border-blue-500 text-blue-600"
+                      ? "border-green-500 text-green-600"
                       : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
@@ -1395,7 +1395,7 @@ const ProviderProfilePage: React.FC = () => {
                       {provider.services.map((service, index) => (
                         <div
                           key={index}
-                          className="bg-blue-50 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
+                          className="bg-green-50 text-green-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-medium text-center text-sm"
                         >
                           {service}
                         </div>
@@ -1448,7 +1448,7 @@ const ProviderProfilePage: React.FC = () => {
                         {performanceStats.onTimeDelivery > 0 && (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <Clock4 className="w-4 h-4 text-blue-600" />
+                              <Clock4 className="w-4 h-4 text-green-600" />
                               <span className="text-gray-600">On-time Delivery</span>
                             </div>
                             <span className="font-bold text-green-600">
@@ -1459,7 +1459,7 @@ const ProviderProfilePage: React.FC = () => {
                         {performanceStats.responseRate > 0 && (
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <TrendingUp className="w-4 h-4 text-purple-600" />
+                              <TrendingUp className="w-4 h-4 text-green-600" />
                               <span className="text-gray-600">Response Rate</span>
                             </div>
                             <span className="font-bold text-green-600">
@@ -1529,7 +1529,7 @@ const ProviderProfilePage: React.FC = () => {
                       className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6"
                     >
                       <div className="flex items-center gap-3 mb-4">
-                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
                           <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <h4 className="font-bold text-gray-900 text-base sm:text-lg">
@@ -1656,7 +1656,7 @@ const ProviderProfilePage: React.FC = () => {
                       Based on {reviews.length} verified reviews
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl w-fit">
+                  <div className="flex items-center gap-3 bg-green-50 px-4 py-2 rounded-xl w-fit">
                     <div className="flex items-center gap-1">
                       {renderStars(provider.averageRating, "w-4 h-4 sm:w-5 sm:h-5")}
                     </div>
@@ -1726,7 +1726,7 @@ const ProviderProfilePage: React.FC = () => {
                         className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6"
                       >
                         <div className="flex items-start gap-3 sm:gap-4 mb-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base overflow-hidden flex-shrink-0">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base overflow-hidden flex-shrink-0">
                             {review.customerId?.profileImage ? (
                               <img
                                 src={getFullImageUrl(review.customerId.profileImage)}
@@ -1744,7 +1744,7 @@ const ProviderProfilePage: React.FC = () => {
                                   {review.customerId?.name || 'Anonymous Customer'}
                                 </h4>
                                 {review.verified && (
-                                  <Shield className="w-4 h-4 text-blue-500" />
+                                  <Shield className="w-4 h-4 text-green-500" />
                                 )}
                               </div>
                               <span className="text-xs sm:text-sm text-gray-500">
@@ -1755,7 +1755,7 @@ const ProviderProfilePage: React.FC = () => {
                               <div className="flex items-center gap-1">
                                 {renderStars(review.rating)}
                               </div>
-                              <span className="text-xs sm:text-sm text-blue-600 font-medium">
+                              <span className="text-xs sm:text-sm text-green-600 font-medium">
                                 {review.serviceType || 'General Service'}
                               </span>
                             </div>
@@ -1846,7 +1846,7 @@ const ProviderProfilePage: React.FC = () => {
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-blue-50 p-3 sm:p-4 rounded-xl">
+                    <div className="bg-green-50 p-3 sm:p-4 rounded-xl">
                       <p className="text-xs sm:text-sm text-gray-600">
                         Category
                       </p>
@@ -1868,7 +1868,7 @@ const ProviderProfilePage: React.FC = () => {
                       setSelectedImage(null);
                       handleBookNow();
                     }}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
+                    className="w-full bg-gradient-to-r from-green-600 to-purple-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200"
                   >
                     Book Similar Service
                   </button>

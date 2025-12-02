@@ -627,14 +627,20 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                 </div>
                 
                 <button
-                  onClick={handleToggleFavorite}
-                  disabled={isFavoriting}
-                  className={`p-1 rounded-full transition-colors duration-200 ${
-                    isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
-                  }`}
-                >
-                  <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                </button>
+  onClick={handleToggleFavorite}
+  disabled={isFavoriting}
+  className={`p-2 rounded-xl transition-all duration-200 ${
+    isFavorite 
+      ? 'text-red-500 bg-red-50 border border-red-200' 
+      : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
+  }`}
+>
+  <Heart 
+    className={`w-5 h-5`} 
+    fill={isFavorite ? "#ef4444" : "none"}
+    stroke={isFavorite ? "#ef4444" : "currentColor"}
+  />
+</button>
               </div>
               
               <div className="flex items-center gap-2 mb-2">
@@ -795,14 +801,20 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
               </div>
               
               <button
-                onClick={handleToggleFavorite}
-                disabled={isFavoriting}
-                className={`p-2 rounded-full transition-all duration-200 ${
-                  isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                }`}
-              >
-                <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
-              </button>
+  onClick={handleToggleFavorite}
+  disabled={isFavoriting}
+  className={`p-2 rounded-xl transition-all duration-200 ${
+    isFavorite 
+      ? 'text-red-500 bg-red-50 border border-red-200' 
+      : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
+  }`}
+>
+  <Heart 
+    className={`w-4 h-4`} 
+    fill={isFavorite ? "#ef4444" : "none"}
+    stroke={isFavorite ? "#ef4444" : "currentColor"}
+  />
+</button>
             </div>
 
             <div className="space-y-3 mb-4">

@@ -10,7 +10,6 @@ import HeroSection from "../customercomponents/HeroSection";
 import ServiceCard from "../customercomponents/ServiceCard";
 import PostJobModal from "../customercomponents/PostJobModal";
 import BookingModal from "../customercomponents/BookingModal";
-import MapView from "../customercomponents/MapView";
 import ProvidersList from "../customercomponents/ProvidersList";
 
 // Pages
@@ -19,10 +18,8 @@ import JobsPage from "./JobsPage";
 import FavoritesPage from "./FavoritesPage";
 import MessagesPage from "./MessagesPage";
 import ProviderProfilePage from "../customercomponents/ProviderProfilePage";
-import WorkingMapView from "../customercomponents/WorkingMapView";
 import StandaloneMapView from "../customercomponents/StandaloneMapView";
 import PaymentStatusPage from '../customercomponents/PaymentStatusPage';
-
 
 // Types and Data
 import {
@@ -45,11 +42,11 @@ interface ExtendedUserProfile extends UserProfile {
 }
 
 const CustomerContent: React.FC = () => {
-  // State for search parameters (typing state)
+  // State for search parameters
   const [searchQuery, setSearchQuery] = useState("");
   const [currentLocationAddress, setCurrentLocationAddress] = useState("");
 
-  // Search execution state - only updated when actual search is performed
+  // Search execution state
   const [searchParams, setSearchParams] = useState({
     query: "",
     location: "",
@@ -66,7 +63,6 @@ const CustomerContent: React.FC = () => {
   const [selectedProviderForBooking, setSelectedProviderForBooking] =
     useState<ProviderType | null>(null);
 
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [searchRadius, setSearchRadius] = useState(10);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(
@@ -76,7 +72,7 @@ const CustomerContent: React.FC = () => {
     null
   );
   const [authToken, setAuthToken] = useState<string | null>(null);
-  const [providers, setProviders] = useState<ProviderType[]>([]); // ADDED: State to store providers
+  const [providers, setProviders] = useState<ProviderType[]>([]);
   const navigate = useNavigate();
 
   const providersRef = useRef<HTMLDivElement>(null);
@@ -112,8 +108,6 @@ const CustomerContent: React.FC = () => {
     0
   );
 
-  
-
   // Fetch providers data
   const fetchProviders = useCallback(async () => {
     try {
@@ -144,7 +138,6 @@ const CustomerContent: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          // Transform the API response to match our Provider type
           const transformedProviders: ProviderType[] = data.data.providers.map(
             (provider: any) => ({
               id: provider._id || provider.id,
@@ -157,7 +150,7 @@ const CustomerContent: React.FC = () => {
                 provider.address ||
                 provider.location ||
                 "Location not specified",
-              coordinates: provider.coordinates || [6.5244, 3.3792], // Default to Lagos coordinates
+              coordinates: provider.coordinates || [6.5244, 3.3792],
               services: provider.services || provider.skills || [],
               priceRange: provider.priceRange || "Contact for pricing",
               isAvailableNow:
@@ -171,7 +164,6 @@ const CustomerContent: React.FC = () => {
         }
       } else {
         console.error("Failed to fetch providers");
-        // Fallback to mock data or empty array
         setProviders([]);
       }
     } catch (error) {
@@ -272,7 +264,7 @@ const CustomerContent: React.FC = () => {
             content: msg.content,
             timestamp: new Date(msg.timestamp),
             status: msg.status,
-            isMe: msg.senderId._id === profileData.id, // Add isMe flag for alignment
+            isMe: msg.senderId._id === profileData.id,
           }));
 
           setChatState((prev) => ({
@@ -290,7 +282,7 @@ const CustomerContent: React.FC = () => {
   };
 
   // Send message function
-  const handleSendMessage = async (conversationId: string, content: string) => {
+  const handleSendMessage = async (conversationId: string, content: string): Promise<void> => {
     try {
       const token =
         authToken ||
@@ -327,7 +319,7 @@ const CustomerContent: React.FC = () => {
   };
 
   // Start conversation function
-  const handleStartConversation = async (providerId: string) => {
+  const handleStartConversation = async (providerId: string): Promise<void> => {
     try {
       const token =
         authToken ||
@@ -337,6 +329,8 @@ const CustomerContent: React.FC = () => {
         alert("Please log in to message providers");
         return;
       }
+
+      console.log('🔄 Starting conversation with provider:', providerId);
 
       const response = await fetch(
         `${API_BASE_URL}/api/messages/conversation`,
@@ -355,21 +349,26 @@ const CustomerContent: React.FC = () => {
       const result = await response.json();
 
       if (result.success) {
+        const conversationId = result.data?.conversation?._id || result.conversation?._id;
+        console.log('✅ Conversation started with ID:', conversationId);
+        
         await fetchConversations();
-        return result.data.conversation._id;
+        
+        if (conversationId) {
+          handleSetActiveConversation(conversationId);
+        }
       } else {
+        console.error('❌ Failed to start conversation:', result.message);
         alert("Failed to start conversation: " + result.message);
-        return null;
       }
     } catch (error) {
       console.error("Error starting conversation:", error);
       alert("Error starting conversation");
-      return null;
     }
   };
 
   // Set active conversation and fetch its messages
-  const handleSetActiveConversation = async (conversationId: string) => {
+  const handleSetActiveConversation = async (conversationId: string): Promise<void> => {
     setChatState((prev) => ({
       ...prev,
       activeConversation: conversationId,
@@ -387,7 +386,6 @@ const CustomerContent: React.FC = () => {
       providerName: selectedProvider?.name || "",
     });
 
-    // Show browser notification if supported
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification("Customer Approaching", {
         body: `Customer is ${Math.round(distance)}m away from ${
@@ -405,7 +403,6 @@ const CustomerContent: React.FC = () => {
       providerName: selectedProvider?.name || "",
     });
 
-    // Show browser notification
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification("Customer Arrived", {
         body: `Customer has arrived at ${selectedProvider?.name}'s location`,
@@ -413,7 +410,6 @@ const CustomerContent: React.FC = () => {
       });
     }
 
-    // Auto-hide after 5 seconds
     setTimeout(() => {
       setCustomerAlert((prev) => ({ ...prev, show: false }));
     }, 5000);
@@ -426,7 +422,7 @@ const CustomerContent: React.FC = () => {
     }
   }, []);
 
-  // Poll for new messages (simple real-time updates)
+  // Poll for new messages
   useEffect(() => {
     if (chatState.activeConversation) {
       const interval = setInterval(() => {
@@ -452,24 +448,32 @@ const CustomerContent: React.FC = () => {
     }
   }, [authToken, searchParams, fetchProviders]);
 
-  const checkTokenValidity = async (token: string) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+const checkTokenValidity = async (token: string) => {
+  try {
+    console.log('🔐 Validating token...');
+    const response = await fetch(`${API_BASE_URL}/api/auth/profile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
 
-      if (response.status === 401) {
-        return false;
-      }
-
-      return response.ok;
-    } catch (error) {
-      console.error("Token validation error:", error);
+    if (response.status === 401) {
+      console.log('❌ Token invalid (401)');
       return false;
     }
-  };
+
+    if (!response.ok) {
+      console.log(`❌ Token validation failed with status: ${response.status}`);
+      return false;
+    }
+
+    console.log('✅ Token is valid');
+    return true;
+  } catch (error) {
+    console.error('❌ Token validation error:', error);
+    return false;
+  }
+};
 
   const handleAPICall = async (url: string, options: RequestInit = {}) => {
     const token =
@@ -503,35 +507,34 @@ const CustomerContent: React.FC = () => {
   };
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("authToken") || localStorage.getItem("token");
+    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
     const initializeApp = async () => {
       if (token) {
-        const isValid = await checkTokenValidity(token);
-        if (isValid) {
-          setAuthToken(token);
-          await loadUserProfile(token);
-          await fetchConversations();
-          await fetchProviders(); // Fetch initial providers
-        } else {
-          localStorage.removeItem("authToken");
-          localStorage.removeItem("token");
-          navigate("/login");
-          return;
+        try {
+          console.log('🔍 Checking token validity...');
+          const isValid = await checkTokenValidity(token);
+          if (isValid) {
+            setAuthToken(token);
+            await loadUserProfile(token);
+            await fetchConversations();
+            await fetchProviders();
+            console.log('✅ App initialized successfully');
+          } else {
+            console.log('❌ Token invalid, redirecting to login');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
+            navigate('/login');
+          }
+        } catch (error) {
+          console.error('❌ Error initializing app:', error);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          navigate('/login');
         }
       } else {
-        navigate("/login");
-        return;
-      }
-
-      const savedFavorites = localStorage.getItem("favorites");
-      if (savedFavorites) {
-        try {
-          setFavorites(JSON.parse(savedFavorites));
-        } catch (error) {
-          console.error("Error parsing favorites:", error);
-        }
+        console.log('❌ No token found, redirecting to login');
+        navigate('/login');
       }
     };
 
@@ -598,7 +601,6 @@ const CustomerContent: React.FC = () => {
 
   const handleServiceClick = (service: Service) => {
     setSearchQuery(service.name);
-    // Trigger search immediately when service is clicked
     handleSearch(service.name, currentLocationAddress, serviceType);
   };
 
@@ -609,7 +611,7 @@ const CustomerContent: React.FC = () => {
     }
   };
 
-  // FIXED: Search function that only updates searchParams when actual search is performed
+  // Search function
   const handleSearch = useCallback(
     (
       query: string,
@@ -622,7 +624,6 @@ const CustomerContent: React.FC = () => {
         searchServiceType,
       });
 
-      // Update search params - this will trigger ProvidersList to fetch new data
       setSearchParams({
         query: query || "",
         location: location || "",
@@ -647,23 +648,21 @@ const CustomerContent: React.FC = () => {
     [searchRadius]
   );
 
-  // FIXED: Service type change should trigger search
+  // Service type change should trigger search
   const handleServiceTypeChange = useCallback(
     (type: "immediate" | "long-term") => {
       console.log("🔄 Service type changed to:", type);
       setServiceType(type);
-      // Trigger search with current values when service type changes
       handleSearch(searchQuery, currentLocationAddress, type);
     },
     [searchQuery, currentLocationAddress, handleSearch]
   );
 
-  // FIXED: Search radius change should trigger search
+  // Search radius change should trigger search
   const handleSearchRadiusChange = useCallback(
     (radius: number) => {
       console.log("🔄 Search radius changed to:", radius);
       setSearchRadius(radius);
-      // Trigger search with current values when radius changes
       handleSearch(searchQuery, currentLocationAddress, serviceType);
     },
     [searchQuery, currentLocationAddress, serviceType, handleSearch]
@@ -725,21 +724,31 @@ const CustomerContent: React.FC = () => {
 
   const handleToggleFavorite = async (providerId: string) => {
     try {
-      const method = favorites.includes(providerId) ? "DELETE" : "POST";
-      const response = await handleAPICall(
-        `${API_BASE_URL}/api/favorites/${providerId}`,
-        {
-          method,
+      const token = authToken || localStorage.getItem("authToken") || localStorage.getItem("token");
+      
+      if (!token) {
+        alert('Please log in to update favorites');
+        return;
+      }
+      
+      // Determine if we're adding or removing
+      const isFavorite = false; // We'll check with the API
+      
+      const method = isFavorite ? 'DELETE' : 'POST';
+      const response = await fetch(`${API_BASE_URL}/api/providers/${providerId}/favorite`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      );
-
+      });
+      
       if (response.ok) {
-        const newFavorites = favorites.includes(providerId)
-          ? favorites.filter((id) => id !== providerId)
-          : [...favorites, providerId];
-
-        setFavorites(newFavorites);
-        localStorage.setItem("favorites", JSON.stringify(newFavorites));
+        const data = await response.json();
+        alert(data.message || (data.data?.isFavorite ? 'Added to favorites!' : 'Removed from favorites!'));
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Failed to update favorites');
       }
     } catch (err) {
       console.error("Error toggling favorite:", err);
@@ -747,15 +756,7 @@ const CustomerContent: React.FC = () => {
     }
   };
 
-  const handlePostJob = async (jobData: {
-    serviceType: string;
-    description: string;
-    location: string;
-    urgency: string;
-    timeframe: string;
-    budget: string;
-    category: string;
-  }) => {
+  const handlePostJob = async (jobData: any) => {
     try {
       const token =
         authToken ||
@@ -767,6 +768,8 @@ const CustomerContent: React.FC = () => {
         return;
       }
 
+      const budgetAmount = jobData.budget ? parseInt(jobData.budget.replace(/[^\d]/g, '')) || 0 : 0;
+
       const serviceRequestData = {
         serviceType: jobData.serviceType,
         description: jobData.description,
@@ -774,7 +777,11 @@ const CustomerContent: React.FC = () => {
         urgency: jobData.urgency,
         timeframe: jobData.timeframe,
         budget: jobData.budget,
+        budgetAmount: budgetAmount,
         category: jobData.category,
+        skillsRequired: jobData.skillsRequired,
+        estimatedDuration: jobData.estimatedDuration,
+        preferredSchedule: jobData.preferredSchedule,
         status: "pending",
       };
 
@@ -790,17 +797,58 @@ const CustomerContent: React.FC = () => {
       const data = await response.json();
 
       if (data.success) {
-        alert("Job posted successfully!");
+        const createdJobId = data.data._id || data.data.id;
+        
+        if (budgetAmount > 0) {
+          try {
+            const userCountry = profileData.address?.toLowerCase().includes('nigeria') ? 'Nigeria' : 
+                              profileData.address?.toLowerCase().includes('uk') ? 'UK' : 
+                              'Nigeria';
+
+            console.log('💰 Initiating payment with country:', userCountry);
+
+            const paymentResponse = await fetch(`${API_BASE_URL}/api/jobs/${createdJobId}/create-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                amount: budgetAmount,
+                customerCountry: userCountry
+              })
+            });
+
+            const paymentResult = await paymentResponse.json();
+
+            if (paymentResult.success) {
+              if (paymentResult.data.authorizationUrl) {
+                window.location.href = paymentResult.data.authorizationUrl;
+              } else if (paymentResult.data.clientSecret) {
+                console.log('Stripe payment client secret:', paymentResult.data.clientSecret);
+                alert("Job posted successfully! Payment initiated.");
+              }
+            } else {
+              throw new Error(paymentResult.message || 'Failed to create payment');
+            }
+          } catch (paymentError) {
+            console.error('Payment initiation error:', paymentError);
+            alert("Job posted successfully but payment initiation failed. Please contact support.");
+          }
+        } else {
+          alert("Job posted successfully!");
+        }
+
         setSearchQuery("");
         setShowPostJob(false);
-        // Trigger search to refresh providers
         handleSearch("", currentLocationAddress, serviceType);
       } else {
         alert("Failed to post job: " + data.message);
       }
     } catch (error) {
       console.error("Error posting job:", error);
-      alert("Error posting job. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      alert("Error posting job: " + errorMessage);
     }
   };
 
@@ -838,23 +886,8 @@ const CustomerContent: React.FC = () => {
 
   const handleProviderMessage = async (provider: ProviderType) => {
     try {
-      const conversationId = await handleStartConversation(
-        provider._id || provider.id
-      );
-
-      if (conversationId) {
-        setChatState((prev) => ({
-          ...prev,
-          activeConversation: conversationId,
-        }));
-
-        navigate("/customer/messages", {
-          state: {
-            activeConversation: conversationId,
-            provider: provider,
-          },
-        });
-      }
+      await handleStartConversation(provider._id || provider.id);
+      navigate("/customer/messages");
     } catch (error) {
       console.error("Error starting conversation:", error);
       alert("Error starting conversation. Please try again.");
@@ -981,7 +1014,6 @@ const CustomerContent: React.FC = () => {
                       onToggleFavorite={handleToggleFavorite}
                       authToken={authToken || undefined}
                       currentUser={profileData}
-                      favorites={favorites}
                       searchRadius={searchParams.searchRadius}
                       userLocation={userLocation}
                     />
@@ -1022,11 +1054,12 @@ const CustomerContent: React.FC = () => {
             path="favorites"
             element={
               <FavoritesPage
-                favorites={favorites}
                 onToggleFavorite={handleToggleFavorite}
                 onBook={handleProviderBook}
                 onMessage={handleProviderMessage}
                 onCall={handleProviderCall}
+                authToken={authToken || undefined}
+                currentUser={profileData}
               />
             }
           />
@@ -1034,7 +1067,6 @@ const CustomerContent: React.FC = () => {
             path="messages"
             element={
               <MessagesPage
-                chatState={chatState}
                 onSendMessage={handleSendMessage}
                 onStartConversation={handleStartConversation}
                 onSetActiveConversation={handleSetActiveConversation}
@@ -1047,6 +1079,7 @@ const CustomerContent: React.FC = () => {
           isOpen={showPostJob}
           onClose={() => setShowPostJob(false)}
           onSubmit={handlePostJob}
+          userCountry={profileData.address}
         />
 
         {selectedProviderForBooking && (

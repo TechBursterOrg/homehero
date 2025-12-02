@@ -244,7 +244,7 @@ const PaymentForm: React.FC<{
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Card Information
             </label>
-            <div className="border border-gray-300 rounded-lg p-3 bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
+            <div className="border border-gray-300 rounded-lg p-3 bg-white focus-within:ring-2 focus-within:ring-green-500 focus-within:border-transparent">
               <CardElement
                 options={{
                   style: {
@@ -289,7 +289,7 @@ const PaymentForm: React.FC<{
         <button
           onClick={handlePaystackPayment}
           disabled={loading}
-          className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
             <>

@@ -60,6 +60,8 @@ export interface Provider {
   isVerified?: boolean;
   isTopRated?: boolean;
   completedJobs?: number;
+  realRating?: number; // Add real rating field
+  realReviewCount?: number; // Add real review count field
 }
 
 interface ProvidersListProps {
@@ -176,7 +178,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   onMessage,
   onCall,
   onToggleFavorite,
-  isFavorite,
+  isFavorite: initialIsFavorite,
   viewMode
 }) => {
   const [showCallOptions, setShowCallOptions] = useState(false);
@@ -188,10 +190,21 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     completedJobs: number;
   } | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [realRatingData, setRealRatingData] = useState<{
+    rating: number;
+    reviewCount: number;
+    hasRealReviews: boolean;
+  } | null>(null);
+  const [localIsFavorite, setLocalIsFavorite] = useState(initialIsFavorite);
   
   const callButtonRef = useRef<HTMLButtonElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  // Update localIsFavorite when initialIsFavorite changes
+  useEffect(() => {
+    setLocalIsFavorite(initialIsFavorite);
+  }, [initialIsFavorite]);
 
   // Mock phone numbers
   const phoneNumbers: { [key: string]: string } = {
@@ -205,6 +218,91 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
 
   const providerPhone = phoneNumbers[provider.id] || provider.phoneNumber || '+234 000 000 0000';
 
+  // Fetch real rating data from the backend
+  const fetchRealRatingData = useCallback(async () => {
+    const providerId = provider._id || provider.id;
+    if (!providerId) return;
+
+    try {
+      console.log('📊 Fetching real rating data for provider:', providerId);
+      
+      // Try to fetch real ratings from the reviews endpoint
+      const reviewsResponse = await fetch(`${API_BASE_URL}/api/reviews/provider/${providerId}/stats`);
+      
+      if (reviewsResponse.ok) {
+        const reviewsData = await reviewsResponse.json();
+        console.log('✅ Real rating data:', reviewsData);
+        
+        if (reviewsData.success && reviewsData.data) {
+          const rating = reviewsData.data.averageRating || reviewsData.data.rating || 0;
+          const reviewCount = reviewsData.data.totalReviews || reviewsData.data.reviewCount || 0;
+          const hasRealReviews = reviewCount > 0; // Check if there are actual reviews
+          
+          setRealRatingData({
+            rating: parseFloat(rating.toFixed(1)),
+            reviewCount: reviewCount,
+            hasRealReviews: hasRealReviews
+          });
+          
+          // Also update provider stats with real data
+          if (hasRealReviews) {
+            setProviderStats(prev => ({
+              averageRating: rating,
+              reviewCount: reviewCount,
+              completedJobs: prev?.completedJobs || provider.completedJobs || 0
+            }));
+          }
+          
+          return;
+        }
+      }
+      
+      console.log('📋 No real rating data found, trying provider endpoint');
+      
+      // Try to get provider-specific data
+      const providerResponse = await fetch(`${API_BASE_URL}/api/providers/${providerId}`);
+      if (providerResponse.ok) {
+        const providerData = await providerResponse.json();
+        if (providerData.success && providerData.data) {
+          const rating = providerData.data.averageRating || providerData.data.rating || 0;
+          const reviewCount = providerData.data.reviewCount || providerData.data.totalReviews || 0;
+          const hasRealReviews = reviewCount > 0;
+          
+          if (hasRealReviews) {
+            setRealRatingData({
+              rating: parseFloat(rating.toFixed(1)),
+              reviewCount: reviewCount,
+              hasRealReviews: true
+            });
+            
+            setProviderStats(prev => ({
+              averageRating: rating,
+              reviewCount: reviewCount,
+              completedJobs: prev?.completedJobs || provider.completedJobs || 0
+            }));
+            return;
+          }
+        }
+      }
+      
+      // Fallback - no real reviews found
+      console.log('📋 No real reviews found for this provider');
+      setRealRatingData({
+        rating: 0,
+        reviewCount: 0,
+        hasRealReviews: false
+      });
+      
+    } catch (error) {
+      console.error('❌ Error fetching real rating data:', error);
+      setRealRatingData({
+        rating: 0,
+        reviewCount: 0,
+        hasRealReviews: false
+      });
+    }
+  }, [provider]);
+
   // Fetch provider stats including rating and completed jobs
   const fetchProviderStats = useCallback(async () => {
     const providerId = provider._id || provider.id;
@@ -214,7 +312,10 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
       setLoadingStats(true);
       console.log('📊 Fetching provider stats for:', providerId);
       
-      // Try multiple endpoints for stats
+      // First try to get real rating data
+      await fetchRealRatingData();
+      
+      // Then try other stats endpoints
       const endpoints = [
         `${API_BASE_URL}/api/providers/${providerId}/stats`,
         `${API_BASE_URL}/api/providers/${providerId}/rating`,
@@ -250,12 +351,15 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
 
       if (statsData) {
         console.log('✅ Setting provider stats:', statsData);
-        setProviderStats(statsData);
+        // Only update stats if we don't have real rating data with actual reviews
+        if (!realRatingData?.hasRealReviews) {
+          setProviderStats(statsData);
+        }
       } else {
         // Fallback to provider data if no stats endpoint works
         console.log('📋 Using fallback stats from provider data');
         setProviderStats({
-          averageRating: provider.averageRating || provider.rating || 0,
+          averageRating: provider.averageRating || provider.rating || 4.5,
           reviewCount: provider.reviewCount || 0,
           completedJobs: provider.completedJobs || 0
         });
@@ -264,14 +368,14 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
       console.error('❌ Error fetching provider stats:', error);
       // Fallback to provider data
       setProviderStats({
-        averageRating: provider.averageRating || provider.rating || 0,
+        averageRating: provider.averageRating || provider.rating || 4.5,
         reviewCount: provider.reviewCount || 0,
         completedJobs: provider.completedJobs || 0
       });
     } finally {
       setLoadingStats(false);
     }
-  }, [provider]);
+  }, [provider, fetchRealRatingData]);
 
   useEffect(() => {
     fetchProviderStats();
@@ -300,13 +404,22 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     
     setIsFavoriting(true);
     try {
+      // Optimistically update the UI
+      setLocalIsFavorite(!localIsFavorite);
+      
+      // Call the parent callback
       onToggleFavorite(provider.id);
+      
+      // Log for debugging
+      console.log('❤️ Toggling favorite for provider:', provider.id, 'New state:', !localIsFavorite);
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      // Revert if there's an error
+      setLocalIsFavorite(localIsFavorite);
     } finally {
       setIsFavoriting(false);
     }
-  }, [isFavoriting, onToggleFavorite, provider.id]);
+  }, [isFavoriting, onToggleFavorite, provider.id, localIsFavorite]);
 
   const renderStars = useCallback((rating: number) => {
     const normalizedRating = Math.min(Math.max(rating, 0), 5);
@@ -371,9 +484,18 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
     return `₦${(hourlyRate/1000000).toFixed(1)}M`;
   }, []);
 
-  // Calculate derived values with proper fallbacks
-  const rating = providerStats?.averageRating || provider.averageRating || provider.rating || 4.0;
-  const reviewCount = providerStats?.reviewCount || provider.reviewCount || 0;
+  // Calculate derived values with proper fallbacks - PRIORITIZE REAL RATING DATA
+  const hasRealReviews = realRatingData?.hasRealReviews || false;
+  
+  // Use real rating data if it has reviews, otherwise use provider stats
+  const rating = hasRealReviews 
+    ? (realRatingData?.rating || 0)
+    : (providerStats?.averageRating || provider.averageRating || provider.rating || 4.5);
+  
+  const reviewCount = hasRealReviews
+    ? (realRatingData?.reviewCount || 0)
+    : (providerStats?.reviewCount || provider.reviewCount || 0);
+  
   const priceRange = provider.priceRange || formatPriceRange(provider.hourlyRate || 0);
   const completedJobs = providerStats?.completedJobs || provider.completedJobs || 0;
   const responseTime = provider.responseTime || 'Contact for availability';
@@ -511,13 +633,22 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                   )}
                 </div>
                 
+                {/* REAL RATING DISPLAY */}
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex items-center">
                     {renderStars(rating)}
                   </div>
                   <span className="text-sm font-bold text-gray-900">{rating.toFixed(1)}</span>
-                  {reviewCount > 0 && (
-                    <span className="text-sm text-gray-500">({reviewCount} reviews)</span>
+                  {reviewCount > 0 ? (
+                    <span className="text-sm text-gray-500">({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
+                  ) : (
+                    <span className="text-sm text-gray-400">(No reviews yet)</span>
+                  )}
+                  {/* Show indicator if using real data with reviews */}
+                  {hasRealReviews && reviewCount > 0 && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-lg">
+                      Real Rating
+                    </span>
                   )}
                 </div>
 
@@ -565,12 +696,17 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
                     onClick={handleToggleFavorite}
                     disabled={isFavoriting}
                     className={`p-2 rounded-xl transition-all duration-200 ${
-                      isFavorite 
-                        ? 'text-red-500 bg-red-50' 
-                        : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                      localIsFavorite 
+                        ? 'text-red-500 bg-red-50 hover:bg-red-100 border border-red-200' 
+                        : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
                     }`}
                   >
-                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
+                    <Heart 
+                      className="w-5 h-5" 
+                      fill={localIsFavorite ? "#ef4444" : "none"}
+                      stroke={localIsFavorite ? "#ef4444" : "currentColor"}
+                      strokeWidth={1.5}
+                    />
                   </button>
                 )}
               </div>
@@ -713,13 +849,22 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
               )}
             </div>
             
+            {/* REAL RATING DISPLAY - GRID VIEW */}
             <div className="flex items-center gap-2">
               <div className="flex items-center">
                 {renderStars(rating)}
               </div>
               <span className="text-sm font-bold text-gray-900">{rating.toFixed(1)}</span>
-              {reviewCount > 0 && (
+              {reviewCount > 0 ? (
                 <span className="text-xs text-gray-500">({reviewCount})</span>
+              ) : (
+                <span className="text-xs text-gray-400">(No reviews)</span>
+              )}
+              {/* Show indicator if using real data with reviews */}
+              {hasRealReviews && reviewCount > 0 && (
+                <span className="text-xs bg-green-100 text-green-700 px-1 py-0.5 rounded text-[10px]">
+                  Real
+                </span>
               )}
             </div>
           </div>
@@ -730,12 +875,17 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
             onClick={handleToggleFavorite}
             disabled={isFavoriting}
             className={`p-2 rounded-xl transition-all duration-200 ${
-              isFavorite 
-                ? 'text-red-500 bg-red-50' 
-                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+              localIsFavorite 
+                ? 'text-red-500 bg-red-50 hover:bg-red-100 border border-red-200' 
+                : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
             }`}
           >
-            <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+            <Heart 
+              className="w-4 h-4" 
+              fill={localIsFavorite ? "#ef4444" : "none"}
+              stroke={localIsFavorite ? "#ef4444" : "currentColor"}
+              strokeWidth={1.5}
+            />
           </button>
         )}
       </div>
@@ -893,9 +1043,15 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'rating' | 'price' | 'distance'>('distance');
   const [showFilters, setShowFilters] = useState(false);
+  const [localFavorites, setLocalFavorites] = useState<string[]>(favorites);
 
   const prevParamsRef = useRef<string>('');
   const isInitialMountRef = useRef(true);
+
+  // Update localFavorites when favorites prop changes
+  useEffect(() => {
+    setLocalFavorites(favorites);
+  }, [favorites]);
 
   // Calculate distances for providers
   const calculateProviderDistances = useCallback((providers: Provider[]): Provider[] => {
@@ -935,6 +1091,113 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     });
   }, []);
 
+  const handleToggleFavorite = useCallback((providerId: string) => {
+    console.log('❤️ Toggling favorite for provider:', providerId);
+    
+    // Update local state
+    setLocalFavorites(prev => {
+      if (prev.includes(providerId)) {
+        return prev.filter(id => id !== providerId);
+      } else {
+        return [...prev, providerId];
+      }
+    });
+    
+    // Call parent callback if provided
+    if (onToggleFavorite) {
+      onToggleFavorite(providerId);
+    }
+  }, [onToggleFavorite]);
+
+  // Fetch real ratings for all providers
+  const fetchRealRatingsForAllProviders = useCallback(async (providers: Provider[]): Promise<Provider[]> => {
+    if (!providers.length) return providers;
+    
+    try {
+      console.log('📊 Fetching real ratings for all providers');
+      
+      // Try to fetch ratings in bulk if available
+      const providerIds = providers.map(p => p._id || p.id).filter(Boolean);
+      
+      if (providerIds.length === 0) return providers;
+      
+      // Try bulk ratings endpoint if available
+      try {
+        const bulkResponse = await fetch(`${API_BASE_URL}/api/reviews/bulk-ratings`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken?.trim() && { 'Authorization': `Bearer ${authToken.trim()}` })
+          },
+          body: JSON.stringify({ providerIds })
+        });
+        
+        if (bulkResponse.ok) {
+          const bulkData = await bulkResponse.json();
+          if (bulkData.success && bulkData.data) {
+            console.log('✅ Bulk ratings data:', bulkData.data);
+            
+            // Update providers with real ratings
+            return providers.map(provider => {
+              const providerId = provider._id || provider.id;
+              const realRatingData = bulkData.data[providerId];
+              
+              if (realRatingData && realRatingData.totalReviews > 0) {
+                return {
+                  ...provider,
+                  realRating: parseFloat(realRatingData.averageRating?.toFixed(1)) || 0,
+                  realReviewCount: realRatingData.totalReviews || 0
+                };
+              }
+              return provider;
+            });
+          }
+        }
+      } catch (bulkError) {
+        console.log('📋 Bulk ratings endpoint not available, fetching individually');
+      }
+      
+      // If bulk endpoint fails, fetch ratings for each provider individually
+      const updatedProviders = await Promise.all(
+        providers.map(async (provider) => {
+          const providerId = provider._id || provider.id;
+          if (!providerId) return provider;
+          
+          try {
+            const reviewsResponse = await fetch(`${API_BASE_URL}/api/reviews/provider/${providerId}/stats`);
+            
+            if (reviewsResponse.ok) {
+              const reviewsData = await reviewsResponse.json();
+              
+              if (reviewsData.success && reviewsData.data) {
+                const rating = reviewsData.data.averageRating || reviewsData.data.rating || 0;
+                const reviewCount = reviewsData.data.totalReviews || reviewsData.data.reviewCount || 0;
+                
+                if (reviewCount > 0) { // Only mark as real if there are actual reviews
+                  return {
+                    ...provider,
+                    realRating: parseFloat(rating.toFixed(1)),
+                    realReviewCount: reviewCount
+                  };
+                }
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Error fetching rating for provider ${providerId}:`, error);
+          }
+          
+          return provider;
+        })
+      );
+      
+      return updatedProviders;
+      
+    } catch (error) {
+      console.error('❌ Error in fetchRealRatingsForAllProviders:', error);
+      return providers;
+    }
+  }, [authToken]);
+
   // Enhanced fetchProviders with location matching
   const fetchProviders = useCallback(async (shouldUseFallback: boolean = false) => {
     const currentParams = JSON.stringify({ 
@@ -951,8 +1214,63 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
     }
     
     prevParamsRef.current = currentParams;
+
+    setLoading(true);
+    setIsRetrying(true);
     
     try {
+      // Try the simple test endpoint first
+      const testApiUrl = `${API_BASE_URL}/api/test-providers?limit=100${serviceType === 'immediate' ? '&availableNow=true' : ''}`;
+      console.log('📡 Trying test API URL:', testApiUrl);
+      
+      const testResponse = await fetch(testApiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...(authToken?.trim() && { 'Authorization': `Bearer ${authToken.trim()}` })
+        }
+      });
+      
+      if (testResponse.ok) {
+        const testData = await testResponse.json();
+        console.log('✅ Test API response:', testData);
+        
+        if (testData.success && testData.data?.providers) {
+          const providersArray = testData.data.providers;
+          console.log(`✅ Found ${providersArray.length} providers from test API`);
+          
+          // Transform and set providers
+          const transformedProviders = providersArray.map((provider: any) => ({
+            ...provider,
+            id: provider._id || provider.id,
+            services: provider.services || [],
+            hourlyRate: provider.hourlyRate || 0,
+            rating: provider.averageRating || provider.rating || 0,
+            reviewCount: provider.reviewCount || 0,
+            completedJobs: provider.completedJobs || 0,
+            isVerified: provider.isVerified || false,
+            isTopRated: provider.isTopRated || false
+          }));
+          
+          // Apply location filtering
+          const filteredProviders = filterProviders(transformedProviders, searchQuery, location);
+          
+          // Fetch real ratings for filtered providers
+          const providersWithRealRatings = await fetchRealRatingsForAllProviders(filteredProviders);
+          
+          const providersWithDistances = calculateProviderDistances(providersWithRealRatings);
+          
+          setProviders(providersWithDistances);
+          setLoading(false);
+          setIsRetrying(false);
+          return;
+        }
+      }
+      
+      // If test endpoint fails, try the original endpoint
+      console.log('🔄 Test endpoint failed, trying original endpoint...');
+      
       setError(null);
       console.log('🚀 Starting provider fetch...');
       console.log('🔧 Current props:', { serviceType, searchQuery, location, authToken: !!authToken });
@@ -1102,7 +1420,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
           profilePicture: provider.profilePicture,
           avatar: provider.avatar,
-          rating: provider.averageRating || provider.rating || 4.0,
+          rating: provider.averageRating || provider.rating || 4.5,
           reviewCount: provider.reviewCount || 0,
           priceRange: provider.priceRange || '',
           responseTime: provider.responseTime || 'Contact for availability',
@@ -1110,7 +1428,10 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           isVerified: provider.isVerified !== undefined ? provider.isVerified : false,
           isTopRated: provider.isTopRated !== undefined ? provider.isTopRated : false,
           phoneNumber: provider.phoneNumber || provider.phone,
-          coordinates: provider.coordinates || [6.5244, 3.3792]
+          coordinates: provider.coordinates || [6.5244, 3.3792],
+          // Add real rating data if available in the initial response
+          realRating: provider.realRating || 0,
+          realReviewCount: provider.realReviewCount || 0
         };
         
         console.log(`✅ Transformed provider:`, transformed);
@@ -1121,8 +1442,11 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       const filteredProviders = filterProviders(transformedProviders, searchQuery, location);
       console.log(`📍 After location filtering: ${filteredProviders.length} providers`);
       
+      // Fetch real ratings for filtered providers
+      const providersWithRealRatings = await fetchRealRatingsForAllProviders(filteredProviders);
+      
       // Calculate distances for filtered providers
-      const providersWithDistances = calculateProviderDistances(filteredProviders);
+      const providersWithDistances = calculateProviderDistances(providersWithRealRatings);
       
       console.log(`🎉 Successfully processed ${providersWithDistances.length} providers`);
       setProviders(providersWithDistances);
@@ -1142,7 +1466,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [serviceType, searchQuery, location, authToken, searchRadius, userLocation, calculateProviderDistances, filterProviders]);
+  }, [serviceType, searchQuery, location, authToken, searchRadius, userLocation, calculateProviderDistances, filterProviders, fetchRealRatingsForAllProviders]);
 
   const handleRetry = useCallback(() => {
     console.log('🔄 User triggered retry');
@@ -1168,8 +1492,9 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
       // Then apply the selected sort
       switch (sortBy) {
         case 'rating':
-          const ratingA = a.averageRating || a.rating || 0;
-          const ratingB = b.averageRating || b.rating || 0;
+          // Prioritize real ratings when sorting
+          const ratingA = a.realRating || a.averageRating || a.rating || 0;
+          const ratingB = b.realRating || b.averageRating || b.rating || 0;
           return ratingB - ratingA;
         case 'price':
           return (a.hourlyRate || 0) - (b.hourlyRate || 0);
@@ -1179,8 +1504,8 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           if (b.distance === undefined) return -1;
           return a.distance - b.distance;
         default:
-          const defaultRatingA = a.averageRating || a.rating || 0;
-          const defaultRatingB = b.averageRating || b.rating || 0;
+          const defaultRatingA = a.realRating || a.averageRating || a.rating || 0;
+          const defaultRatingB = b.realRating || b.averageRating || b.rating || 0;
           return defaultRatingB - defaultRatingA;
       }
     });
@@ -1302,6 +1627,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
               {searchQuery && `for "${searchQuery}"`}
               {searchQuery && location && ' '}
               {location && `in ${location}`}
+              {sortedProviders.some(p => p.realRating || p.realReviewCount) && ' • Real ratings shown'}
             </p>
           </div>
 
@@ -1416,24 +1742,29 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4' 
           : 'grid-cols-1'
       }`}>
-        {sortedProviders.map((provider) => (
-          <ProviderCardItem
-            key={provider._id || provider.id}
-            provider={provider}
-            serviceType={serviceType}
-            onBook={onBook}
-            onMessage={onMessage}
-            onCall={onCall}
-            onToggleFavorite={onToggleFavorite}
-            isFavorite={favorites.includes(provider._id || provider.id)}
-            viewMode={viewMode}
-          />
-        ))}
+        {sortedProviders.map((provider) => {
+          const isFavorite = localFavorites.includes(provider._id || provider.id);
+          console.log(`🎯 Rendering provider: ${provider.name}, ID: ${provider._id || provider.id}, Is favorite: ${isFavorite}`);
+          
+          return (
+            <ProviderCardItem
+              key={provider._id || provider.id}
+              provider={provider}
+              serviceType={serviceType}
+              onBook={onBook}
+              onMessage={onMessage}
+              onCall={onCall}
+              onToggleFavorite={handleToggleFavorite}
+              isFavorite={isFavorite}
+              viewMode={viewMode}
+            />
+          );
+        })}
       </div>
 
       {sortedProviders.length > 0 && (
         <div className="text-center pt-8">
-          <button className="bg-gradient-to-r from-green-600 via-gren-600 to-green-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">
+          <button className="bg-gradient-to-r from-green-600 via-green-600 to-green-600 text-white px-8 py-4 rounded-2xl font-semibold hover:scale-105 transition-all duration-300 shadow-xl">
             Load More Providers
           </button>
         </div>

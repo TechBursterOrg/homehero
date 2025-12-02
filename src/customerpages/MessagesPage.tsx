@@ -1,17 +1,14 @@
 import React from 'react';
-import { MessageSquare, Users, Clock, CheckCircle2, Search, Settings } from 'lucide-react';
+import { MessageSquare, Search, Settings } from 'lucide-react';
 import Messages from '../customercomponents/Message';
-import { ChatState, Message } from '../types';
 
 interface MessagesPageProps {
-  chatState: ChatState;
   onSendMessage: (conversationId: string, content: string) => void;
   onStartConversation: (providerId: string) => void;
   onSetActiveConversation: (conversationId: string) => void;
 }
 
 const MessagesPage: React.FC<MessagesPageProps> = ({
-  chatState,
   onSendMessage,
   onStartConversation,
   onSetActiveConversation
@@ -55,12 +52,8 @@ const MessagesPage: React.FC<MessagesPageProps> = ({
         </div>
       </div>
 
-      {/* Enhanced Stats Grid */}
-      
-
-      {/* Messages Component */}
+      {/* Messages Component - Pass all props through */}
       <Messages 
-        chatState={chatState}
         onSendMessage={onSendMessage}
         onStartConversation={onStartConversation}
         onSetActiveConversation={onSetActiveConversation}

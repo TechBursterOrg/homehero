@@ -14,8 +14,12 @@ import {
   Plus,
   User
 } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 
 interface MessagesProps {
+  onSendMessage?: (conversationId: string, content: string) => void;
+  onStartConversation?: (providerId: string) => void;
+  onSetActiveConversation?: (conversationId: string) => void;
   currentUser?: any;
 }
 
@@ -40,7 +44,12 @@ interface Message {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
 
-const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
+const Messages: React.FC<MessagesProps> = ({ 
+  onSendMessage,
+  onStartConversation,
+  onSetActiveConversation,
+  currentUser = null 
+}) => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -50,6 +59,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   // Get current user ID from token or props
   const getCurrentUserId = () => {
@@ -77,12 +87,52 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
   useEffect(() => {
     if (selectedConversation) {
       fetchMessages(selectedConversation._id);
+      if (onSetActiveConversation) {
+        onSetActiveConversation(selectedConversation._id);
+      }
     }
   }, [selectedConversation]);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Handle location state for pre-selected conversations
+  useEffect(() => {
+    if (location.state?.activeConversationId) {
+      console.log('📍 Location state has active conversation:', location.state.activeConversationId);
+      // Find and select the conversation
+      const conversation = conversations.find(conv => conv._id === location.state.activeConversationId);
+      if (conversation) {
+        setSelectedConversation(conversation);
+        setShowChatArea(true);
+      } else {
+        // If conversation not found in list, try to fetch it
+        fetchConversationById(location.state.activeConversationId);
+      }
+    }
+  }, [location.state, conversations]);
+
+  const fetchConversationById = async (conversationId: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_BASE_URL}/api/messages/conversation/${conversationId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.conversation) {
+          setSelectedConversation(data.data.conversation);
+          setShowChatArea(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching conversation:', error);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -100,7 +150,12 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setConversations(data.data.conversations);
+        if (data.success) {
+          setConversations(data.data.conversations || []);
+          console.log('📨 Loaded conversations:', data.data.conversations?.length || 0);
+        }
+      } else {
+        console.error('Failed to fetch conversations');
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -125,36 +180,29 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
         
         console.log('=== DEBUG MESSAGE FETCH ===');
         console.log('Current User ID:', currentUserId);
-        console.log('Raw messages:', data.data.messages);
+        console.log('Raw messages:', data.data?.messages);
         
-        // CORRECTED: Properly identify provider vs customer messages
-        const messagesWithAlignment = data.data.messages.map((msg: Message) => {
-          // Extract sender ID properly
-          let msgSenderId = '';
-          if (typeof msg.senderId === 'string') {
-            msgSenderId = msg.senderId;
-          } else if (msg.senderId && typeof msg.senderId === 'object') {
-            msgSenderId = msg.senderId._id || msg.senderId.id || '';
-          }
+        if (data.data?.messages) {
+          const messagesWithAlignment = data.data.messages.map((msg: Message) => {
+            let msgSenderId = '';
+            if (typeof msg.senderId === 'string') {
+              msgSenderId = msg.senderId;
+            } else if (msg.senderId && typeof msg.senderId === 'object') {
+              msgSenderId = msg.senderId._id || msg.senderId.id || '';
+            }
+            
+            const isMe = msgSenderId === currentUserId;
+            const isProvider = isMe;
+            
+            return {
+              ...msg,
+              isMe,
+              isProvider
+            };
+          });
           
-          // Check if the sender is the current user
-          const isMe = msgSenderId === currentUserId;
-          
-          console.log(`Message: "${msg.content}" | Sender ID: ${msgSenderId} | Current User ID: ${currentUserId} | IsMe: ${isMe} | Sender Name: ${msg.senderId?.name}`);
-          
-          // SIMPLE FIX: In provider view
-          // - If I sent it (isMe = true) = Provider message (RIGHT)
-          // - If someone else sent it (isMe = false) = Customer message (LEFT)
-          const isProvider = isMe;
-          
-          return {
-            ...msg,
-            isMe,
-            isProvider
-          };
-        });
-        
-        setMessages(messagesWithAlignment);
+          setMessages(messagesWithAlignment);
+        }
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -168,25 +216,32 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
 
     try {
       setSending(true);
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          conversationId: selectedConversation._id,
-          content: newMessage.trim(),
-          messageType: 'text'
-        })
-      });
+      
+      if (onSendMessage) {
+        await onSendMessage(selectedConversation._id, newMessage.trim());
+      } else {
+        // Default implementation
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/api/messages/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            conversationId: selectedConversation._id,
+            content: newMessage.trim(),
+            messageType: 'text'
+          })
+        });
 
-      if (response.ok) {
-        setNewMessage('');
-        fetchMessages(selectedConversation._id);
-        fetchConversations();
+        if (response.ok) {
+          fetchMessages(selectedConversation._id);
+          fetchConversations();
+        }
       }
+      
+      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -216,9 +271,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
   };
 
   const getParticipantType = (participant: any) => {
-    const userType = participant?.userType || 'customer';
-    // In provider view, always show other participants as customers
-    return 'customer'; // Always show as customer in provider view
+    return 'customer';
   };
 
   const getLastMessageTime = (timestamp: string) => {
@@ -265,7 +318,6 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
     return null;
   };
 
-  // SIMPLE ALIGNMENT: My messages = right, others = left
   const getMessageAlignment = (message: Message) => {
     return message.isMe ? 'right' : 'left';
   };
@@ -311,8 +363,8 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
               ) : filteredConversations.length === 0 ? (
                 <div className="text-center py-12 text-gray-500 px-4">
                   <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="font-medium text-sm sm:text-base">No conversations found</p>
-                  <p className="text-xs sm:text-sm">Try adjusting your search</p>
+                  <p className="font-medium text-sm sm:text-base">No conversations yet</p>
+                  <p className="text-xs sm:text-sm">Start a conversation by messaging a provider</p>
                 </div>
               ) : (
                 <div className="space-y-1 sm:space-y-2 p-2">
@@ -427,7 +479,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                   </div>
                 </div>
 
-                {/* Messages Area - SIMPLE ALIGNMENT */}
+                {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 space-y-3 sm:space-y-4 bg-gradient-to-b from-white/30 to-blue-50/30">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
@@ -444,15 +496,12 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                       const alignment = getMessageAlignment(message);
                       const messageStyle = getMessageStyle(message);
                       
-                      console.log(`Rendering message: "${message.content}" | Alignment: ${alignment} | IsMe: ${message.isMe}`);
-                      
                       return (
                         <div
                           key={message._id}
                           className={`flex ${alignment === 'right' ? 'justify-end' : 'justify-start'}`}
                         >
                           <div className={`max-w-[85%] sm:max-w-md px-3 sm:px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl shadow-sm relative ${messageStyle}`}>
-                            {/* Show sender label only for customer messages */}
                             {alignment === 'left' && (
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs font-medium text-gray-500">
@@ -513,7 +562,7 @@ const Messages: React.FC<MessagesProps> = ({ currentUser = null }) => {
                 <div className="text-center">
                   <MessageSquare className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">Select a Conversation</h3>
-                  <p className="text-sm sm:text-base text-gray-600">Choose a client to start messaging</p>
+                  <p className="text-sm sm:text-base text-gray-600">Choose a provider to start messaging</p>
                 </div>
               </div>
             )}
