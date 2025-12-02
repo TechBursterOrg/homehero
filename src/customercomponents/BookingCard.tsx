@@ -64,7 +64,7 @@ interface Booking {
     email: string;
     profileImage?: string;
   };
-  // NEW: Add Hero Here fields
+  // Hero Here fields
   providerArrived?: boolean;
   providerArrivedAt?: string;
   showHeroHereButton?: boolean;
@@ -85,7 +85,7 @@ interface BookingCardProps {
   onSeenProvider: (bookingId: string) => void;
   onAcceptBooking?: (bookingId: string) => void;
   onRetryPayment: (bookingId: string) => void;
-  // NEW: Add onConfirmHeroHere prop
+  // Hero Here prop
   onConfirmHeroHere?: (bookingId: string) => void;
   userType?: 'customer' | 'provider';
 }
@@ -263,8 +263,8 @@ const HeroHereButton = ({
   
   if (showConfirmation) {
     return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-        <p className="text-sm text-blue-800 mb-2">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <p className="text-sm text-green-800 mb-2">
           Confirm that {booking.providerName} has arrived at your location?
         </p>
         <div className="flex gap-2">
@@ -281,7 +281,7 @@ const HeroHereButton = ({
               setShowConfirmation(false);
             }}
             disabled={loading}
-            className="flex-1 px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
+            className="flex-1 px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
           >
             {loading ? (
               <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -298,7 +298,7 @@ const HeroHereButton = ({
   return (
     <button
       onClick={() => setShowConfirmation(true)}
-      className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
     >
       <UserCheck className="w-4 h-4" />
       Hero Here - Confirm Arrival
@@ -319,7 +319,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   onSeenProvider,
   onAcceptBooking,
   onRetryPayment,
-  onConfirmHeroHere, // NEW: Add this prop
+  onConfirmHeroHere,
   userType = 'customer'
 }) => {
   const [showMoreOptions, setShowMoreOptions] = useState(false);
@@ -329,7 +329,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
   const [comment, setComment] = useState('');
   const [seenProviderLoading, setSeenProviderLoading] = useState(false);
   const [acceptLoading, setAcceptLoading] = useState(false);
-  const [heroHereLoading, setHeroHereLoading] = useState(false); // NEW: Loading state for hero here
+  const [heroHereLoading, setHeroHereLoading] = useState(false);
 
   const moreOptionsRef = useRef<HTMLDivElement>(null);
   const callOptionsRef = useRef<HTMLDivElement>(null);
@@ -485,7 +485,6 @@ const BookingCard: React.FC<BookingCardProps> = ({
     }
   };
 
-  // NEW: Handle Hero Here confirmation
   const handleConfirmHeroHere = async () => {
     if (!onConfirmHeroHere) return;
     
@@ -553,13 +552,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
     !booking.serviceConfirmedByCustomer &&
     onSeenProvider;
 
-  // NEW: Check if should show Hero Here button
-  const shouldShowHeroHereButton = 
-    isCustomer &&
-    booking.showHeroHereButton &&
-    !booking.customerConfirmedHeroHere &&
-    !booking.heroHereConfirmed &&
-    onConfirmHeroHere;
+  // NEW: Logic for Hero Here button (from your requirements)
+  const isPaymentHeld = booking.payment?.status === 'held';
+  const isProviderArrived = booking.providerArrived;
+  const canShowHeroHereButton = booking.showHeroHereButton && isProviderArrived && !booking.heroHereConfirmed;
 
   // Use the improved price calculation
   const price = calculatePrice();
@@ -681,7 +677,79 @@ const BookingCard: React.FC<BookingCardProps> = ({
             </div>
           </div>
 
-          {/* Payment Status */}
+          {/* Payment Status Banner (from your code) */}
+          {booking.status === 'confirmed' && isPaymentHeld && (
+            <div className="payment-status-banner bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-600" />
+                <span className="text-sm text-blue-700 font-medium">
+                  💰 Payment held in escrow - {booking.payment?.currency || '₦'}{booking.payment?.amount}
+                </span>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">
+                Your payment is secured. Will be released when service is completed.
+              </p>
+            </div>
+          )}
+
+          {/* Hero Here Section (from your code) */}
+          {canShowHeroHereButton && (
+            <div className="hero-here-section mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <UserCheck className="w-5 h-5 text-green-600" />
+                  <div>
+                    <h4 className="font-semibold text-green-900">Your Hero Has Arrived!</h4>
+                    <p className="text-sm text-green-700">
+                      {booking.providerName} is at your location
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => onConfirmHeroHere && onConfirmHeroHere(booking._id)}
+                  className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2 font-semibold shadow-sm"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  Confirm Hero Here
+                </button>
+              </div>
+              <p className="text-xs text-green-600">
+                Confirming stops the 4-hour auto-refund timer and allows service to begin.
+              </p>
+            </div>
+          )}
+
+          {/* Provider Arrival Waiting Notice (from your code) */}
+          {isPaymentHeld && !isProviderArrived && (
+            <div className="provider-arrival-waiting mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-yellow-600" />
+                <div>
+                  <h4 className="font-semibold text-yellow-900">Waiting for Provider Arrival</h4>
+                  <p className="text-sm text-yellow-700">
+                    Payment held. {booking.providerName} will confirm when they arrive.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hero Here Confirmed (from your code) */}
+          {booking.heroHereConfirmed && (
+            <div className="hero-here-confirmed mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <div>
+                  <h4 className="font-semibold text-green-900">Hero Here Confirmed!</h4>
+                  <p className="text-sm text-green-700">
+                    Service can begin. 4-hour auto-refund timer stopped.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payment Status Component */}
           {booking.payment && (
             <PaymentStatus 
               booking={booking} 
@@ -698,8 +766,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
             />
           )}
 
-          {/* Hero Here Button */}
-          {shouldShowHeroHereButton && (
+          {/* Hero Here Button (alternative) */}
+          {canShowHeroHereButton && (
             <HeroHereButton 
               booking={booking}
               onConfirm={handleConfirmHeroHere}
@@ -712,10 +780,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
             <div className="bg-gray-100 p-2 mt-2 rounded text-xs">
               <div>Debug: Status: {booking.status}</div>
               <div>Payment Status: {booking.payment?.status || 'No payment'}</div>
-              <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
-              <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
-              <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
-              <div>Show Hero Here: {shouldShowHeroHereButton ? 'Yes' : 'No'}</div>
+              <div>Is Payment Held: {isPaymentHeld ? 'Yes' : 'No'}</div>
+              <div>Provider Arrived: {isProviderArrived ? 'Yes' : 'No'}</div>
+              <div>Show Hero Here Button: {canShowHeroHereButton ? 'Yes' : 'No'}</div>
+              <div>Hero Here Confirmed: {booking.heroHereConfirmed ? 'Yes' : 'No'}</div>
             </div>
           )}
 
@@ -867,6 +935,78 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </div>
             </div>
 
+            {/* Payment Status Banner (Desktop) */}
+            {booking.status === 'confirmed' && isPaymentHeld && (
+              <div className="payment-status-banner bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm text-blue-700 font-medium">
+                    💰 Payment held in escrow - {booking.payment?.currency || '₦'}{booking.payment?.amount}
+                  </span>
+                </div>
+                <p className="text-xs text-blue-600 mt-1">
+                  Your payment is secured. Will be released when service is completed.
+                </p>
+              </div>
+            )}
+
+            {/* Hero Here Section (Desktop) */}
+            {canShowHeroHereButton && (
+              <div className="hero-here-section mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <UserCheck className="w-5 h-5 text-green-600" />
+                    <div>
+                      <h4 className="font-semibold text-green-900">Your Hero Has Arrived!</h4>
+                      <p className="text-sm text-green-700">
+                        {booking.providerName} is at your location
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onConfirmHeroHere && onConfirmHeroHere(booking._id)}
+                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2 font-semibold shadow-sm"
+                  >
+                    <UserCheck className="w-4 h-4" />
+                    Confirm Hero Here
+                  </button>
+                </div>
+                <p className="text-xs text-green-600">
+                  Confirming stops the 4-hour auto-refund timer and allows service to begin.
+                </p>
+              </div>
+            )}
+
+            {/* Provider Arrival Waiting Notice (Desktop) */}
+            {isPaymentHeld && !isProviderArrived && (
+              <div className="provider-arrival-waiting mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-900">Waiting for Provider Arrival</h4>
+                    <p className="text-sm text-yellow-700">
+                      Payment held. {booking.providerName} will confirm when they arrive.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Hero Here Confirmed (Desktop) */}
+            {booking.heroHereConfirmed && (
+              <div className="hero-here-confirmed mt-4 p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div>
+                    <h4 className="font-semibold text-green-900">Hero Here Confirmed!</h4>
+                    <p className="text-sm text-green-700">
+                      Service can begin. 4-hour auto-refund timer stopped.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Payment Status for Desktop */}
             {booking.payment && (
               <PaymentStatus 
@@ -886,8 +1026,8 @@ const BookingCard: React.FC<BookingCardProps> = ({
               </div>
             )}
 
-            {/* Hero Here Button for Desktop */}
-            {shouldShowHeroHereButton && (
+            {/* Hero Here Button for Desktop (alternative) */}
+            {canShowHeroHereButton && (
               <div className="mb-4">
                 <HeroHereButton 
                   booking={booking}
@@ -903,10 +1043,10 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                   <div>Status: {booking.status}</div>
                   <div>Payment: {booking.payment?.status || 'No payment'}</div>
-                  <div>Needs Payment: {needsPayment ? 'Yes' : 'No'}</div>
-                  <div>Has Paid: {hasPaid ? 'Yes' : 'No'}</div>
-                  <div>Show Payment Button: {shouldShowPaymentButton ? 'Yes' : 'No'}</div>
-                  <div>Show Hero Here: {shouldShowHeroHereButton ? 'Yes' : 'No'}</div>
+                  <div>Is Payment Held: {isPaymentHeld ? 'Yes' : 'No'}</div>
+                  <div>Provider Arrived: {isProviderArrived ? 'Yes' : 'No'}</div>
+                  <div>Show Hero Here Button: {canShowHeroHereButton ? 'Yes' : 'No'}</div>
+                  <div>Hero Here Confirmed: {booking.heroHereConfirmed ? 'Yes' : 'No'}</div>
                 </div>
               </div>
             )}
