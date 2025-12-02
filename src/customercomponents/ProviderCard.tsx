@@ -392,7 +392,6 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
   authToken,
   currentUser
 }) => {
-
   const providerId = provider._id || provider.id;
 
   const safeProvider = {
@@ -510,8 +509,6 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     setShowBookingModal(true);
   };
 
-
-
   const phoneNumbers: { [key: string]: string } = {
     '1': '+234 123 456 7890',
     '2': '+234 123 456 7891',
@@ -527,7 +524,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     return [...Array(5)].map((_, i) => (
       <Star
         key={i}
-        className={`w-3 h-3 sm:w-4 sm:h-4 ${
+        className={`w-4 h-4 sm:w-5 sm:h-5 ${
           i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
         }`}
       />
@@ -593,20 +590,30 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
     };
   }, [showCallOptions]);
 
+  // Format price range
+  const formatPriceRange = (hourlyRate: number) => {
+    if (!hourlyRate || hourlyRate === 0) return 'Contact for pricing';
+    if (hourlyRate < 1000) return `₦${hourlyRate}`;
+    if (hourlyRate < 1000000) return `₦${Math.round(hourlyRate/1000)}k`;
+    return `₦${(hourlyRate/1000000).toFixed(1)}M`;
+  };
+
+  const priceRange = provider.priceRange || formatPriceRange(provider.hourlyRate || 0);
+
   return (
     <>
-      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden relative">
+      <div className="group bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 p-4 sm:p-6 overflow-hidden relative w-full">
         {/* Mobile Layout */}
-        <div className="flex flex-col sm:hidden space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">
+        <div className="block sm:hidden">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">
               {provider.avatar || getInitials(provider.name)}
             </div>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-1 mb-1">
                     <h3 className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
                       {provider.name}
                     </h3>
@@ -624,36 +631,35 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                       <span>Available Now</span>
                     </div>
                   )}
+                  
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center">
+                      {renderStars(provider.rating || 0)}
+                    </div>
+                    <span className="text-sm font-bold text-gray-900">{provider.rating?.toFixed(1) || 0}</span>
+                    <span className="text-xs text-gray-500">({provider.reviewCount || 0})</span>
+                  </div>
                 </div>
                 
                 <button
-  onClick={handleToggleFavorite}
-  disabled={isFavoriting}
-  className={`p-2 rounded-xl transition-all duration-200 ${
-    isFavorite 
-      ? 'text-red-500 bg-red-50 border border-red-200' 
-      : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
-  }`}
->
-  <Heart 
-    className={`w-5 h-5`} 
-    fill={isFavorite ? "#ef4444" : "none"}
-    stroke={isFavorite ? "#ef4444" : "currentColor"}
-  />
-</button>
-              </div>
-              
-              <div className="flex items-center gap-2 mb-2">
-                <div className="flex items-center">
-                  {renderStars(provider.rating || 0)}
-                </div>
-                <span className="text-sm font-bold text-gray-900">{provider.rating || 0}</span>
-                <span className="text-xs text-gray-500">({provider.reviewCount || 0})</span>
+                  onClick={handleToggleFavorite}
+                  disabled={isFavoriting}
+                  className={`p-1 rounded-full transition-colors duration-200 ${
+                    isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'
+                  }`}
+                >
+                  <Heart 
+                    className="w-4 h-4" 
+                    fill={isFavorite ? "#ef4444" : "none"}
+                    stroke={isFavorite ? "#ef4444" : "currentColor"}
+                    strokeWidth={1.5}
+                  />
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-3">
             {provider.services.slice(0, 2).map((service, index) => (
               <span
                 key={index}
@@ -669,20 +675,20 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-600">
+          <div className="flex flex-col gap-2 text-xs text-gray-600 mb-3">
             <div className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              <span className="truncate max-w-[100px]">{provider.location || 'Unknown location'}</span>
+              <MapPin className="w-3 h-3 shrink-0" />
+              <span className="truncate">{provider.location || 'Unknown location'}</span>
             </div>
             <div className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              <span>{provider.responseTime || 'Within 24 hours'}</span>
+              <Clock className="w-3 h-3 shrink-0" />
+              <span>Responds {provider.responseTime || 'within 24 hours'}</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t border-gray-100">
             <div>
-              <p className="text-lg font-bold text-emerald-600">{provider.priceRange || '₦0/hr'}</p>
+              <p className="text-lg font-bold text-emerald-600">{priceRange}</p>
               <p className="text-xs text-gray-500">{provider.completedJobs || 0} jobs</p>
             </div>
             
@@ -728,7 +734,20 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                         e.stopPropagation();
                         handleWebCall('video');
                       }}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Video className="w-4 h-4 text-blue-600" />
+                      <span>Web Video Call</span>
+                    </button>
+                    
+                    <button
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handlePhoneCall();
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <ExternalLink className="w-4 h-4 text-purple-600" />
                       <span>Phone App</span>
@@ -761,8 +780,8 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
         </div>
 
         {/* Desktop Layout */}
-        <div className="hidden sm:flex items-start gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg shrink-0 group-hover:scale-110 transition-transform duration-300">
+        <div className="hidden sm:flex">
+          <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg shrink-0 group-hover:scale-110 transition-transform duration-300 mr-4">
             {provider.avatar || getInitials(provider.name)}
           </div>
           
@@ -795,26 +814,25 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
                   <div className="flex items-center">
                     {renderStars(provider.rating || 0)}
                   </div>
-                  <span className="text-sm font-bold text-gray-900">{provider.rating || 0}</span>
+                  <span className="text-sm font-bold text-gray-900">{provider.rating?.toFixed(1) || 0}</span>
                   <span className="text-sm text-gray-600">({provider.reviewCount || 0} reviews)</span>
                 </div>
               </div>
               
               <button
-  onClick={handleToggleFavorite}
-  disabled={isFavoriting}
-  className={`p-2 rounded-xl transition-all duration-200 ${
-    isFavorite 
-      ? 'text-red-500 bg-red-50 border border-red-200' 
-      : 'text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100'
-  }`}
->
-  <Heart 
-    className={`w-4 h-4`} 
-    fill={isFavorite ? "#ef4444" : "none"}
-    stroke={isFavorite ? "#ef4444" : "currentColor"}
-  />
-</button>
+                onClick={handleToggleFavorite}
+                disabled={isFavoriting}
+                className={`p-2 rounded-full transition-all duration-200 ${
+                  isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                }`}
+              >
+                <Heart 
+                  className="w-5 h-5" 
+                  fill={isFavorite ? "#ef4444" : "none"}
+                  stroke={isFavorite ? "#ef4444" : "currentColor"}
+                  strokeWidth={1.5}
+                />
+              </button>
             </div>
 
             <div className="space-y-3 mb-4">
@@ -847,7 +865,7 @@ const ProviderCard: React.FC<ProviderCardProps> = ({
 
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xl font-bold text-emerald-600">{provider.priceRange || '₦0/hr'}</p>
+                <p className="text-xl font-bold text-emerald-600">{priceRange}</p>
                 <p className="text-sm text-gray-500">{provider.completedJobs || 0} jobs completed</p>
               </div>
               

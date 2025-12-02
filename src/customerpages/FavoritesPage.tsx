@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, ArrowRight, Heart, Star, MapPin, X, Filter } from 'lucide-react';
+import { Sparkles, ArrowRight, Heart, Star, MapPin, X, Filter, Loader2 } from 'lucide-react';
 import ProviderCard from '../customercomponents/ProviderCard'; // Adjust path as needed
 
 interface Provider {
@@ -57,6 +57,7 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'rating' | 'price' | 'recent'>('recent');
+  const [removingProviderId, setRemovingProviderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFavorites();
@@ -77,6 +78,8 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
         return;
       }
 
+      console.log('📡 Fetching favorites from:', `${API_BASE_URL}/api/favorites`);
+      
       const response = await fetch(`${API_BASE_URL}/api/favorites`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -88,58 +91,66 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Favorites data received:', data);
+        console.log('📦 Raw favorites data received:', data);
         
-        if (data.success && data.data && data.data.favorites) {
-          // Transform the data to match Provider interface
-          const providers = data.data.favorites.map((fav: any) => {
-            const providerData = fav.providerId || fav;
-            return {
-              id: providerData._id || providerData.id,
-              _id: providerData._id,
-              name: providerData.name || 'Unknown Provider',
-              email: providerData.email || '',
-              services: Array.isArray(providerData.services) ? providerData.services : 
-                       providerData.service ? [providerData.service] : [],
-              hourlyRate: providerData.hourlyRate || providerData.rate || 0,
-              averageRating: providerData.averageRating || providerData.rating || 0,
-              city: providerData.city || '',
-              state: providerData.state || '',
-              country: providerData.country || '',
-              profileImage: providerData.profileImage || providerData.profilePicture || providerData.avatar,
-              profilePicture: providerData.profilePicture,
-              avatar: providerData.avatar,
-              isAvailableNow: providerData.isAvailableNow || false,
-              experience: providerData.experience || '',
-              phoneNumber: providerData.phoneNumber || providerData.phone || '',
-              address: providerData.address || '',
-              reviewCount: providerData.reviewCount || 0,
-              completedJobs: providerData.completedJobs || 0,
-              isVerified: providerData.isVerified || false,
-              isTopRated: providerData.isTopRated || false,
-              responseTime: providerData.responseTime || 'Contact for availability',
-              rating: providerData.rating || providerData.averageRating || 0,
-              priceRange: providerData.priceRange || '',
-              location: providerData.location || `${providerData.city || ''}, ${providerData.state || ''}`.trim()
-            };
-          });
-          
-          setFavoriteProviders(providers);
-          setFilteredProviders(providers);
-        } else {
-          console.error('Invalid favorites data structure:', data);
+        let providerIds: string[] = [];
+        
+        // Extract provider IDs from the response
+        if (data.success && data.data) {
+          if (Array.isArray(data.data.favorites)) {
+            console.log('📋 Extracting provider IDs from favorites array');
+            providerIds = data.data.favorites
+              .map((fav: any) => fav.providerId)
+              .filter((id: string) => id && id.trim() !== '');
+          } else if (Array.isArray(data.data)) {
+            console.log('📋 Extracting provider IDs from data array');
+            providerIds = data.data
+              .map((item: any) => item.providerId)
+              .filter((id: string) => id && id.trim() !== '');
+          } else if (Array.isArray(data.favorites)) {
+            console.log('📋 Extracting provider IDs from root favorites array');
+            providerIds = data.favorites
+              .map((fav: any) => fav.providerId)
+              .filter((id: string) => id && id.trim() !== '');
+          }
+        } else if (data.success && Array.isArray(data.providers)) {
+          console.log('📋 Extracting provider IDs from providers array');
+          providerIds = data.providers
+            .map((provider: any) => provider._id || provider.id)
+            .filter((id: string) => id && id.trim() !== '');
         }
+        
+        console.log('🎯 Extracted provider IDs:', providerIds);
+        
+        if (providerIds.length === 0) {
+          console.log('⚠️ No provider IDs found in the response');
+          setFavoriteProviders([]);
+          setFilteredProviders([]);
+          return;
+        }
+        
+        // Fetch provider details for each ID
+        const providers = await fetchProviderDetails(providerIds, token);
+        console.log('✅ Fetched provider details:', providers);
+        
+        setFavoriteProviders(providers);
+        setFilteredProviders(providers);
+        
       } else {
-        console.error('Failed to fetch favorites:', response.status);
+        console.error('❌ Failed to fetch favorites:', response.status);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        
         // Fallback: Check localStorage for favorites
         const localFavorites = getLocalFavorites();
         if (localFavorites.length > 0) {
+          console.log('🔄 Using local favorites from localStorage');
           setFavoriteProviders(localFavorites);
           setFilteredProviders(localFavorites);
         }
       }
     } catch (error) {
-      console.error('Error fetching favorites:', error);
+      console.error('💥 Error fetching favorites:', error);
       // Fallback: Check localStorage for favorites
       const localFavorites = getLocalFavorites();
       if (localFavorites.length > 0) {
@@ -151,12 +162,225 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
     }
   };
 
+  // Fetch provider details for each ID
+  const fetchProviderDetails = async (providerIds: string[], token: string): Promise<Provider[]> => {
+    const providers: Provider[] = [];
+    
+    // Try to fetch all providers at once first
+    try {
+      console.log('🔄 Trying to fetch all providers at once...');
+      const response = await fetch(`${API_BASE_URL}/api/providers?ids=${providerIds.join(',')}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Bulk providers response:', data);
+        
+        if (data.success && Array.isArray(data.data)) {
+          console.log('✅ Got providers array from bulk endpoint');
+          return data.data.map((provider: any, index: number) => 
+            transformProviderData(provider, index)
+          );
+        } else if (data.success && data.data && Array.isArray(data.data.providers)) {
+          console.log('✅ Got providers array from data.data.providers');
+          return data.data.providers.map((provider: any, index: number) => 
+            transformProviderData(provider, index)
+          );
+        }
+      }
+    } catch (error) {
+      console.log('📋 Bulk fetch failed, trying individual fetches');
+    }
+    
+    // If bulk fetch fails, fetch each provider individually
+    for (let i = 0; i < providerIds.length; i++) {
+      const providerId = providerIds[i];
+      try {
+        console.log(`🔄 Fetching provider ${i + 1}/${providerIds.length}: ${providerId}`);
+        
+        const response = await fetch(`${API_BASE_URL}/api/providers/${providerId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`✅ Provider ${providerId} data:`, data);
+          
+          if (data.success && data.data) {
+            const provider = transformProviderData(data.data, i);
+            providers.push(provider);
+          } else {
+            console.warn(`⚠️ Provider ${providerId} has no data in response`);
+          }
+        } else {
+          console.error(`❌ Failed to fetch provider ${providerId}:`, response.status);
+        }
+        
+        // Small delay to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`💥 Error fetching provider ${providerId}:`, error);
+      }
+    }
+    
+    return providers;
+  };
+
+  // Transform provider data to match Provider interface
+  const transformProviderData = (providerData: any, index: number): Provider => {
+    console.log(`🔄 Transforming provider data ${index + 1}:`, providerData);
+    
+    if (!providerData) {
+      console.log('⚠️ No provider data provided, creating fallback');
+      return createFallbackProvider(index);
+    }
+    
+    // Extract ID
+    const id = providerData._id || providerData.id || `fallback-${Date.now()}-${index}`;
+    
+    // Extract name
+    let name = providerData.name || providerData.fullName || providerData.username || '';
+    if (!name || name.trim() === '') {
+      const idSuffix = id.slice(-4);
+      name = `Provider ${idSuffix}`;
+    }
+    
+    console.log(`   Provider ID: ${id}, Name: ${name}`);
+    
+    // Extract services
+    let services: string[] = [];
+    if (Array.isArray(providerData.services) && providerData.services.length > 0) {
+      services = providerData.services.filter((s: any) => s && s.trim() !== '');
+    } else if (typeof providerData.services === 'string' && providerData.services.trim() !== '') {
+      services = [providerData.services];
+    } else if (providerData.service) {
+      if (Array.isArray(providerData.service)) {
+        services = providerData.service.filter((s: any) => s && s.trim() !== '');
+      } else if (typeof providerData.service === 'string' && providerData.service.trim() !== '') {
+        services = [providerData.service];
+      }
+    } else if (providerData.category) {
+      if (Array.isArray(providerData.category)) {
+        services = providerData.category.filter((c: any) => c && c.trim() !== '');
+      } else if (typeof providerData.category === 'string' && providerData.category.trim() !== '') {
+        services = [providerData.category];
+      }
+    }
+    
+    // If no services found, add a default
+    if (services.length === 0) {
+      services = ['General Service'];
+    }
+    
+    // Extract location information
+    const city = providerData.city || providerData.location?.city || '';
+    const state = providerData.state || providerData.location?.state || '';
+    const country = providerData.country || providerData.location?.country || '';
+    
+    const locationParts = [city, state, country].filter(part => part && part.trim() !== '');
+    const locationText = locationParts.join(', ') || 'Location not specified';
+    
+    // Extract profile image
+    const profileImage = providerData.profileImage || 
+                        providerData.profilePicture || 
+                        providerData.avatar || 
+                        providerData.image || 
+                        '';
+    
+    // Extract rating
+    const rating = providerData.rating || 
+                  providerData.averageRating || 
+                  providerData.avgRating || 
+                  0;
+    
+    const reviewCount = providerData.reviewCount || 
+                       providerData.totalReviews || 
+                       0;
+    
+    // Extract hourly rate
+    const hourlyRate = providerData.hourlyRate || 
+                      providerData.rate || 
+                      providerData.price || 
+                      0;
+    
+    // Create price range
+    const priceRange = providerData.priceRange || 
+                      (hourlyRate > 0 ? `₦${hourlyRate}/hr` : 'Contact for pricing');
+    
+    return {
+      id: id,
+      _id: providerData._id || providerData.id,
+      name: name,
+      email: providerData.email || `${name.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+      services: services,
+      hourlyRate: hourlyRate,
+      averageRating: rating,
+      city: city,
+      state: state,
+      country: country,
+      profileImage: profileImage,
+      profilePicture: providerData.profilePicture,
+      avatar: providerData.avatar,
+      isAvailableNow: providerData.isAvailableNow !== undefined ? providerData.isAvailableNow : true,
+      experience: providerData.experience || '',
+      phoneNumber: providerData.phoneNumber || providerData.phone || '',
+      address: providerData.address || '',
+      reviewCount: reviewCount,
+      completedJobs: providerData.completedJobs || 0,
+      isVerified: providerData.isVerified || false,
+      isTopRated: providerData.isTopRated || false,
+      responseTime: providerData.responseTime || 'Contact for availability',
+      rating: rating,
+      priceRange: priceRange,
+      location: locationText
+    };
+  };
+
+  // Create a fallback provider when data is missing
+  const createFallbackProvider = (index: number): Provider => {
+    const fallbackId = `fallback-${Date.now()}-${index}`;
+    return {
+      id: fallbackId,
+      _id: fallbackId,
+      name: `Provider ${index + 1}`,
+      email: `provider${index + 1}@example.com`,
+      services: ['General Service'],
+      hourlyRate: 0,
+      averageRating: 0,
+      city: '',
+      state: '',
+      country: '',
+      profileImage: '',
+      isAvailableNow: false,
+      experience: '',
+      phoneNumber: '',
+      address: '',
+      reviewCount: 0,
+      completedJobs: 0,
+      isVerified: false,
+      isTopRated: false,
+      responseTime: 'Contact for availability',
+      rating: 0,
+      priceRange: 'Contact for pricing',
+      location: 'Location not specified'
+    };
+  };
+
   // Fallback: Get favorites from localStorage
   const getLocalFavorites = (): Provider[] => {
     try {
       const favoritesStr = localStorage.getItem('favoriteProviders');
       if (favoritesStr) {
-        return JSON.parse(favoritesStr);
+        const parsed = JSON.parse(favoritesStr);
+        return Array.isArray(parsed) ? parsed : [];
       }
     } catch (error) {
       console.error('Error reading local favorites:', error);
@@ -174,7 +398,7 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
         provider.services.some(service => 
           service.toLowerCase().includes(searchTerm.toLowerCase())
         ) ||
-        provider.location?.toLowerCase().includes(searchTerm.toLowerCase())
+        (provider.location && provider.location.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
     
@@ -206,7 +430,10 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
   };
 
   const handleRemoveFavorite = async (providerId: string) => {
+    if (removingProviderId === providerId) return;
+    
     try {
+      setRemovingProviderId(providerId);
       const token = authToken || localStorage.getItem('authToken') || localStorage.getItem('token');
       
       if (!token) {
@@ -214,6 +441,13 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
         return;
       }
       
+      console.log('🗑️ Removing favorite:', providerId);
+      
+      // First, optimistically update the UI
+      const updatedFavorites = favoriteProviders.filter(p => p.id !== providerId);
+      setFavoriteProviders(updatedFavorites);
+      
+      // Try to remove from backend
       const response = await fetch(`${API_BASE_URL}/api/providers/${providerId}/favorite`, {
         method: 'POST',
         headers: {
@@ -222,35 +456,67 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
         }
       });
       
+      console.log('Response status:', response.status);
+      
       if (response.ok) {
-        // Update local state
-        setFavoriteProviders(prev => prev.filter(p => p.id !== providerId));
-        alert('Removed from favorites');
+        const data = await response.json();
+        console.log('Remove favorite response:', data);
         
-        // Call parent callback if needed
-        onToggleFavorite(providerId);
-        
-        // Update localStorage
-        const updatedFavorites = favoriteProviders.filter(p => p.id !== providerId);
-        localStorage.setItem('favoriteProviders', JSON.stringify(updatedFavorites));
+        if (data.success) {
+          console.log('✅ Successfully removed from favorites');
+          
+          // Call parent callback if needed
+          if (onToggleFavorite) {
+            onToggleFavorite(providerId);
+          }
+          
+          // Update localStorage
+          localStorage.setItem('favoriteProviders', JSON.stringify(updatedFavorites));
+        } else {
+          console.error('❌ Backend returned success: false', data);
+          
+          // Revert optimistic update
+          fetchFavorites();
+          
+          alert(`Failed to remove from favorites: ${data.message || 'Unknown error'}`);
+        }
       } else {
-        alert('Failed to remove from favorites');
+        // Revert optimistic update
+        fetchFavorites();
+        
+        let errorMessage = 'Failed to remove from favorites';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (e) {
+          // Not JSON
+        }
+        
+        alert(`Failed to remove from favorites: ${errorMessage}`);
       }
     } catch (error) {
-      console.error('Error removing favorite:', error);
+      console.error('💥 Error removing favorite:', error);
+      
+      // Revert optimistic update
+      fetchFavorites();
+      
+      alert('Error removing from favorites. Please try again.');
+    } finally {
+      setRemovingProviderId(null);
     }
   };
 
   const getUniqueServices = () => {
-    const allServices = favoriteProviders.flatMap(provider => provider.services);
-    return ['all', ...Array.from(new Set(allServices))].slice(0, 10);
+    const allServices = favoriteProviders.flatMap(provider => provider.services || []);
+    const uniqueServices = ['all', ...Array.from(new Set(allServices.filter(service => service && service.trim() !== '')))];
+    return uniqueServices.slice(0, 10);
   };
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="relative">
-          <Heart className="w-16 h-16 text-pink-400 animate-pulse" />
+          <Heart className="w-16 h-16 text-pink-400 animate-pulse" fill="none" stroke="currentColor" />
           <div className="absolute inset-0 bg-gradient-to-r from-pink-400 to-rose-400 rounded-full blur-xl opacity-30"></div>
         </div>
         <h3 className="text-xl font-semibold text-gray-700">Loading your favorites...</h3>
@@ -268,7 +534,7 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-rose-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Heart className="w-6 h-6 text-white" fill="#ffffff" />
+                  <Heart className="w-6 h-6 text-white" fill="#ffffff" stroke="none" />
                 </div>
                 <div>
                   <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-rose-800 to-pink-800 bg-clip-text text-transparent">
@@ -286,12 +552,17 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
             
             {favoriteProviders.length > 0 && (
               <div className="flex flex-col sm:flex-row gap-3">
-                <button className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold">
+                {/* <button className="group bg-white/80 backdrop-blur-sm border border-white/50 text-gray-700 px-6 py-3 rounded-2xl hover:bg-white hover:shadow-xl transition-all duration-300 flex items-center space-x-2 font-semibold">
                   <MapPin className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span>View on Map</span>
-                </button>
+                </button> */}
                 
-                <button className="group bg-gradient-to-r from-rose-500 via-pink-600 to-red-600 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg">
+                <button 
+                  onClick={() => setSortBy('rating')}
+                  className={`group bg-gradient-to-r from-rose-500 via-pink-600 to-red-600 text-white px-8 py-3 rounded-2xl hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold shadow-lg ${
+                    sortBy === 'rating' ? 'ring-2 ring-white ring-opacity-50' : ''
+                  }`}
+                >
                   <Star className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
                   <span>Sort by Rating</span>
                 </button>
@@ -380,23 +651,30 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
             {filteredProviders.map((provider, index) => (
               <div
                 key={provider.id}
-                className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+                className="animate-in fade-in slide-in-from-bottom-4 duration-300 relative"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
+                {/* Loading overlay when removing */}
+                {removingProviderId === provider.id && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl z-10 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="w-8 h-8 text-pink-500 animate-spin" />
+                      <p className="text-gray-600 font-medium">Removing from favorites...</p>
+                    </div>
+                  </div>
+                )}
+                
                 <ProviderCard
-  provider={provider}
-  serviceType="immediate"
-  onBook={onBook}
-  onToggleFavorite={(id) => {
-    handleRemoveFavorite(id);
-    onToggleFavorite(id);
-  }}
-  onMessage={onMessage}
-  onCall={onCall}
-  isFavorite={true}
-  authToken={authToken}
-  currentUser={currentUser}
-/>
+                  provider={provider}
+                  serviceType="immediate"
+                  onBook={onBook}
+                  onToggleFavorite={handleRemoveFavorite}
+                  onMessage={onMessage}
+                  onCall={onCall}
+                  isFavorite={true}
+                  authToken={authToken}
+                  currentUser={currentUser}
+                />
               </div>
             ))}
           </div>
@@ -405,7 +683,7 @@ const FavoritesPage: React.FC<FavoritesPageProps> = ({
         <div className="text-center py-16">
           <div className="relative">
             <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-              <Heart className="w-16 h-16 text-gray-400" />
+              <Heart className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" />
             </div>
             <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-rose-400 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
               <Sparkles className="w-4 h-4 text-white" />

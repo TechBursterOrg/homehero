@@ -359,7 +359,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
         // Fallback to provider data if no stats endpoint works
         console.log('📋 Using fallback stats from provider data');
         setProviderStats({
-          averageRating: provider.averageRating || provider.rating || 4.5,
+          averageRating: provider.averageRating || provider.rating || 1.0,
           reviewCount: provider.reviewCount || 0,
           completedJobs: provider.completedJobs || 0
         });
@@ -368,7 +368,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
       console.error('❌ Error fetching provider stats:', error);
       // Fallback to provider data
       setProviderStats({
-        averageRating: provider.averageRating || provider.rating || 4.5,
+        averageRating: provider.averageRating || provider.rating || 1.5,
         reviewCount: provider.reviewCount || 0,
         completedJobs: provider.completedJobs || 0
       });
@@ -490,7 +490,7 @@ const ProviderCardItem: React.FC<ProviderCardItemProps> = React.memo(({
   // Use real rating data if it has reviews, otherwise use provider stats
   const rating = hasRealReviews 
     ? (realRatingData?.rating || 0)
-    : (providerStats?.averageRating || provider.averageRating || provider.rating || 4.5);
+    : (providerStats?.averageRating || provider.averageRating || provider.rating || 1.5);
   
   const reviewCount = hasRealReviews
     ? (realRatingData?.reviewCount || 0)
@@ -1420,7 +1420,7 @@ const ProvidersList: React.FC<ProvidersListProps> = ({
           profileImage: provider.profileImage || provider.profilePicture || provider.avatar,
           profilePicture: provider.profilePicture,
           avatar: provider.avatar,
-          rating: provider.averageRating || provider.rating || 4.5,
+          rating: provider.averageRating || provider.rating || 1.5,
           reviewCount: provider.reviewCount || 0,
           priceRange: provider.priceRange || '',
           responseTime: provider.responseTime || 'Contact for availability',
