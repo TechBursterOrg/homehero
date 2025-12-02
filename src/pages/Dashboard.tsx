@@ -20,7 +20,8 @@ import {
   BookOpen,
   Eye,
   Mail,
-  Phone
+  Phone,
+  UserCheck // Added for arrival confirmation
 } from 'lucide-react';
 import IdentityVerificationModal from './IdentityVerificationModal';
 
@@ -60,6 +61,14 @@ interface Booking {
     providerRated: boolean;
   };
   ratingPrompted?: boolean;
+  // New fields for arrival confirmation
+  providerArrived?: boolean;
+  providerArrivedAt?: string;
+  showHeroHereButton?: boolean;
+  heroHereConfirmed?: boolean;
+  customerConfirmedHeroHere?: boolean;
+  customerConfirmedAt?: string;
+  autoRefundAt?: string;
 }
 
 interface ScheduleEntry {
@@ -271,6 +280,9 @@ const Dashboard: React.FC = () => {
     action: 'confirm' | 'complete';
   } | null>(null);
 
+  // Arrival Confirmation State
+  const [arrivalLoading, setArrivalLoading] = useState<string | null>(null);
+
   // Days of the week
   const daysOfWeek = [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -370,129 +382,122 @@ const Dashboard: React.FC = () => {
 
   // Fetch user verification status
   const fetchUserVerification = async () => {
-  try {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    if (!token) {
-      console.log('❌ No token found for verification fetch');
-      return;
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        console.log('❌ No token found for verification fetch');
+        return;
+      }
+
+      console.log('🔄 Fetching verification status...');
+      const response = await fetch(`${API_BASE_URL}/api/auth/verification-status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.error('❌ Failed to fetch verification status:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      console.log('✅ Verification data received:', data.data);
+      setUserVerification(data.data);
+      
+    } catch (error) {
+      console.error('❌ Error fetching verification status:', error);
     }
-
-    console.log('🔄 Fetching verification status...');
-    const response = await fetch(`${API_BASE_URL}/api/auth/verification-status`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      console.error('❌ Failed to fetch verification status:', response.status);
-      return;
-    }
-
-    const data = await response.json();
-    console.log('✅ Verification data received:', data.data);
-    setUserVerification(data.data);
-    
-  } catch (error) {
-    console.error('❌ Error fetching verification status:', error);
-  }
-};
-
+  };
 
   // Check if user is verified
   const isUserVerified = () => {
-  // If no verification data, assume not verified
-  if (!userVerification) {
-    return false;
-  }
-  
-  // Only return true if explicitly verified
-  return userVerification.isNinVerified === true;
-};
-
-
-
+    // If no verification data, assume not verified
+    if (!userVerification) {
+      return false;
+    }
+    
+    // Only return true if explicitly verified
+    return userVerification.isNinVerified === true;
+  };
 
   // Handle identity verification
-const handleIdentityVerify = async (verificationData: { 
-  nin: string; 
-  nepaBill: File | null;
-  selfie: File | null;
-  consent: boolean;
-}) => {
-  console.log('🔐 Starting verification process');
-  setIsSubmittingVerification(true);
-  
-  try {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-
-    const formData = new FormData();
-    formData.append('nin', verificationData.nin);
-    formData.append('consent', verificationData.consent.toString());
+  const handleIdentityVerify = async (verificationData: { 
+    nin: string; 
+    nepaBill: File | null;
+    selfie: File | null;
+    consent: boolean;
+  }) => {
+    console.log('🔐 Starting verification process');
+    setIsSubmittingVerification(true);
     
-    if (verificationData.selfie) {
-      formData.append('selfie', verificationData.selfie);
-    }
-    
-    if (verificationData.nepaBill) {
-      formData.append('nepaBill', verificationData.nepaBill);
-    }
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
 
-    const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error(`Verification submission failed: ${response.status}`);
-    }
-
-    // Update verification status to show pending state
-    setUserVerification(prev => prev ? {
-      ...prev,
-      hasSubmittedVerification: true,
-      verificationStatus: 'pending'
-    } : null);
-    
-    setShowVerificationModal(false);
-    
-    // Execute pending action if exists
-    if (pendingBookingAction) {
-      console.log('🔄 Executing pending action after verification');
+      const formData = new FormData();
+      formData.append('nin', verificationData.nin);
+      formData.append('consent', verificationData.consent.toString());
       
-      // Use setTimeout to ensure state updates are processed
-      setTimeout(async () => {
-        if (isUserVerified()) {
-          if (pendingBookingAction.action === 'confirm') {
-            await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'confirmed');
-          } else if (pendingBookingAction.action === 'complete') {
-            await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'completed');
+      if (verificationData.selfie) {
+        formData.append('selfie', verificationData.selfie);
+      }
+      
+      if (verificationData.nepaBill) {
+        formData.append('nepaBill', verificationData.nepaBill);
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/verification/submit`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Verification submission failed: ${response.status}`);
+      }
+
+      // Update verification status to show pending state
+      setUserVerification(prev => prev ? {
+        ...prev,
+        hasSubmittedVerification: true,
+        verificationStatus: 'pending'
+      } : null);
+      
+      setShowVerificationModal(false);
+      
+      // Execute pending action if exists
+      if (pendingBookingAction) {
+        console.log('🔄 Executing pending action after verification');
+        
+        // Use setTimeout to ensure state updates are processed
+        setTimeout(async () => {
+          if (isUserVerified()) {
+            if (pendingBookingAction.action === 'confirm') {
+              await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'confirmed');
+            } else if (pendingBookingAction.action === 'complete') {
+              await handleUpdateBookingStatus(pendingBookingAction.bookingId, 'completed');
+            }
+          } else {
+            alert('Please wait for your verification to be processed.');
           }
-        } else {
-          alert('Please wait for your verification to be processed.');
-        }
-        setPendingBookingAction(null);
-      }, 100);
+          setPendingBookingAction(null);
+        }, 100);
+      }
+      
+      alert('Verification submitted successfully! Your documents are under review.');
+      
+    } catch (error) {
+      console.error('Verification error:', error);
+      alert(error instanceof Error ? error.message : 'Verification failed');
+    } finally {
+      setIsSubmittingVerification(false);
     }
-    
-    alert('Verification submitted successfully! Your documents are under review.');
-    
-  } catch (error) {
-    console.error('Verification error:', error);
-    alert(error instanceof Error ? error.message : 'Verification failed');
-  } finally {
-    setIsSubmittingVerification(false);
-  }
-};
-
-
-
+  };
 
   // Get hours for the selected day
   const getHoursForDay = (day: string): BusinessHours => {
@@ -568,10 +573,10 @@ const handleIdentityVerify = async (verificationData: {
   };
 
   useEffect(() => {
-  console.log('🔄 Dashboard mounted - checking verification state');
-  console.log('📊 Current userVerification:', userVerification);
-  console.log('🔒 Is user verified?', isUserVerified());
-}, []);
+    console.log('🔄 Dashboard mounted - checking verification state');
+    console.log('📊 Current userVerification:', userVerification);
+    console.log('🔒 Is user verified?', isUserVerified());
+  }, []);
 
   // Fetch dashboard data from backend
   const fetchDashboardData = async () => {
@@ -1144,121 +1149,175 @@ const handleIdentityVerify = async (verificationData: {
     }
   };
 
-  // FIXED: Enhanced booking status update function with verification check
-  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
-  console.log('🔄 handleUpdateBookingStatus called with:', { bookingId, status });
-  
-  // Check if user needs verification for confirm/complete actions
-  if ((status === 'confirmed' || status === 'completed') && !isUserVerified()) {
-    console.log('🚨 VERIFICATION REQUIRED - Blocking action');
-    
-    // Store the pending action
-    setPendingBookingAction({ 
-      bookingId, 
-      action: status as 'confirm' | 'complete' 
-    });
-    
-    // Show verification modal and close booking modal
-    setShowVerificationModal(true);
-    setShowBookingModal(false);
-    
-    // Stop execution completely
-    return;
-  }
-
-  console.log('✅ Proceeding with booking action');
-  
-  // Rest of the function for when user is verified...
-  if (status === 'completed') {
-    await handleCompleteBooking(bookingId);
-  } else {
+  // NEW: Handle provider arrival confirmation
+  const handleConfirmArrival = async (bookingId: string) => {
     try {
-      setError(null);
+      setArrivalLoading(bookingId);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       
       if (!token) {
         throw new Error('Authentication token not found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
-        method: 'PATCH',
+      console.log('📍 Confirming arrival for booking:', bookingId);
+
+      const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/confirm-arrival`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status }),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
 
       const result = await response.json();
       
-      if (result.success) {
-        if (status === 'confirmed' && selectedBooking) {
-          await addBookingToSchedule(selectedBooking);
-          
-          // Email notification (non-critical)
-          try {
-            const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-confirmed`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                customerEmail: selectedBooking.customerEmail,
-                bookingData: {
-                  customerName: selectedBooking.customerName,
-                  serviceType: selectedBooking.serviceType,
-                  location: selectedBooking.location,
-                  timeframe: selectedBooking.timeframe,
-                  budget: selectedBooking.budget,
-                  description: selectedBooking.description,
-                  specialRequests: selectedBooking.specialRequests
-                },
-                providerInfo: {
-                  name: dashboardData?.user.name || 'Service Provider',
-                  phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
-                  email: dashboardData?.user.email || ''
-                }
-              }),
-            });
-
-            if (!emailResponse.ok) {
-              console.log('⚠️ Failed to send booking confirmation email');
-            }
-          } catch (emailError) {
-            console.error('⚠️ Email notification failed:', emailError);
-          }
-        }
+      if (response.ok && result.success) {
+        console.log('✅ Arrival confirmed successfully');
         
-        await fetchDashboardData();
-        setError(null);
-        setShowBookingModal(false);
+        // Update the booking in state
+        setDashboardData(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            bookings: prev.bookings.map(booking => 
+              booking._id === bookingId 
+                ? { 
+                    ...booking, 
+                    providerArrived: true,
+                    providerArrivedAt: new Date().toISOString(),
+                    showHeroHereButton: true
+                  }
+                : booking
+            )
+          };
+        });
         
-        let successMessage = `Booking ${status} successfully!`;
-        if (status === 'confirmed') {
-          successMessage += ' Added to schedule and customer has been notified.';
-        }
-        alert(successMessage);
+        alert('Arrival confirmed! The customer has been notified and can now confirm your arrival.');
       } else {
-        throw new Error(result.message || 'Failed to update booking status');
+        throw new Error(result.message || 'Failed to confirm arrival');
       }
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
-      setError(errorMessage);
-      console.error('Booking status update error:', err);
-      alert(`Error: ${errorMessage}`);
+    } catch (error) {
+      console.error('❌ Error confirming arrival:', error);
+      alert('Failed to confirm arrival: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setArrivalLoading(null);
     }
-  }
-};
+  };
 
+  // FIXED: Enhanced booking status update function with verification check
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    console.log('🔄 handleUpdateBookingStatus called with:', { bookingId, status });
+    console.log('Verification status:', userVerification);
+    console.log('NIN verified?', userVerification?.isNinVerified);
+    
+    // Check if user needs verification for confirm/complete actions
+    if ((status === 'confirmed' || status === 'completed') && userVerification?.isNinVerified !== true) {
+      console.log('🚨 VERIFICATION REQUIRED - Blocking action');
+      
+      // Store the pending action
+      setPendingBookingAction({ 
+        bookingId, 
+        action: status as 'confirm' | 'complete' 
+      });
+      
+      // Show verification modal and close booking modal
+      setShowVerificationModal(true);
+      setShowBookingModal(false);
+      
+      // Stop execution completely
+      return;
+    }
 
+    console.log('✅ Proceeding with booking action - User is verified:', userVerification?.isNinVerified);
+    
+    // Rest of the function for when user is verified...
+    if (status === 'completed') {
+      await handleCompleteBooking(bookingId);
+    } else {
+      try {
+        setError(null);
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('Authentication token not found');
+        }
 
+        const response = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+          if (status === 'confirmed' && selectedBooking) {
+            await addBookingToSchedule(selectedBooking);
+            
+            // Email notification (non-critical)
+            try {
+              const emailResponse = await fetch(`${API_BASE_URL}/api/email/send-booking-confirmed`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  customerEmail: selectedBooking.customerEmail,
+                  bookingData: {
+                    customerName: selectedBooking.customerName,
+                    serviceType: selectedBooking.serviceType,
+                    location: selectedBooking.location,
+                    timeframe: selectedBooking.timeframe,
+                    budget: selectedBooking.budget,
+                    description: selectedBooking.description,
+                    specialRequests: selectedBooking.specialRequests
+                  },
+                  providerInfo: {
+                    name: dashboardData?.user.name || 'Service Provider',
+                    phone: dashboardData?.user.phoneNumber || 'Will contact you shortly',
+                    email: dashboardData?.user.email || ''
+                  }
+                }),
+              });
+
+              if (!emailResponse.ok) {
+                console.log('⚠️ Failed to send booking confirmation email');
+              }
+            } catch (emailError) {
+              console.error('⚠️ Email notification failed:', emailError);
+            }
+          }
+          
+          await fetchDashboardData();
+          setError(null);
+          setShowBookingModal(false);
+          
+          let successMessage = `Booking ${status} successfully!`;
+          if (status === 'confirmed') {
+            successMessage += ' Added to schedule and customer has been notified.';
+          }
+          alert(successMessage);
+        } else {
+          throw new Error(result.message || 'Failed to update booking status');
+        }
+        
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to update booking status';
+        setError(errorMessage);
+        console.error('Booking status update error:', err);
+        alert(`Error: ${errorMessage}`);
+      }
+    }
+  };
 
   const handleRatingSubmit = async (rating: number, comment?: string) => {
     if (!ratingBooking) return;
@@ -1416,34 +1475,34 @@ const handleIdentityVerify = async (verificationData: {
             {/* Availability Status Indicator */}
             <div className="flex flex-col sm:flex-row gap-3">
               {currentAvailability !== null && (
-    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-      currentAvailability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-    }`}>
-      <div className={`w-3 h-3 rounded-full ${
-        currentAvailability ? 'bg-green-500' : 'bg-red-500'
-      }`}></div>
-      <span className="font-medium text-sm">
-        {currentAvailability ? 'Available Now' : 'Currently Unavailable'}
-      </span>
-    </div>
-  )}
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  currentAvailability ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  <div className={`w-3 h-3 rounded-full ${
+                    currentAvailability ? 'bg-green-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className="font-medium text-sm">
+                    {currentAvailability ? 'Available Now' : 'Currently Unavailable'}
+                  </span>
+                </div>
+              )}
 
-  {/* Verification Status Indicator */}
-  {userVerification && (
-    <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-      isUserVerified() ? 'bg-green-100 text-green-800' : 
-      userVerification.hasSubmittedVerification ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-    }`}>
-      <div className={`w-3 h-3 rounded-full ${
-        isUserVerified() ? 'bg-green-500' : 
-        userVerification.hasSubmittedVerification ? 'bg-yellow-500' : 'bg-red-500'
-      }`}></div>
-      <span className="font-medium text-sm">
-        {isUserVerified() ? 'Verified' : 
-         userVerification.hasSubmittedVerification ? 'Verification Pending' : 'Verification Required'}
-      </span>
-    </div>
-  )}
+              {/* Verification Status Indicator */}
+              {userVerification && (
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                  userVerification.isNinVerified === true ? 'bg-green-100 text-green-800' : 
+                  userVerification.hasSubmittedVerification ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                }`}>
+                  <div className={`w-3 h-3 rounded-full ${
+                    userVerification.isNinVerified === true ? 'bg-green-500' : 
+                    userVerification.hasSubmittedVerification ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}></div>
+                  <span className="font-medium text-sm">
+                    {userVerification.isNinVerified === true ? 'Verified' : 
+                    userVerification.hasSubmittedVerification ? 'Verification Pending' : 'Verification Required'}
+                  </span>
+                </div>
+              )}
               <button 
                 onClick={handleAddAvailability}
                 className="bg-gradient-to-r from-green-600 to-green-600 text-white px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-semibold transition-all duration-200 hover:scale-105 hover:shadow-xl shadow-lg shadow-green-200 flex items-center justify-center gap-3 w-full sm:w-auto"
@@ -1656,7 +1715,7 @@ const handleIdentityVerify = async (verificationData: {
               </div>
             </div>
 
-            {/* Bookings Section - FIXED: Shows upcoming bookings (pending and confirmed) */}
+            {/* Bookings Section - Updated with arrival confirmation */}
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100">
               <div className="p-4 sm:p-8 border-b border-gray-100">
                 <div className="flex items-center justify-between">
@@ -1678,60 +1737,100 @@ const handleIdentityVerify = async (verificationData: {
               </div>
               <div className="p-4 sm:p-8">
                 <div className="space-y-4">
-                  {upcomingBookings.map((booking) => (
-                    <div key={booking._id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                            <span className="text-white font-bold text-xs sm:text-sm">
-                              {getClientInitials(booking.customerName)}
+                  {upcomingBookings.map((booking) => {
+                    const isConfirmedBooking = booking.status === 'confirmed';
+                    const canMarkArrival = isConfirmedBooking && !booking.providerArrived;
+                    
+                    return (
+                      <div key={booking._id} className="p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-xl sm:rounded-2xl hover:from-green-50 hover:to-teal-50 transition-all duration-300 hover:shadow-lg border border-gray-100">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
+                              <span className="text-white font-bold text-xs sm:text-sm">
+                                {getClientInitials(booking.customerName)}
+                              </span>
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.serviceType}</h4>
+                              <p className="text-gray-600 text-xs sm:text-sm">{booking.customerName}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-xs sm:text-sm text-gray-600">{formatDate(booking.requestedAt)}</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                <span className="text-xs sm:text-sm text-gray-600">{booking.location}</span>
+                              </div>
+                              
+                              {/* Arrival Status */}
+                              {isConfirmedBooking && (
+                                <div className="mt-2">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
+                                    booking.providerArrived 
+                                      ? 'bg-green-100 text-green-800 border border-green-200'
+                                      : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                  }`}>
+                                    {booking.providerArrived ? 'Arrived ✓' : 'Not Arrived Yet'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg sm:text-xl font-bold text-green-600">{booking.budget}</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
+                              {booking.status}
                             </span>
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900 text-sm sm:text-base">{booking.serviceType}</h4>
-                            <p className="text-gray-600 text-xs sm:text-sm">{booking.customerName}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
-                              <span className="text-xs sm:text-sm text-gray-600">{formatDate(booking.requestedAt)}</span>
+                            
+                            {/* Arrival Confirmation Button */}
+                            {canMarkArrival && (
+                              <button
+                                onClick={() => handleConfirmArrival(booking._id)}
+                                disabled={arrivalLoading === booking._id}
+                                className="mt-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2 font-semibold text-sm w-full"
+                              >
+                                {arrivalLoading === booking._id ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Confirming...
+                                  </>
+                                ) : (
+                                  <>
+                                    <UserCheck className="w-3 h-3" />
+                                    Mark as Arrived
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            
+                            <div className="mt-2 flex justify-end gap-2">
+                              <button 
+                                onClick={() => handleViewBooking(booking)}
+                                className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                title="View Details"
+                              >
+                                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleContactCustomer(booking, 'email')}
+                                className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
+                                title="Send Email"
+                              >
+                                <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleContactCustomer(booking, 'phone')}
+                                className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
+                                title="Call Customer"
+                              >
+                                <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
+                              </button>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <MapPin className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
-                              <span className="text-xs sm:text-sm text-gray-600">{booking.location}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg sm:text-xl font-bold text-green-600">{booking.budget}</p>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold border ${getStatusColor(booking.status)}`}>
-                            {booking.status}
-                          </span>
-                          <div className="mt-2 flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleViewBooking(booking)}
-                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="View Details"
-                            >
-                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleContactCustomer(booking, 'email')}
-                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Send Email"
-                            >
-                              <Mail className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleContactCustomer(booking, 'phone')}
-                              className="p-1.5 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
-                              title="Call Customer"
-                            >
-                              <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
-                            </button>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {upcomingBookings.length === 0 && (
                     <div className="text-center py-8 text-gray-500">
                       <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -2043,7 +2142,7 @@ const handleIdentityVerify = async (verificationData: {
           </div>
         )}
 
-        {/* Booking Details Modal */}
+        {/* Booking Details Modal - Updated with arrival confirmation */}
         {showBookingModal && selectedBooking && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -2121,6 +2220,53 @@ const handleIdentityVerify = async (verificationData: {
                   </span>
                 </div>
 
+                {/* Arrival Status Section */}
+                {selectedBooking.status === 'confirmed' && (
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                    <h4 className="font-semibold text-green-900 mb-2">Arrival Status</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Provider Arrived:</span>
+                        <span className={`font-semibold ${selectedBooking.providerArrived ? 'text-green-600' : 'text-yellow-600'}`}>
+                          {selectedBooking.providerArrived ? 'Yes ✓' : 'Not Yet'}
+                        </span>
+                      </div>
+                      {selectedBooking.providerArrivedAt && (
+                        <div className="text-sm text-gray-600">
+                          Arrived at: {new Date(selectedBooking.providerArrivedAt).toLocaleString()}
+                        </div>
+                      )}
+                      
+                      {/* Mark Arrival Button for Provider */}
+                      {!selectedBooking.providerArrived && (
+                        <button
+                          onClick={() => handleConfirmArrival(selectedBooking._id)}
+                          disabled={arrivalLoading === selectedBooking._id}
+                          className="w-full mt-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all flex items-center justify-center gap-2 font-semibold"
+                        >
+                          {arrivalLoading === selectedBooking._id ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                              Confirming...
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="w-4 h-4" />
+                              Mark as Arrived at Location
+                            </>
+                          )}
+                        </button>
+                      )}
+                      
+                      {selectedBooking.providerArrived && (
+                        <div className="text-sm text-green-700 bg-green-100 p-2 rounded">
+                          ✅ The customer has been notified and can confirm your arrival.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {selectedBooking.description && (
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -2155,86 +2301,85 @@ const handleIdentityVerify = async (verificationData: {
                 </div>
 
                 <div>
-  <label className="block text-sm font-semibold text-gray-700 mb-2">
-    Update Status
-  </label>
-  <div className="space-y-2">
-    <button 
-      onClick={() => {
-        console.log('Accept button clicked - verification status:', isUserVerified());
-        handleUpdateBookingStatus(selectedBooking._id, 'confirmed');
-      }}
-      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-        !isUserVerified() 
-          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-          : 'bg-green-600 text-white hover:bg-green-700'
-      }`}
-      disabled={!isUserVerified() || selectedBooking.status === 'confirmed' || selectedBooking.status === 'completed'}
-    >
-      {!isUserVerified() ? 'Verify Identity to Accept' : 'Accept Booking'}
-    </button>
-    
-    <button 
-      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
-      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
-        !isUserVerified() 
-          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-          : 'bg-blue-600 text-white hover:bg-blue-700'
-      }`}
-      disabled={!isUserVerified() || selectedBooking.status === 'completed' || selectedBooking.status !== 'confirmed'}
-    >
-      {!isUserVerified() ? 'Verify Identity to Complete' : 'Complete & Rate'}
-    </button>
-    
-    <button 
-      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
-      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-      disabled={selectedBooking.status === 'cancelled'}
-    >
-      Cancel Booking
-    </button>
-  </div>
-  
-  {!isUserVerified() && (
-    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <p className="text-sm text-yellow-800 text-center">
-        <strong>Identity Verification Required</strong>
-      </p>
-      <button
-        onClick={() => {
-          setShowVerificationModal(true);
-          setShowBookingModal(false);
-        }}
-        className="w-full mt-2 px-4 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 font-medium"
-      >
-        {userVerification?.hasSubmittedVerification ? 'Verification Pending' : 'Start Verification'}
-      </button>
-    </div>
-  )}
-</div>
-
-
-                {/* <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Contact Customer
+                    Update Status
                   </label>
-                  <div className="flex gap-2">
+                  <div className="space-y-2">
+                    {/* Accept/Confirm Booking Button - FIXED */}
                     <button 
-                      onClick={() => handleContactCustomer(selectedBooking, 'email')}
-                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium flex items-center gap-2"
+                      onClick={() => {
+                        console.log('Accept button clicked - verification status:', userVerification);
+                        console.log('Is NIN verified?', userVerification?.isNinVerified);
+                        handleUpdateBookingStatus(selectedBooking._id, 'confirmed');
+                      }}
+                      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        (userVerification?.isNinVerified !== true) 
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                      disabled={
+                        userVerification?.isNinVerified !== true || 
+                        selectedBooking.status === 'confirmed' || 
+                        selectedBooking.status === 'completed'
+                      }
                     >
-                      <Mail className="w-4 h-4" />
-                      Email
+                      {userVerification?.isNinVerified !== true 
+                        ? 'Verify Identity to Accept' 
+                        : 'Accept Booking'
+                      }
                     </button>
+                    
+                    {/* Complete Booking Button - FIXED */}
                     <button 
-                      onClick={() => handleContactCustomer(selectedBooking, 'phone')}
-                      className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium flex items-center gap-2"
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'completed')}
+                      className={`w-full px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+                        (userVerification?.isNinVerified !== true) 
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                      disabled={
+                        userVerification?.isNinVerified !== true || 
+                        selectedBooking.status === 'completed' || 
+                        selectedBooking.status !== 'confirmed'
+                      }
                     >
-                      <Phone className="w-4 h-4" />
-                      Call
+                      {userVerification?.isNinVerified !== true 
+                        ? 'Verify Identity to Complete' 
+                        : 'Complete & Rate'
+                      }
+                    </button>
+                    
+                    {/* Cancel Booking Button (always available) */}
+                    <button 
+                      onClick={() => handleUpdateBookingStatus(selectedBooking._id, 'cancelled')}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                      disabled={selectedBooking.status === 'cancelled'}
+                    >
+                      Cancel Booking
                     </button>
                   </div>
-                </div> */}
+                  
+                  {/* Verification Warning */}
+                  {userVerification?.isNinVerified !== true && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <p className="text-sm text-yellow-800 text-center">
+                        <strong>Identity Verification Required</strong>
+                      </p>
+                      <button
+                        onClick={() => {
+                          setShowVerificationModal(true);
+                          setShowBookingModal(false);
+                        }}
+                        className="w-full mt-2 px-4 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 font-medium"
+                      >
+                        {userVerification?.hasSubmittedVerification 
+                          ? 'Verification Pending' 
+                          : 'Start Verification'
+                        }
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-6 sm:p-8 border-t border-gray-100">
