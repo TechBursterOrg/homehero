@@ -286,6 +286,88 @@ const Dashboard: React.FC = () => {
     notes: ''
   };
 
+  // Add this function to check if current time is within business hours for a day
+  const checkIfWithinBusinessHours = (hours: BusinessHours, currentTime: Date): boolean => {
+    const currentDay = currentTime.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    // Only check if day matches
+    if (hours.dayOfWeek !== currentDay) return false;
+    
+    // Parse start time
+    const [startHour, startMinute] = hours.startTime.split(':').map(Number);
+    
+    // Parse end time - handle cross-midnight scenario
+    const [endHour, endMinute] = hours.endTime.split(':').map(Number);
+    
+    // Convert current time to minutes since midnight
+    const currentHour = currentTime.getHours();
+    const currentMinute = currentTime.getMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    
+    const startTotalMinutes = startHour * 60 + startMinute;
+    let endTotalMinutes = endHour * 60 + endMinute;
+    
+    // If end time is earlier than start time (like 03:00 after 09:00), it means it crosses midnight
+    if (endTotalMinutes < startTotalMinutes) {
+      // For cross-midnight hours, end time is actually on the next day
+      // So we add 24 hours (1440 minutes) to the end time
+      endTotalMinutes += 24 * 60;
+      
+      // If current time is before midnight, we need to check if it's after start time
+      // If current time is after midnight, we need to check if it's before end time (which is now in the next day)
+      
+      // Convert current time to also handle cross-midnight
+      let currentAdjustedMinutes = currentTotalMinutes;
+      // If it's past midnight (before 5 AM typically), treat it as next day for comparison
+      if (currentHour < 5) {
+        currentAdjustedMinutes += 24 * 60;
+      }
+      
+      return currentAdjustedMinutes >= startTotalMinutes && currentAdjustedMinutes <= endTotalMinutes;
+    }
+    
+    // Normal case: same day
+    return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes;
+  };
+
+  // Add this function for client-side availability calculation
+  const calculateClientSideAvailability = () => {
+    try {
+      if (!businessHours || businessHours.length === 0) {
+        console.log('No business hours configured');
+        setCurrentAvailability(false);
+        return;
+      }
+      
+      const now = new Date();
+      const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      console.log('Current time:', now.toLocaleTimeString());
+      console.log('Current day:', currentDay);
+      
+      // Find business hours for current day
+      const todaysHours = businessHours.find(hours => hours.dayOfWeek === currentDay);
+      
+      if (!todaysHours || !todaysHours.isAvailable) {
+        console.log('No business hours for today or marked unavailable');
+        setCurrentAvailability(false);
+        return;
+      }
+      
+      console.log('Today\'s hours:', todaysHours);
+      
+      // Check if within business hours
+      const isAvailable = checkIfWithinBusinessHours(todaysHours, now);
+      console.log('Calculated availability:', isAvailable);
+      
+      setCurrentAvailability(isAvailable);
+      
+    } catch (error) {
+      console.error('Error calculating availability:', error);
+      setCurrentAvailability(false);
+    }
+  };
+
   // Fetch user verification status
   const fetchUserVerification = async () => {
   try {
@@ -454,31 +536,34 @@ const handleIdentityVerify = async (verificationData: {
       
       if (!token) {
         console.warn('No authentication token found for availability check');
+        // Fallback to client-side calculation
+        calculateClientSideAvailability();
         return;
       }
 
+      // Try backend first
       const response = await fetch(`${API_BASE_URL}/api/availability/check-now`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       
-      const data = await response.json();
-      if (data.success) {
-        setCurrentAvailability(data.data.isAvailableNow);
-      } else {
-        console.warn('Availability check failed:', data.message);
-        // Fallback to dashboard data if available
-        if (dashboardData?.user.isAvailableNow !== undefined) {
-          setCurrentAvailability(dashboardData.user.isAvailableNow);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setCurrentAvailability(data.data.isAvailableNow);
+          return;
         }
       }
+      
+      // Fallback to client-side calculation if backend fails
+      console.log('Backend availability check failed, falling back to client-side calculation');
+      calculateClientSideAvailability();
+      
     } catch (error) {
       console.error('Failed to check availability:', error);
-      // Fallback to dashboard data if available
-      if (dashboardData?.user.isAvailableNow !== undefined) {
-        setCurrentAvailability(dashboardData.user.isAvailableNow);
-      }
+      // Fallback to client-side calculation
+      calculateClientSideAvailability();
     }
   };
 
@@ -561,10 +646,11 @@ const handleIdentityVerify = async (verificationData: {
 
   // Check availability when dashboard data is loaded or business hours are updated
   useEffect(() => {
-    if (dashboardData) {
-      checkAvailability();
+    if (dashboardData && businessHours.length > 0) {
+      // Always recalculate when business hours are loaded/updated
+      calculateClientSideAvailability();
     }
-  }, [dashboardData]);
+  }, [dashboardData, businessHours]);
 
   const serviceTypes = [
     'House Cleaning',
@@ -635,8 +721,8 @@ const handleIdentityVerify = async (verificationData: {
       setBusinessHours(result.data.businessHours || []);
       setShowAvailabilityModal(false);
       
-      // Recheck availability after saving business hours
-      await checkAvailability();
+      // Immediately recalculate availability
+      calculateClientSideAvailability();
       
       alert('Business hours saved successfully!');
     } catch (err) {
@@ -1731,36 +1817,57 @@ const handleIdentityVerify = async (verificationData: {
                     <div>
                       <h3 className="text-lg sm:text-xl font-bold text-gray-900">Business Hours</h3>
                       <p className="text-gray-600 text-xs sm:text-sm">Your weekly availability</p>
+                      <p className="text-xs text-gray-500 mt-1">Current time: {new Date().toLocaleTimeString()}</p>
                     </div>
                   </div>
                 </div>
                 <div className="p-4 sm:p-6">
                   <div className="space-y-3 sm:space-y-4">
-                    {businessHours.map((hours, index) => (
-                      <div key={index} className="p-3 sm:p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl sm:rounded-2xl border border-emerald-200">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-bold text-gray-900 text-xs sm:text-sm">{hours.dayOfWeek}</h4>
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${hours.isAvailable ? 'bg-emerald-500' : 'bg-gray-400'}`}></div>
-                            <span className="text-xs text-gray-600">{hours.isAvailable ? 'Available' : 'Unavailable'}</span>
+                    {businessHours.map((hours, index) => {
+                      const now = new Date();
+                      const isToday = hours.dayOfWeek === now.toLocaleDateString('en-US', { weekday: 'long' });
+                      const isWithinHours = isToday ? checkIfWithinBusinessHours(hours, now) : false;
+                      
+                      return (
+                        <div key={index} className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${
+                          isToday ? 'border-green-300 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-gray-200 bg-white'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-bold text-gray-900 text-xs sm:text-sm">
+                              {hours.dayOfWeek} {isToday && '📅'}
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${
+                                hours.isAvailable ? (isWithinHours ? 'bg-green-500' : 'bg-gray-400') : 'bg-gray-400'
+                              }`}></div>
+                              <span className="text-xs text-gray-600">
+                                {hours.isAvailable ? (isWithinHours ? 'Open Now' : 'Available') : 'Unavailable'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-600 font-medium">
+                              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                              <span>{formatTime(hours.startTime)} - {formatTime(hours.endTime)}</span>
+                              <span className="text-gray-500 text-xs">({hours.startTime} - {hours.endTime})</span>
+                            </div>
+                            {hours.serviceTypes.length > 0 && (
+                              <p className="text-xs sm:text-sm text-gray-700 font-medium">
+                                Services: {hours.serviceTypes.join(', ')}
+                              </p>
+                            )}
+                            {hours.notes && (
+                              <p className="text-xs sm:text-sm text-gray-500 mt-2 italic">{hours.notes}</p>
+                            )}
+                            {isToday && (
+                              <p className="text-xs text-blue-600 font-medium">
+                                Currently: {isWithinHours ? 'Within business hours' : 'Outside business hours'}
+                              </p>
+                            )}
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-600 font-medium">
-                            <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                            <span>{formatTime(hours.startTime)} - {formatTime(hours.endTime)}</span>
-                          </div>
-                          {hours.serviceTypes.length > 0 && (
-                            <p className="text-xs sm:text-sm text-gray-700 font-medium">
-                              Services: {hours.serviceTypes.join(', ')}
-                            </p>
-                          )}
-                          {hours.notes && (
-                            <p className="text-xs sm:text-sm text-gray-500 mt-2 italic">{hours.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

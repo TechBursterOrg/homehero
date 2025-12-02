@@ -18,7 +18,7 @@ interface GalleryImage {
   _id: string;
   title: string;
   description?: string;
-  category: 'cleaning' | 'handyman' | 'gardening'| 'hair stylist' | 'plumbing' | 'electrical' | 'painting' | 'moving' | 'other'| 'barber' | 'carpentry'| 'pest control';
+  category: string; // Changed to string to accommodate all categories
   featured: boolean;
   imageUrl?: string;
   fullImageUrl?: string;
@@ -30,9 +30,59 @@ interface GalleryImage {
 interface UploadForm {
   title: string;
   description: string;
-  category: 'cleaning' | 'handyman' | 'gardening'| 'hair stylist' | 'plumbing' | 'electrical' | 'painting' | 'moving' | 'other'| 'barber' | 'carpentry'| 'pest control';
+  category: string; // Changed to string to accommodate all categories
   featured: boolean;
 }
+
+// Service categories (without prices)
+const serviceCategories = [
+  // Original services
+  { id: 'cleaning', name: 'Cleaning' },
+  { id: 'plumbing', name: 'Plumbing' },
+  { id: 'electrical', name: 'Electrical' },
+  { id: 'gardenCare', name: 'Garden Care' },
+  { id: 'handyman', name: 'Handyman' },
+  { id: 'painting', name: 'Painting' },
+
+  // 🏠 Home Maintenance & Repair - NEW
+  { id: 'acRepair', name: 'AC Repair' },
+  { id: 'generatorRepair', name: 'Generator Repair' },
+  { id: 'carpentry', name: 'Carpentry' },
+  { id: 'tiling', name: 'Tiling' },
+  { id: 'masonry', name: 'Masonry' },
+  { id: 'welding', name: 'Welding' },
+  { id: 'pestControl', name: 'Pest Control' },
+
+  // 🚗 Auto & Mechanical Services - NEW
+  { id: 'autoMechanic', name: 'Auto Mechanic' },
+  { id: 'panelBeater', name: 'Panel Beater' },
+  { id: 'autoElectrician', name: 'Auto Electrician' },
+  { id: 'vulcanizer', name: 'Vulcanizer' },
+  { id: 'carWash', name: 'Car Wash' },
+
+  // 💇🏾‍♂️ Beauty & Personal Care - NEW
+  { id: 'hairStylist', name: 'Hair Stylist' },
+  { id: 'makeupArtist', name: 'Makeup Artist' },
+  { id: 'nailTechnician', name: 'Nail Technician' },
+  { id: 'massageTherapist', name: 'Massage Therapist' },
+  { id: 'tailor', name: 'Tailor' },
+
+  // 🧹 Domestic & Household Help - NEW
+  { id: 'nanny', name: 'Nanny' },
+  { id: 'cook', name: 'Cook' },
+  { id: 'laundry', name: 'Laundry' },
+  { id: 'gardener', name: 'Gardener' },
+  { id: 'securityGuard', name: 'Security Guard' },
+
+  // 🔌 Smart Home & Modern Needs - NEW
+  { id: 'cctvInstaller', name: 'CCTV Installer' },
+  { id: 'solarTechnician', name: 'Solar Technician' },
+  { id: 'inverterTechnician', name: 'Inverter Technician' },
+  { id: 'itSupport', name: 'IT Support' },
+  { id: 'interiorDesigner', name: 'Interior Designer' },
+  { id: 'tvRepair', name: 'TV Repair' },
+  { id: 'other', name: 'Other' }
+];
 
 // API Configuration
 const getApiBaseUrl = () => {
@@ -323,12 +373,18 @@ const GalleryPage = () => {
     }
   };
 
+  // Get counts for each category
   const categories = [
-    { id: 'all', name: 'All Projects', count: galleryImages.length },
-    { id: 'cleaning', name: 'Cleaning', count: galleryImages.filter(i => i.category === 'cleaning').length },
-    { id: 'handyman', name: 'Handyman', count: galleryImages.filter(i => i.category === 'handyman').length },
-    { id: 'gardening', name: 'Gardening', count: galleryImages.filter(i => i.category === 'gardening').length }
-    
+    { 
+      id: 'all', 
+      name: 'All Projects', 
+      count: galleryImages.length 
+    },
+    ...serviceCategories.map(category => ({
+      id: category.id,
+      name: category.name,
+      count: galleryImages.filter(i => i.category === category.id).length
+    }))
   ];
 
   const filteredImages = galleryImages.filter(image => {
@@ -399,15 +455,15 @@ const GalleryPage = () => {
             </button>
           </div>
 
-          {/* <div className="flex flex-wrap gap-3">
+          {/* <div className="flex flex-wrap gap-3 max-h-64 overflow-y-auto p-2">
             {categories.map((category) => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-3 rounded-xl font-medium ${
+                className={`px-4 py-3 rounded-xl font-medium whitespace-nowrap ${
                   selectedCategory === category.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
                 {category.name} ({category.count})
@@ -426,13 +482,14 @@ const GalleryPage = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredImages.map((image) => (
                 <div key={image._id} className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all cursor-pointer" onClick={() => setSelectedImage(image)}>
-                  <div className="aspect-[4/3] overflow-hidden relative">
+                  <div className="aspect-[4/3] overflow-hidden relative bg-gray-100">
                     <img
                       src={getImageUrl(image) || ''}
                       alt={image.title}
                       onError={(e) => handleImageError(e, image)}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
+                      style={{ maxWidth: '100%', maxHeight: '100%' }}
                     />
                     
                     {image.featured && (
@@ -463,10 +520,10 @@ const GalleryPage = () => {
                     <h3 className="font-bold line-clamp-1">{image.title}</h3>
                     <p className="text-sm text-gray-600 line-clamp-2 mt-1">{image.description}</p>
                     <div className="flex items-center justify-between text-xs text-gray-500 mt-3">
-                      <div className="flex gap-4">
+                      {/* <div className="flex gap-4">
                         <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{image.views || 0}</span>
                         <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{image.likes || 0}</span>
-                      </div>
+                      </div> */}
                       <span className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {new Date(image.createdAt).toLocaleDateString()}
@@ -491,7 +548,7 @@ const GalleryPage = () => {
                 <div>
                   <label className="block mb-2">Image File *</label>
                   <input type="file" accept="image/*" onChange={handleFileSelect} className="w-full p-3 border rounded-lg" />
-                  {filePreview && <img src={filePreview} alt="Preview" className="mt-2 w-full h-48 object-cover rounded-lg" />}
+                  {filePreview && <img src={filePreview} alt="Preview" className="mt-2 w-full h-48 object-contain rounded-lg bg-gray-100" />}
                 </div>
                 
                 <div>
@@ -506,19 +563,16 @@ const GalleryPage = () => {
                 
                 <div>
                   <label className="block mb-2">Category *</label>
-                  <select value={uploadForm.category} onChange={(e) => setUploadForm({...uploadForm, category: e.target.value as 'cleaning' | 'handyman' | 'gardening'})} className="w-full p-3 border rounded-lg">
-                    <option value="cleaning">Cleaning</option>
-                    <option value="handyman">Handyman</option>
-                    <option value="gardening">Gardening</option>
-                     <option value="gardening">Hair stylist</option>
-                      <option value="gardening">Barber</option>
-                       <option value="gardening">Chef</option>
-                    <option value="plumbing">Plumbing</option>
-                    <option value="electrical">Electrical</option>
-                    <option value="painting">Painting</option>
-                    <option value="carpentry">Carpentry</option>
-                    <option value="pest control">Pest Control</option>
-                    <option value="other">Other</option>
+                  <select 
+                    value={uploadForm.category} 
+                    onChange={(e) => setUploadForm({...uploadForm, category: e.target.value})} 
+                    className="w-full p-3 border rounded-lg"
+                  >
+                    {serviceCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 
@@ -538,16 +592,22 @@ const GalleryPage = () => {
         {selectedImage && (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl max-w-6xl w-full flex flex-col lg:flex-row">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative min-h-[400px] bg-gray-900">
                 <button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/40 rounded-full flex items-center justify-center text-white">
                   <X className="w-5 h-5" />
                 </button>
-                <img src={getImageUrl(selectedImage) || ''} alt={selectedImage.title} onError={(e) => handleImageError(e, selectedImage)} className="w-full h-full object-cover rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none" />
+                <img 
+                  src={getImageUrl(selectedImage) || ''} 
+                  alt={selectedImage.title} 
+                  onError={(e) => handleImageError(e, selectedImage)} 
+                  className="w-full h-full object-contain rounded-t-3xl lg:rounded-l-3xl lg:rounded-tr-none"
+                  style={{ maxWidth: '100%', maxHeight: '100%' }}
+                />
               </div>
               <div className="flex-1 p-8">
                 <h2 className="text-2xl font-bold mb-4">{selectedImage.title}</h2>
                 <p className="text-gray-700 mb-6">{selectedImage.description}</p>
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+                {/* <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
                   <div className="text-center">
                     <Eye className="w-5 h-5 mx-auto mb-1 text-green-600" />
                     <p className="font-medium">{selectedImage.views || 0}</p>
@@ -558,7 +618,7 @@ const GalleryPage = () => {
                     <p className="font-medium">{selectedImage.likes || 0}</p>
                     <p className="text-xs text-gray-500">Likes</p>
                   </div>
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
