@@ -349,7 +349,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
                   onClick={() => onViewModeChange('list')}
                   className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm font-medium transition-all duration-300 flex-1 sm:flex-initial ${
                     viewMode === 'list'
-                      ? 'bg-white text-blue-600 shadow-md'
+                      ? 'bg-white text-green-600 shadow-md'
                       : 'text-white hover:bg-white/20'
                   }`}
                 >

@@ -9,7 +9,7 @@ export const currencyConfig = {
 // Pricing for different services in Nigeria (in Naira)
 const servicePricing = {
   // Original services
-  houseCleaning: { low: 2000, high: 5000 },
+  houseCleaning: { low: 2000, high: 15000 },
   plumbing: { low: 8000, high: 15000 },
   electrical: { low: 10000, high: 20000 },
   gardenCare: { low: 1500, high: 4000 },
