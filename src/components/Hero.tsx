@@ -13,7 +13,7 @@ const Hero = () => {
   const images = [
     {
       url: cleaning,
-      title: "Cleaning",
+      title: "Cleaner",
       rating: "4.9"
     },
     {
